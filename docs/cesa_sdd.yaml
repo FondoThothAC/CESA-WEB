@@ -1,0 +1,43 @@
+# ==============================================================================
+# CESA WEB - SPEC DRIVEN DEVELOPMENT
+# ==============================================================================
+# Proyecto: CESA WEB - Directorio Institucional
+# Arquitectura: React + Vite (Frontend Only)
+# Enfoque: Data-Driven UI + Premium Aesthetics
+# ==============================================================================
+
+project:
+  name: "CESA WEB"
+  version: "1.0.0"
+  description: |
+    Portal institucional del Consejo Estudiantil de Sociedades de Alumnos (CESA).
+    Centraliza el directorio de todas las sociedades de alumnos de la UNISON,
+    permitiendo búsquedas, filtrado por departamento y acceso a redes sociales.
+  
+  core_principles:
+    - "SDD: UI generada a partir de especificaciones de datos"
+    - "Premium UX: Animaciones suaves y diseño Glassmorphism"
+    - "Accessibility: Semántica HTML5 correcta y navegación intuitiva"
+    - "Performance: Vite para tiempos de carga instantáneos"
+
+data_schema:
+  Society:
+    fields:
+      carrera: "Nombre de la licenciatura"
+      siglas: "Acrónimo de la sociedad (ej: QBC, SEVET)"
+      instagram: "Handle de Instagram o URL"
+      presidente: "Nombre del presidente actual"
+      estatus_renovacion: "Estado administrativo de la mesa directiva"
+      link_activo: "Enlace directo de contacto"
+
+visual_specs:
+  theme: "Dark / Glass"
+  primary_color: "#1a73e8" # Unison Gold / Blue influence
+  accent_gradient: "linear-gradient(135deg, #FFD700 0%, #1a73e8 100%)"
+  typography: "'Outfit', sans-serif"
+
+architecture:
+  frontend: "React 18"
+  bundler: "Vite"
+  styling: "Vanilla CSS (Custom Properties)"
+  deployment: "GitHub Pages"
