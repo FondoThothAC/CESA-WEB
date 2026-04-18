@@ -1,43 +1,70 @@
 # ==============================================================================
 # CESA WEB - SPEC DRIVEN DEVELOPMENT
 # ==============================================================================
-# Proyecto: CESA WEB - Directorio Institucional
+# Proyecto: CESA WEB - Directorio e Identidad Institucional
+# Periodo: 2026-2028 (Gestión: Ángela Carrasco Ibarra)
 # Arquitectura: React + Vite (Frontend Only)
 # Enfoque: Data-Driven UI + Premium Aesthetics
 # ==============================================================================
 
 project:
   name: "CESA WEB"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |
     Portal institucional del Consejo Estudiantil de Sociedades de Alumnos (CESA).
-    Centraliza el directorio de todas las sociedades de alumnos de la UNISON,
-    permitiendo búsquedas, filtrado por departamento y acceso a redes sociales.
+    Actúa como vínculo para comunicación, bolsa de empleo, reportes estudiantiles 
+    y apoyo al emprendimiento para la Universidad de Sonora.
   
+  motto: "Tu voz, nuestra fuerza motriz"
+  management_period: "2026-2028"
+
   core_principles:
-    - "SDD: UI generada a partir de especificaciones de datos"
-    - "Premium UX: Animaciones suaves y diseño Glassmorphism"
-    - "Accessibility: Semántica HTML5 correcta y navegación intuitiva"
-    - "Performance: Vite para tiempos de carga instantáneos"
+    - "Digital First: Centralización de servicios estudiantiles"
+    - "Transparency: Acceso a reportes y estadísticas en tiempo real"
+    - "Community: Muro de avisos y Bazar Emprendedor"
 
-data_schema:
-  Society:
-    fields:
-      carrera: "Nombre de la licenciatura"
-      siglas: "Acrónimo de la sociedad (ej: QBC, SEVET)"
-      instagram: "Handle de Instagram o URL"
-      presidente: "Nombre del presidente actual"
-      estatus_renovacion: "Estado administrativo de la mesa directiva"
-      link_activo: "Enlace directo de contacto"
+identity:
+  mesa_directiva:
+    presidenta: "Ángela Carrasco Ibarra"
+    coord_general: "Arturo Zamorano Córdova"
+    tesorera: "Sherlyn A. Noriega González"
+  
+  coordinaciones:
+    - id: "integral"
+      name: "INTEGRAL"
+      description: "Salud Física y Mental"
+    - id: "la_red"
+      name: "LA RED"
+      description: "Mujeres Universitarias"
+    - id: "librx"
+      name: "LIBRX"
+      description: "Diversidad Estudiantil"
+    - id: "raices"
+      name: "RAÍCES"
+      description: "Pueblos Originarios"
+    - id: "impulso"
+      name: "IMPULSO"
+      description: "Emprendimiento"
+    - id: "humano"
+      name: "HUMANO"
+      description: "Escuela de Liderazgo"
 
-visual_specs:
-  theme: "Dark / Glass"
-  primary_color: "#1a73e8" # Unison Gold / Blue influence
-  accent_gradient: "linear-gradient(135deg, #FFD700 0%, #1a73e8 100%)"
-  typography: "'Outfit', sans-serif"
+modules:
+  - id: "bolsa_trabajo"
+    name: "Bolsa de Trabajo"
+    description: "Portal de vacantes para estudiantes y egresados"
+  - id: "muro"
+    name: "Muro"
+    description: "Avisos y noticias en tiempo real"
+  - id: "bazar"
+    name: "Bazar Emprendedor"
+    description: "Espacio para emprendimientos estudiantiles"
+  - id: "buzon"
+    name: "Buzón (Reportar)"
+    description: "Canalización de sugerencias y quejas"
 
 architecture:
   frontend: "React 18"
   bundler: "Vite"
   styling: "Vanilla CSS (Custom Properties)"
-  deployment: "GitHub Pages"
+  deployment: "GitHub Pages / VPS Replica"
