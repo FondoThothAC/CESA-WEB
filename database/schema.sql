@@ -147,3 +147,25 @@ CREATE TABLE api_usage_logs (
     INDEX idx_fecha (created_at),
     INDEX idx_usuario (usuario_id)
 ) ENGINE=InnoDB;
+
+-- CHATBOT ACTIONS & SKILLS
+CREATE TABLE chatbot_actions (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT UNSIGNED NOT NULL,
+    accion_tipo ENUM('postular_vacante', 'crear_reporte', 'registrar_bazar', 'consultar_estado', 'crear_evento', 'buscar_colegas') NOT NULL,
+    contexto JSON,
+    estado ENUM('pendiente', 'procesando', 'completado', 'fallido') DEFAULT 'pendiente',
+    metadata JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+    INDEX idx_usuario_accion (usuario_id, accion_tipo),
+    INDEX idx_estado (estado)
+) ENGINE=InnoDB;
+
+-- EXTENDING CHATBOT HISTORY WITH ACTIONS
+ALTER TABLE muro_social ADD COLUMN sentiment VARCHAR(20) DEFAULT 'neutro'; -- Retro-compatibility
+ALTER TABLE chatbot_historial 
+ADD COLUMN accion_detectada VARCHAR(50) DEFAULT 'ninguna',
+ADD COLUMN accion_metadata JSON,
+ADD COLUMN provider VARCHAR(50) DEFAULT 'local';
