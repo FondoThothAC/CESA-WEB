@@ -10,10 +10,11 @@ class ChatbotRouter {
     private $timeout_cloud = 10;
     private $directory_context = "";
     
-    public function __construct() {
+    public function __construct(?PDO $pdo = null) {
         // Cargar contexto del directorio para alimentar a la IA
         $this->loadDirectoryContext();
 
+        // Providers por defecto (.env)
         $this->providers = [
             'local' => [
                 'url' => getenv('CESA_MAC_MINI_URL') ?: 'http://localhost:11434',
@@ -35,6 +36,34 @@ class ChatbotRouter {
                 'enabled' => !empty(getenv('GEMINI_API_KEY'))
             ]
         ];
+
+        // Intentar sobreescribir con configs de la DB si el PDO está disponible
+        if ($pdo) {
+            $this->loadDbConfigs($pdo);
+        }
+    }
+
+    private function loadDbConfigs(PDO $pdo) {
+        try {
+            require_once __DIR__ . '/SecureConfig.php';
+            $stmt = $pdo->query("SELECT * FROM api_configs WHERE is_active = 1 ORDER BY priority ASC");
+            $db_configs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($db_configs as $db_cfg) {
+                $name = $db_cfg['provider'];
+                $key = $db_cfg['api_key_encrypted'] ? SecureConfig::decrypt($db_cfg['api_key_encrypted']) : null;
+                
+                $this->providers[$name] = [
+                    'url' => $db_cfg['endpoint_url'],
+                    'api_key' => $key ?: ($this->providers[$name]['api_key'] ?? null),
+                    'model' => $db_cfg['model_name'] ?: ($this->providers[$name]['model'] ?? 'cesa-assistant'),
+                    'timeout' => $db_cfg['timeout_seconds'],
+                    'enabled' => true
+                ];
+            }
+        } catch (Exception $e) {
+            error_log("Dynamic IA Config Load Failed: " . $e->getMessage());
+        }
     }
 
     private function loadDirectoryContext() {
@@ -63,9 +92,28 @@ class ChatbotRouter {
                "3. Mantén un tono profesional y cercano.";
     }
     
-    public function process(string $message, ?int $user_id = null): array {
+    public function process(string $message, ?int $user_id = null, ?PDO $pdo = null): array {
         $start_time = microtime(true);
         $attempts = [];
+        
+        // 1. Detectar intenciones avanzadas (Acciones Estructuradas)
+        if ($pdo && $user_id) {
+            require_once __DIR__ . '/AdvancedFunctions.php';
+            $advanced = new AdvancedFunctions($pdo);
+            $action = $advanced->processIntent($message, $user_id, []);
+            if ($action['action'] !== 'none') {
+                return [
+                    'success' => true,
+                    'response' => $action['response'],
+                    'action' => $action['action'],
+                    'url' => $action['url'] ?? null,
+                    'provider' => 'action_dispatcher',
+                    'latency_ms' => round((microtime(true) - $start_time) * 1000),
+                    'timestamp' => date('Y-m-d H:i:s')
+                ];
+            }
+        }
+
         $prompt = $this->getSystemPrompt() . "\n\nUSUARIO: " . $message . "\nASISTENTE:";
         
         foreach ($this->providers as $name => $config) {
@@ -75,6 +123,11 @@ class ChatbotRouter {
                 $response = $this->callProvider($name, $config, $prompt);
                 $latency = round((microtime(true) - $start_time) * 1000);
                 
+                // Logging de auditoría si el PDO está disponible
+                if ($pdo) {
+                    $this->logUsage($pdo, $name, $user_id, 'chat', $latency, 200);
+                }
+
                 return [
                     'success' => true,
                     'response' => $response,
@@ -85,6 +138,9 @@ class ChatbotRouter {
                 ];
             } catch (Exception $e) {
                 $attempts[$name] = $e->getMessage();
+                if ($pdo) {
+                    $this->logUsage($pdo, $name, $user_id, 'chat', 0, 500, $e->getMessage());
+                }
                 continue;
             }
         }
@@ -157,5 +213,19 @@ class ChatbotRouter {
         if ($code !== 200) throw new Exception("Ollama error $code");
         $data = json_decode($res, true);
         return $data['response'] ?? "Error en respuesta.";
+    private function logUsage(PDO $pdo, string $provider, ?int $user_id, string $type, int $latency, int $status, ?string $error = null) {
+        try {
+            // Obtener ID de la configuración del proveedor
+            $stmt = $pdo->prepare("SELECT id FROM api_configs WHERE provider = ?");
+            $stmt->execute([$provider]);
+            $cfg_id = $stmt->fetchColumn();
+
+            if ($cfg_id) {
+                $ins = $pdo->prepare("INSERT INTO api_usage_logs (config_id, usuario_id, endpoint_called, response_status, latency_ms, error_message) VALUES (?, ?, ?, ?, ?, ?)");
+                $ins->execute([$cfg_id, $user_id, $type, $status, $latency, $error]);
+            }
+        } catch (Exception $e) {
+            // Silent fail for logs
+        }
     }
 }
