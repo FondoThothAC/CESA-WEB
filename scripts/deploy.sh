@@ -23,7 +23,8 @@ cd ..
 
 # 2. Sincronizar Backend PHP a HostGator
 echo "🖥️ Sincronizando Backend a HostGator..."
-# rsync -avz --exclude '.git' --exclude 'uploads' backend/ $HOSTGATOR_USER@$HOSTGATOR_IP:$HOSTGATOR_PATH/api/
+# rsync -avz --exclude '.git' --exclude 'storage' backend/ $HOSTGATOR_USER@$HOSTGATOR_IP:$HOSTGATOR_PATH/api/
+# ssh $HOSTGATOR_USER@$HOSTGATOR_IP "mkdir -p $HOSTGATOR_PATH/api/storage/rate_limits"
 
 # 3. Sincronizar Frontend a HostGator
 echo "🌐 Sincronizando Frontend a HostGator..."
