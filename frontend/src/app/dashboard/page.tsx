@@ -8,6 +8,7 @@ import BazarGrid from '@/components/BazarGrid';
 import JobsBoard from '@/components/JobsBoard';
 import ReportForm from '@/components/ReportForm';
 import ChatInterface from '@/components/ChatInterface';
+import NotificationCenter from '@/components/NotificationCenter';
 
 export default function UnifiedDashboard() {
   const { user, isLoading } = useAuth();
@@ -18,11 +19,19 @@ export default function UnifiedDashboard() {
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-10">
-          <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
-            HOLA, {user.nombre.toUpperCase()}
-          </h1>
-          <p className="text-slate-400 mt-2">Panel Institucional CESA • Rol: <span className="text-indigo-400 font-bold uppercase">{user.rol}</span></p>
+        <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
+              HOLA, {user.nombre.toUpperCase()}
+            </h1>
+            <p className="text-slate-400 mt-2">Panel Institucional CESA • Rol: <span className="text-indigo-400 font-bold uppercase">{user.rol}</span></p>
+          </div>
+          <div className="flex items-center gap-4">
+            <NotificationCenter />
+            <button className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-slate-400 hover:text-white transition-all text-sm font-bold">
+              LOGOUT
+            </button>
+          </div>
         </header>
 
         {/* VISTA SEGÚN ROL */}
