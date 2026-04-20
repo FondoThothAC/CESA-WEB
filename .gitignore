@@ -1,1 +1,23 @@
-node_modules/\ndist/\n.env\n.DS_Store
+# CESA WEB - Global Ignore
+.DS_Store
+node_modules/
+.env
+.env.production
+.env.local
+.vscode/
+
+# Frontend
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/dist/
+
+# Backend
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/logs/*.log
+backend/vendor/
+
+# Tools & Scripts
+scripts/deploy_secrets.sh
+database/temp_dump.sql

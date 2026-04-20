@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #1a73e8;
+  --primary-glow: rgba(26, 115, 232, 0.5);
+  --accent: #ffd700;
+  --bg-dark: #0c0d12;
+  --bg-card: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.1);
+  --text-main: #ffffff;
+  --text-muted: #9ba1b0;
+}
+
+body {
+  color: var(--text-main);
+  background: radial-gradient(circle at top right, #1a2a44 0%, #0c0d12 40%),
+              radial-gradient(circle at bottom left, #2c1a44 0%, #0c0d12 40%);
+  min-height: 100vh;
+}
+
+.glass {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+}
+
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-br from-[#ffd700] to-[#ff8c00];
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[var(--primary)] text-white px-7 py-3 rounded-full font-semibold transition-all duration-300;
+    box-shadow: 0 4px 15px var(--primary-glow);
+  }
+  
+  .btn-primary:hover {
+    @apply -translate-y-0.5 brightness-110;
+    box-shadow: 0 8px 25px var(--primary-glow);
+  }
+}
