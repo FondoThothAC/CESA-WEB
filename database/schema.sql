@@ -114,3 +114,36 @@ CREATE TABLE bolsa_postulaciones (
     FOREIGN KEY (vacante_id) REFERENCES bolsa_vacantes(id) ON DELETE CASCADE,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- IA CONFIGURATION & GOVERNANCE
+CREATE TABLE api_configs (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    provider ENUM('mac_mini', 'groq', 'gemini', 'mistral', 'ollama_cloud', 'huggingface') NOT NULL UNIQUE,
+    api_key_encrypted VARBINARY(512) NULL, -- AES-256 encrypted
+    endpoint_url VARCHAR(255) NOT NULL,
+    model_name VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    priority TINYINT UNSIGNED DEFAULT 5, -- 1 = Highest
+    rate_limit_per_min INT UNSIGNED DEFAULT 60,
+    timeout_seconds TINYINT UNSIGNED DEFAULT 15,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_active_priority (is_active, priority)
+) ENGINE=InnoDB;
+
+-- IA USAGE AUDIT LOGS
+CREATE TABLE api_usage_logs (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    config_id INT UNSIGNED NOT NULL,
+    usuario_id INT UNSIGNED NULL,
+    endpoint_called VARCHAR(100),
+    request_payload JSON,
+    response_status TINYINT UNSIGNED,
+    latency_ms INT UNSIGNED,
+    tokens_used INT UNSIGNED,
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (config_id) REFERENCES api_configs(id),
+    INDEX idx_fecha (created_at),
+    INDEX idx_usuario (usuario_id)
+) ENGINE=InnoDB;
