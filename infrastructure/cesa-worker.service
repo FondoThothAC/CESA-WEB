@@ -1,0 +1,18 @@
+[Unit]
+Description=CESA IA Sentiment Worker v3.7
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/cesa-web/backend/scripts
+ExecStart=/usr/bin/php /var/www/cesa-web/backend/scripts/sentiment_worker.php
+Restart=always
+RestartSec=5
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=cesa-ia-worker
+
+[Install]
+WantedBy=multi-user.target

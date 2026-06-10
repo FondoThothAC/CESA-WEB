@@ -11,7 +11,7 @@ require_once __DIR__ . '/../../lib/SecureConfig.php';
 // Solo POST para guardar, GET para listar
 $method = $_SERVER['REQUEST_METHOD'];
 $headers = getallheaders();
-$authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+$authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
 
 if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
     http_response_code(401);

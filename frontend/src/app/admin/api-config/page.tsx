@@ -23,7 +23,7 @@ export default function AdminIAConfig() {
 
   const fetchConfigs = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/admin/config-ia.php', {
+      const res = await fetch('/api/admin/config-ia.php', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -38,7 +38,7 @@ export default function AdminIAConfig() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:8000/api/admin/config-ia.php', {
+      const res = await fetch('/api/admin/config-ia.php', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -56,7 +56,17 @@ export default function AdminIAConfig() {
     }
   };
 
-  if (user?.rol !== 'admin') return <div className="p-10 text-center">Sin acceso</div>;
+  if (user?.email !== 'software@fondothoth.com') {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="bg-red-900/50 text-red-400 p-8 rounded-2xl border border-red-700 max-w-md text-center shadow-2xl">
+          <i className="fas fa-lock text-5xl mb-4"></i>
+          <h2 className="text-2xl font-bold mb-2">Acceso Denegado (Modo Dios)</h2>
+          <p>Esta sección es exclusiva para el equipo de desarrollo de Fondo Thoth (software@fondothoth.com).</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6">
@@ -75,10 +85,20 @@ export default function AdminIAConfig() {
                   value={formData.provider}
                   onChange={e => setFormData({...formData, provider: e.target.value})}
                 >
-                  <option value="mac_mini">🍎 Mac Mini Local</option>
-                  <option value="groq">⚡ Groq Cloud</option>
-                  <option value="gemini">💎 Google Gemini</option>
-                  <option value="mistral">🌪️ Mistral AI</option>
+                  <optgroup label="Modelos IA">
+                    <option value="mac_mini">🍎 Mac Mini Local</option>
+                    <option value="groq">⚡ Groq Cloud</option>
+                    <option value="gemini">💎 Google Gemini</option>
+                    <option value="mistral">🌪️ Mistral AI</option>
+                  </optgroup>
+                  <optgroup label="Redes Sociales (Meta Graph)">
+                    <option value="meta_instagram">📸 Instagram Graph API</option>
+                    <option value="meta_facebook">📘 Facebook Graph API</option>
+                  </optgroup>
+                  <optgroup label="Publicidad y Monetización">
+                    <option value="admob">💰 Google AdMob</option>
+                    <option value="adsense">📊 Google AdSense</option>
+                  </optgroup>
                 </select>
               </div>
 
@@ -95,7 +115,9 @@ export default function AdminIAConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">API Key (se cifrará)</label>
+                <label className="block text-sm font-medium mb-1">
+                  {formData.provider.includes('meta_') ? 'Access Token (se cifrará en la DB)' : 'API Key (se cifrará)'}
+                </label>
                 <input 
                   type="password" 
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2"
@@ -107,11 +129,13 @@ export default function AdminIAConfig() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Modelo</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {formData.provider.includes('meta_') ? 'ID de Cuenta / Page ID' : 'Modelo'}
+                  </label>
                   <input 
                     type="text" 
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2"
-                    placeholder="llama-3.1"
+                    placeholder={formData.provider.includes('meta_') ? 'Ej. 178414XXXXXXX' : 'llama-3.1'}
                     value={formData.model_name}
                     onChange={e => setFormData({...formData, model_name: e.target.value})}
                   />

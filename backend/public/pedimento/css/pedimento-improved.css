@@ -1,0 +1,400 @@
+/* Variables de diseño para consistencia */
+:root {
+  --primary-color: #1a3a6c;
+  --secondary-color: #2c5282;
+  --accent-color: #e53e3e;
+  --success-color: #38a169;
+  --warning-color: #dd6b20;
+  --info-color: #3182ce;
+  --light-gray: #f7fafc;
+  --medium-gray: #e2e8f0;
+  --dark-gray: #718096;
+  --border-radius: 6px;
+  --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --transition: all 0.3s ease;
+}
+
+/* Reset básico */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f5f7fa;
+  padding: 20px;
+}
+
+/* Contenedor principal con mejor espaciado */
+.pedimento-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  overflow: hidden;
+}
+
+/* Encabezado mejorado */
+.pedimento-header {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  padding: 20px 30px;
+  border-bottom: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.pedimento-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pedimento-header h1::before {
+  content: "🛃";
+  font-size: 28px;
+}
+
+.pedimento-header p {
+  font-size: 14px;
+  opacity: 0.9;
+  max-width: 800px;
+}
+
+/* Secciones organizadas con mejor jerarquía */
+.section {
+  padding: 20px 30px;
+  border-bottom: 1px solid var(--medium-gray);
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary-color);
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--medium-gray);
+}
+
+.section-title::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 20px;
+  background: var(--accent-color);
+  border-radius: 2px;
+}
+
+/* Tabla principal con mejor diseño */
+.pedimento-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pedimento-table td {
+  vertical-align: top;
+  padding: 15px 10px;
+  border: 1px solid var(--medium-gray);
+}
+
+.pedimento-table tr {
+  break-inside: avoid;
+}
+
+/* Celdas de título */
+.title-cell {
+  background-color: var(--light-gray);
+  font-weight: 600;
+  width: 25%;
+  vertical-align: middle;
+  padding: 12px 15px;
+  border-radius: 4px 0 0 4px;
+}
+
+/* Celdas de datos */
+.data-cell {
+  width: 75%;
+  position: relative;
+  padding: 10px 15px;
+}
+
+/* Campo de entrada mejorado */
+.input-field {
+  width: 100%;
+  padding: 10px 15px;
+  border: 1px solid var(--medium-gray);
+  border-radius: var(--border-radius);
+  font-size: 15px;
+  transition: var(--transition);
+  background-color: white;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--secondary-color);
+  box-shadow: 0 0 0 2px rgba(44, 82, 130, 0.2);
+}
+
+/* Ejemplo real con mejor estilo */
+.example {
+  background-color: rgba(44, 82, 130, 0.05);
+  border-left: 3px solid var(--secondary-color);
+  padding: 8px 12px;
+  margin-top: 8px;
+  border-radius: 0 4px 4px 0;
+  font-size: 13px;
+  color: var(--dark-gray);
+}
+
+/* Grupo de campos relacionados */
+.field-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 15px;
+  margin-top: 10px;
+}
+
+/* Etiqueta de información */
+.info-label {
+  display: inline-block;
+  background: var(--primary-color);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 5px;
+  cursor: help;
+}
+
+/* Tooltip mejorado */
+.tooltip {
+  position: relative;
+  display: inline-block;
+  cursor: help;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary-color);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  width: 300px;
+  z-index: 10;
+}
+
+.tooltip:hover::after {
+  opacity: 1;
+}
+
+.tooltip::before {
+  content: "ⓘ";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 12px;
+  margin-left: 5px;
+}
+
+/* Secciones específicas con estilos diferenciados */
+.section-basic-info {
+  background-color: rgba(44, 82, 130, 0.02);
+}
+
+.section-values {
+  background-color: rgba(56, 161, 105, 0.02);
+}
+
+.section-payment {
+  background-color: rgba(221, 107, 32, 0.02);
+}
+
+.section-banking {
+  background-color: rgba(49, 130, 206, 0.02);
+}
+
+/* Botones de acción */
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 20px 30px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--border-radius);
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--secondary-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(26, 58, 108, 0.25);
+}
+
+.btn-secondary {
+  background: white;
+  color: var(--primary-color);
+  border: 1px solid var(--medium-gray);
+}
+
+.btn-success {
+  background: var(--success-color);
+  color: white;
+}
+
+/* Diseño responsivo */
+@media (max-width: 1200px) {
+  .field-group {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+  
+  .pedimento-table td {
+    display: block;
+    width: 100%;
+    padding: 12px;
+  }
+  
+  .title-cell, .data-cell {
+    width: 100%;
+    border-radius: var(--border-radius);
+  }
+  
+  .title-cell {
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    padding: 10px 15px;
+    background-color: var(--primary-color);
+    color: white;
+  }
+  
+  .data-cell {
+    border-top: none;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+    margin-bottom: 15px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  }
+}
+
+@media (max-width: 768px) {
+  .pedimento-header {
+    padding: 15px;
+  }
+  
+  .pedimento-header h1 {
+    font-size: 20px;
+  }
+  
+  .section {
+    padding: 15px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Estilo para el sello VUCEM */
+.stamp-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+  padding: 15px;
+  border: 1px dashed var(--medium-gray);
+  border-radius: var(--border-radius);
+  background-color: rgba(229, 62, 62, 0.05);
+}
+
+.stamp-container img {
+  max-width: 150px;
+  margin: 10px 0;
+  border: 1px solid var(--medium-gray);
+  border-radius: 4px;
+  padding: 5px;
+  background: white;
+}
+
+.stamp-text {
+  font-size: 12px;
+  color: var(--dark-gray);
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* Estilo para el campo de observaciones */
+.observations {
+  background-color: rgba(245, 247, 250, 0.7);
+  border-left: 3px solid var(--warning-color);
+  padding: 15px;
+  border-radius: 0 4px 4px 0;
+  margin: 15px 0;
+}
+
+/* Animación suave para secciones al cargar */
+.section {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeInUp 0.4s ease forwards;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section:nth-child(2) { animation-delay: 0.1s; }
+.section:nth-child(3) { animation-delay: 0.2s; }
+.section:nth-child(4) { animation-delay: 0.3s; }
+.section:nth-child(5) { animation-delay: 0.4s; }
+.section:nth-child(6) { animation-delay: 0.5s; }
+.section:nth-child(7) { animation-delay: 0.6s; }
+.section:nth-child(8) { animation-delay: 0.7s; }
+.section:nth-child(9) { animation-delay: 0.8s; }

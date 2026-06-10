@@ -1,0 +1,3381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pedimento v5 - Mobile First</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/pedimento-improved.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cesa: {
+                            navy: '#0F2C59',
+                            blue: '#1E3A8A',
+                            gold: '#D4AF37',
+                            darkBg: '#0A192F',
+                            cardBg: '#1e293b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0A192F; color: #f8fafc; }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 12px;
+            overflow: visible !important;
+        }
+        .wizard-step { display: none; animation: fadeIn 0.3s ease-in-out; overflow: visible !important; position: relative; z-index: 10; }
+        .wizard-step.active { display: block; z-index: 20; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Responsive display logic controlled by classes */
+        .view-wizard #mobile-wizard { display: block; }
+        .view-wizard #desktop-preview { display: none; }
+        
+        .view-table #mobile-wizard { display: none; }
+        .view-table #desktop-preview { display: block; }
+        
+        /* By default, mobile is wizard. On PC, it will start as table unless toggled */
+        #mobile-wizard { display: block; }
+        #desktop-preview { display: none; }
+        
+        @media (min-width: 1024px) {
+            #mobile-wizard { display: none; }
+            #desktop-preview { display: block; }
+            
+            /* Allow overriding via body classes */
+            body.force-wizard #mobile-wizard { display: block !important; }
+            body.force-wizard #desktop-preview { display: none !important; }
+            
+            body.force-table #mobile-wizard { display: none !important; }
+            body.force-table #desktop-preview { display: block !important; }
+        }
+        
+        /* Toggle Button Styles (Only visible on PC) */
+        #view-toggle { display: none; }
+        @media (min-width: 1024px) {
+            #view-toggle { display: inline-flex; }
+        }
+        
+        input, select { 
+            background: #0F2C59; 
+            border: 2px solid #1E3A8A; 
+            color: white; 
+            border-radius: 10px; 
+            padding: 12px 15px; 
+            width: 100%;
+            outline: none;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23D4AF37'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 18px;
+        }
+        input:focus, select:focus { border-color: #D4AF37; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2); }
+        input:focus, select:focus { border-color: #D4AF37; }
+
+        /* =========================================================
+           1. CORRECCIÓN DE TOOLTIPS (Z-INDEX Y POSICIÓN)
+           ========================================================= */
+        .info {
+            position: relative;
+            cursor: pointer;
+            display: inline-block;
+            color: #3b82f6; /* Color para que parezca clickeable */
+        }
+
+        .tooltip {
+            display: none;
+            position: absolute;
+            bottom: 130%; /* Aparece justo encima del icono */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99999; /* Z-Index extremo para superar al Wizard y modales */
+            width: 260px;
+            background: #0f172a;
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            font-size: 11px;
+            line-height: 1.4;
+            border: 1px solid #334155;
+            white-space: normal; /* Evita que se salga del contenedor en una sola línea */
+        }
+
+        /* Triangulito del tooltip hacia abajo */
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -6px;
+            border-width: 6px;
+            border-style: solid;
+            border-color: #0f172a transparent transparent transparent;
+        }
+
+        .tooltip.show {
+            display: block;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, 10px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        /* =========================================================
+           2. REPARACIÓN DEL WIZARD MÓVIL (SELECTS Y OVERFLOW)
+           ========================================================= */
+        /* Evitamos que si un select se abre, el wizard lo corte */
+        .wizard-container, 
+        .wizard-step,
+        .modal-content {
+            overflow: visible !important; 
+        }
+
+        /* Aseguramos que en móviles el Select use el selector nativo del celular (rueda de iOS o popup de Android) */
+        select.wizard-input,
+        .wizard-step select {
+            appearance: auto !important; 
+            -webkit-appearance: auto !important;
+            -moz-appearance: auto !important;
+            width: 100%;
+            padding: 12px;
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 16px; /* Evita que iOS haga zoom automático al tocar el input */
+        }
+
+        /* PREMIUM UI ELEMENTS */
+        .btn-premium {
+            background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
+            color: #0F2C59 !important;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+        }
+
+        .btn-premium:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(212, 175, 55, 0.5);
+            filter: brightness(1.1);
+        }
+
+        .btn-premium:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .toolbar-glass {
+            background: rgba(15, 44, 89, 0.85);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+        }
+
+        /* =========================================================
+           3. IMPRESIÓN DEL ANEXO A PRUEBA DE MODO OSCURO
+           ========================================================= */
+        @media print {
+            body, .page, table, td, th, div, span {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                border-color: #000000 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            /* Ocultar elementos inútiles en papel */
+            .no-print, .btn, .btn-add, .wizard-container, .tooltip, .info {
+                display: none !important;
+            }
+        }
+    
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9px;
+            background: #0A192F;
+            padding: 0;
+        }
+
+        /* CESA Header Improvement */
+        .cesa-header {
+            background: rgba(15, 44, 89, 0.9);
+            backdrop-filter: blur(12px);
+            color: white;
+            padding: 10px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #D4AF37;
+            position: sticky;
+            top: 0;
+            z-index: 6000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .cesa-brand {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .cesa-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #D4AF37, #997A1E);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: #0F2C59;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+        }
+        .cesa-title {
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .cesa-title span {
+            color: #D4AF37;
+        }
+        .cesa-subtitle {
+            font-size: 11px;
+            color: #94a3b8;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+        
+        .toolbar {
+            background: rgba(15, 44, 89, 0.85);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+            padding: 8px 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .toolbar:hover {
+            background: rgba(15, 44, 89, 0.95);
+            border-bottom-color: #D4AF37;
+        }
+
+        .btn-premium {
+            background: linear-gradient(135deg, #D4AF37, #997A1E);
+            color: #0F2C59;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 11px;
+            text-transform: uppercase;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(212, 175, 55, 0.2);
+        }
+        
+        .btn-premium:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .form-wrapper {
+            padding: 20px;
+        }
+
+        .page {
+            background: white;
+            max-width: 21cm;
+            margin: 0 auto 20px;
+            padding: 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .partida-tbody,
+        .partida-tbody tr,
+        .partida-tbody td {
+            width: auto;
+        }
+
+        td,
+        th {
+            border: 1px solid #000;
+            padding: 2px 4px;
+            vertical-align: middle;
+            font-size: 8px;
+            position: relative;
+            overflow: visible !important;
+        }
+
+        .header-title {
+            background: #0F2C59;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            font-size: 12px;
+            padding: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section-header {
+            background: #1E3A8A;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            font-size: 9px;
+            padding: 4px;
+            text-transform: uppercase;
+        }
+
+        .label {
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: bold;
+            font-size: 7px;
+            border: 1px solid #000;
+        }
+
+        /* Anexo Specific Premium Contrast */
+        .anexo-header {
+            background: #0F2C59 !important;
+            color: white !important;
+            font-weight: bold;
+            text-align: center;
+            font-size: 9px;
+            padding: 4px;
+            border: 1px solid #000;
+        }
+
+        .data {
+            background: white;
+        }
+
+        .page input,
+        .page select,
+        .page textarea {
+            width: 100%;
+            border: none;
+            background: transparent;
+            color: #000 !important;
+            font-size: 8px;
+            font-family: inherit;
+            outline: none;
+            padding: 1px;
+        }
+
+        textarea {
+            resize: none;
+            overflow: hidden;
+            min-height: 14px;
+        }
+
+        select {
+            cursor: pointer;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-left {
+            text-align: left;
+        }
+
+        .font-bold {
+            font-weight: bold;
+        }
+
+        .qr-box {
+            width: 80px;
+            height: 80px;
+            border: 1px solid #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 5px auto;
+            font-size: 7px;
+            color: #666;
+        }
+
+        /* Tooltip definitions removed here as they were redundant */
+
+        /* TIGIE Search Sidebar */
+        .tigie-sidebar { position:fixed; right:-420px; top:0; width:420px; height:100vh; background:#0A192F; color:white; z-index:9999; transition:right 0.3s ease; box-shadow:-10px 0 40px rgba(0,0,0,0.6); overflow-y:auto; padding:25px; }
+        .tigie-sidebar.open { right:0; }
+        .tigie-input { width:100%; background:#0F2C59; border:2px solid #1E3A8A; border-radius:8px; padding:14px; color:white; font-size:13px; outline:none; margin:10px 0; }
+        .tigie-input:focus { border-color:#D4AF37; }
+        .tigie-result { background:#0F2C59; border-left:5px solid #D4AF37; border-radius:8px; padding:14px; margin:10px 0; cursor:pointer; transition:0.2s; }
+        .tigie-result:hover { background:#1E3A8A; transform:translateX(-4px); }
+        .tigie-result .frac { color:#D4AF37; font-weight:bold; font-size:14px; }
+        .tigie-result .desc { color:#cbd5e1; font-size:11px; margin-top:4px; }
+        .tigie-result .rates { color:#94a3b8; font-size:9px; margin-top:6px; text-transform:uppercase; font-weight:bold; }
+
+        /* Toolbar Styles */
+        .toolbar {
+            background-color: #0F2C59;
+            color: white;
+            padding: 12px 20px;
+            position: sticky;
+            top: 52px;
+            z-index: 5000;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            margin-bottom: 0;
+            border-bottom: 2px solid #D4AF37;
+        }
+
+        /* Preferencias y TLC Restoration */
+        .pref-active { background-color: #f0fdf4 !important; border: 1px solid #10b981 !important; color: #065f46 !important; font-weight: bold; }
+        .pref-badge { font-size: 8px; background: #10b981; color: white; padding: 2px 5px; border-radius: 4px; display: inline-block; margin-left: 5px; font-weight: bold; }
+        .art25-section { background: #fefce8; border: 1px dashed #ca8a04; margin-top: 5px; border-radius: 4px; padding: 5px; display: none; }
+        .art25-header { font-size: 9px; font-weight: bold; color: #854d0e; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .select-tlc { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 3px; font-size: 9px; padding: 2px; width: 100%; transition: 0.3s; }
+        .select-tlc:focus { border-color: #10b981; outline: none; }
+
+        .toolbar button {
+            padding: 8px 16px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .btn-ex {
+            background: linear-gradient(135deg, #0F2C59, #1E3A8A);
+            color: #D4AF37;
+            font-weight: bold;
+            border: 1px solid #D4AF37;
+        }
+
+        .btn-ex:hover {
+            background: linear-gradient(135deg, #1E3A8A, #2563eb);
+            transform: translateY(-1px);
+        }
+
+        .btn-new {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-new:hover {
+            background-color: #bd2130;
+        }
+
+        .btn-print {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-save:hover {
+            background-color: #0069d9;
+        }
+
+        .btn-help {
+            background-color: #17a2b8;
+            color: white;
+            padding: 8px 16px;
+            border: 1px solid #1abc9c;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .btn-help:hover {
+            background-color: #138496;
+        }
+
+        /* Hide toolbar in print */
+        @media print {
+
+            .toolbar,
+            .no-print {
+                display: none !important;
+            }
+
+            /* Force desktop table view visible during print */
+            #desktop-preview {
+                display: block !important;
+            }
+            #mobile-wizard {
+                display: none !important;
+            }
+            /* Hide the outer CESA header and non-printable chrome */
+            header, .cesa-header {
+                display: none !important;
+            }
+            main {
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+            /* Ensure the desktop-preview wrapper doesn't add visual chrome */
+            #desktop-preview {
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                background: white !important;
+            }
+            /* Hide the "Vista Oficial" header row with buttons */
+            #desktop-preview > .flex {
+                display: none !important;
+            }
+        }
+
+        /* Removed redundant tooltip definition */
+
+        /* Print styles */
+        /* Print styles */
+        @media print {
+            @page {
+                size: letter;
+                margin: 10mm 5mm;
+            }
+
+            *, *:before, *:after {
+                box-sizing: border-box !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            body, html, .page, table, td, tr, th, input, select, textarea {
+                background-color: #ffffff !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .page {
+                box-shadow: none !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                display: block !important;
+                border: none !important;
+                page-break-after: always;
+            }
+
+            form {
+                transform: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+            }
+
+            .no-print, .toolbar, .actions, #mobile-wizard, header, .cesa-header, .btn-premium, .zoom-controls, #view-toggle {
+                display: none !important;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+
+            table {
+                width: 100% !important;
+                max-width: 100% !important;
+                border-collapse: collapse !important;
+                table-layout: fixed !important;
+                font-size: 7pt !important;
+                margin: 0 0 5mm 0 !important;
+                border: 0.5pt solid black !important;
+            }
+
+            tr, tbody {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            td, th {
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
+                font-size: 7pt !important;
+                padding: 2pt !important;
+                border: 0.5pt solid black !important;
+                height: auto !important;
+                vertical-align: top !important;
+            }
+
+            input, select, textarea {
+                font-size: 7pt !important;
+                border: none !important;
+                background: transparent !important;
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
+                width: 100% !important;
+                color: black !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                display: block !important;
+            }
+
+            #desktop-preview {
+                display: block !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+                background: white !important;
+                width: 100% !important;
+            }
+
+            main {
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+            }
+        }
+
+        /* Action buttons */
+        .actions {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 10px 25px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+
+        .btn-print {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-save {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Collapsible Sections - Compact Sober Style */
+        .collapsible-header {
+            background: #e9e9e9;
+            color: #333;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-weight: bold;
+            font-size: 8px;
+            display: inline-flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #ccc;
+            text-align: left;
+            margin: 2px;
+        }
+
+        .collapsible-header:hover {
+            background: #ddd;
+        }
+
+        .collapsible-header .toggle-icon {
+            font-size: 8px;
+            color: #666;
+            margin-left: 6px;
+            transition: transform 0.3s;
+        }
+
+        .collapsible-header.active .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            display: none;
+            padding: 0;
+            background: #fafafa;
+        }
+
+        .collapsible-content.show {
+            display: table-row-group;
+        }
+
+        .optional-tag {
+            background: #888;
+            color: white;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 6px;
+            font-weight: normal;
+            margin-left: 4px;
+        }
+
+        .collapsible-container {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            gap: 6px;
+            padding: 4px;
+            justify-content: flex-start;
+        }
+    
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- CESA Header -->
+    <header class="bg-cesa-navy border-b-2 border-cesa-gold p-4 sticky top-0 z-50 flex justify-between items-center shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-cesa-gold/20 border border-cesa-gold/40 rounded-xl flex items-center justify-center text-2xl">🦉</div>
+            <div>
+                <h1 class="font-black text-lg tracking-wider">CESA <span class="text-cesa-gold">UNISON</span></h1>
+                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Pedimento Aduanal v5</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <!-- Toggle View Button (PC Only) -->
+            <button id="view-toggle" class="bg-cesa-blue text-white px-3 py-1 rounded text-xs font-bold border border-cesa-gold/50 hover:bg-cesa-navy transition items-center gap-2" onclick="toggleViewMode()">
+                <i class="fas fa-magic"></i> Activar Modo Captura (Wizard)
+            </button>
+            <button class="text-cesa-gold border border-cesa-gold/30 px-3 py-1 rounded-lg text-xs font-bold bg-cesa-gold/10 hover:bg-cesa-gold/20 transition" onclick="goBackToCesa()">
+                <i class="fas fa-arrow-left mr-1"></i> Volver
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-grow p-4 relative max-w-7xl mx-auto w-full">
+        
+        <!-- MOBILE WIZARD (Visible en Móviles y Tablets pequeñas) -->
+        <div id="mobile-wizard" class="space-y-6">
+            
+            <!-- Progress Bar -->
+            <div class="flex justify-between text-xs font-bold text-gray-400 mb-2 uppercase px-2">
+                <span class="text-cesa-gold">1. General</span>
+                <span>2. Identidad</span>
+                <span>3. Partidas</span>
+                <span>4. Liquidación</span>
+            </div>
+            <div class="w-full bg-gray-700 h-1.5 rounded-full mb-6">
+                <div id="progress-bar" class="bg-cesa-gold h-1.5 rounded-full w-1/4 transition-all duration-300"></div>
+            </div>
+
+            <!-- STEP 1: Datos Generales -->
+            <div class="wizard-step active" id="step-1">
+                <div class="glass-card p-5 space-y-4">
+                    <h2 class="text-xl font-black text-cesa-gold border-b border-cesa-gold/20 pb-2 flex items-center gap-2">
+                        <i class="fas fa-file-invoice"></i> Datos del Pedimento
+                    </h2>
+                    
+                    <div>
+                        <label class="text-xs text-gray-400 font-bold uppercase">Aduana de Despacho</label>
+                        <select id="wiz_aduanaES" name="wiz_aduanaES">
+                            <option value="">Cargando catálogo...</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-gray-400 font-bold uppercase">Tipo Oper.</label>
+                            <select id="wiz_tipoOper" name="wiz_tipoOper">
+                                <option value="IMP">IMP - Importación</option>
+                                <option value="EXP">EXP - Exportación</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 font-bold uppercase">Clave</label>
+                            <select id="wiz_cvePedimento" name="wiz_cvePedimento">
+                                <option value="">Cargando catálogo...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-gray-400 font-bold uppercase">Regimen</label>
+                            <select id="wiz_regimen" name="wiz_regimen">
+                                <option value="">Cargando...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 font-bold uppercase">Destino</label>
+                            <select id="wiz_destino" name="wiz_destino">
+                                <option value="">Cargando...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-gray-400 font-bold uppercase">Tipo Cambio</label>
+                            <input type="number" id="wiz_tipoCambio" name="wiz_tipoCambio" value="17.0000" step="0.0001">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 font-bold uppercase">Valor Dólares</label>
+                            <input type="number" id="wiz_valorDolares" name="wiz_valorDolares" value="0.00">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2: Identidad -->
+            <div class="wizard-step" id="step-2">
+                <div class="glass-card p-5 space-y-4">
+                    <h2 class="text-xl font-black text-cesa-gold border-b border-cesa-gold/20 pb-2 flex items-center gap-2">
+                        <i class="fas fa-building"></i> Importador / Exportador
+                    </h2>
+                    
+                    <div>
+                        <label class="text-xs text-gray-400 font-bold uppercase">Razón Social</label>
+                        <input type="text" id="wiz_rsocial" placeholder="Ej: EMPRESA INDUSTRIAL SA DE CV">
+                    </div>
+                    
+                    <div>
+                        <label class="text-xs text-gray-400 font-bold uppercase">RFC</label>
+                        <input type="text" id="wiz_rfc" placeholder="AAA010101AAA">
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-gray-400 font-bold uppercase">Domicilio</label>
+                        <input type="text" id="wiz_domicilio" placeholder="Calle, Número, CP, Ciudad">
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 3: Partidas (Buscador TIGIE) -->
+            <div class="wizard-step" id="step-3">
+                <div class="glass-card p-5 space-y-4">
+                    <h2 class="text-xl font-black text-cesa-gold border-b border-cesa-gold/20 pb-2 flex items-center gap-2 justify-between">
+                        <span><i class="fas fa-boxes"></i> Partidas Arancelarias</span>
+                        <button onclick="openTigieSearch()" class="bg-blue-600 text-white px-3 py-1 rounded text-xs"><i class="fas fa-search"></i> Buscar LIGIE</button>
+                    </h2>
+                    
+                    <div id="partidas-container" class="space-y-3">
+                        <!-- Aquí se inyectarán dinámicamente las tarjetas de partidas -->
+                        <div class="p-4 border border-dashed border-gray-600 rounded-lg text-center text-gray-500 text-sm">
+                            No hay partidas agregadas. Presiona "Buscar LIGIE" para clasificar tu mercancía.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4: Liquidación -->
+            <div class="wizard-step" id="step-4">
+                <div class="glass-card p-5 space-y-4">
+                    <h2 class="text-xl font-black text-cesa-gold border-b border-cesa-gold/20 pb-2 flex items-center gap-2">
+                        <i class="fas fa-calculator"></i> Liquidación de Impuestos
+                    </h2>
+                    
+                    <div class="bg-cesa-navy p-4 rounded-lg border border-cesa-gold/30 font-mono">
+                        <div class="flex justify-between border-b border-white/10 pb-2 mb-2">
+                            <span class="text-gray-400">DTA (Derecho de Trámite)</span>
+                            <span class="text-cesa-gold font-bold" id="w-dta">$0.00</span>
+                        </div>
+                        <div class="flex justify-between border-b border-white/10 pb-2 mb-2">
+                            <span class="text-gray-400">IGI (Impuesto General)</span>
+                            <span class="text-cesa-gold font-bold" id="w-igi">$0.00</span>
+                        </div>
+                        <div class="flex justify-between border-b border-white/10 pb-2 mb-2">
+                            <span class="text-gray-400">IVA (16%)</span>
+                            <span class="text-cesa-gold font-bold" id="w-iva">$0.00</span>
+                        </div>
+                        <div class="flex justify-between pt-2">
+                            <span class="text-white font-black">TOTAL A PAGAR</span>
+                            <span class="text-green-400 font-black text-lg" id="w-total">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones de Navegación del Wizard -->
+            <div class="flex justify-between pt-4">
+                <button id="btn-prev" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold opacity-50 cursor-not-allowed" disabled onclick="prevStep()">Anterior</button>
+                <button id="btn-next" class="bg-gradient-to-r from-cesa-gold to-yellow-600 text-cesa-navy px-6 py-3 rounded-lg font-black shadow-lg" onclick="nextStep()">Siguiente Paso</button>
+            </div>
+
+        </div> <!-- End Mobile Wizard -->
+
+        <!-- DESKTOP PREVIEW (La tabla real del SAT) -->
+        <div class="toolbar no-print flex items-center justify-between toolbar-glass rounded-2xl p-4 mb-6 shadow-2xl">
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <select id="exampleSelector" style="background:rgba(255,255,255,0.95); color:#0F2C59; border:2px solid #D4AF37; padding:8px 30px 8px 12px; border-radius:10px; outline:none; font-weight:800; font-size:12px; min-width:340px; appearance:none; cursor:pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: all 0.3s ease;">
+                        <option value="" disabled selected>📂 SELECCIONAR EJERCICIO DOCENTE...</option>
+                        <optgroup label="📦 LOGÍSTICA & E-COMMERCE">
+                            <option value="amazonGuaymas">🏢 Amazon Hub (Guaymas/Marítimo)</option>
+                            <option value="maxAmazon">🏢 Amazon MX (Multimodal/Aéreo)</option>
+                        </optgroup>
+                        <optgroup label="👜 CASO 1: BOLSAS DE LUJO (GUCCI)">
+                            <option value="caso1IN">🔹 IN: Importación de Insumos</option>
+                            <option value="caso1RT">🔹 RT: Retorno de Producción</option>
+                            <option value="caso1F4prod">🔹 F4: Nacionalización Producto</option>
+                            <option value="caso1F4desp">🔹 F4: Nacionalización Desperdicio</option>
+                        </optgroup>
+                        <optgroup label="💄 CASO 2: COSMÉTICOS (BELLEZA)">
+                            <option value="caso2IN">🔸 IN: Importación de Materia Prima</option>
+                            <option value="caso2RT">🔸 RT: Exportación Producto Final</option>
+                            <option value="caso2F4prod">🔸 F4: Venta en Mercado Nacional</option>
+                            <option value="caso2F4desp">🔸 F4: Mermas y Scrap Industrial</option>
+                        </optgroup>
+                        <optgroup label="⚙️ MAQUINARIA & BANCOS">
+                            <option value="minBancos">🏗️ FT Soluciones (Bancos Ind.)</option>
+                            <option value="maritimoCNC">🏗️ CNC Laser Forza (UK-MEX)</option>
+                        </optgroup>
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-cesa-navy pointer-events-none" style="font-size: 10px;"></i>
+                </div>
+                <button class="btn-premium" onclick="loadExample(document.getElementById('exampleSelector').value)">
+                    <i class="fas fa-file-import mr-2"></i> Cargar Datos
+                </button>
+                <button class="bg-white/5 hover:bg-white/15 text-slate-300 border border-white/10 px-4 py-2 rounded-xl transition-all text-xs font-bold uppercase tracking-wider" onclick="resetForm()">
+                    <i class="fas fa-trash-alt mr-2 text-red-400"></i> Limpiar
+                </button>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex bg-white/10 rounded-lg p-1 border border-white/20">
+                    <button class="hover:bg-white/10 p-2 rounded" onclick="zoomOut()"><i class="fas fa-minus text-white"></i></button>
+                    <span class="px-2 self-center text-cesa-gold font-bold border-x border-white/20">Zoom</span>
+                    <button class="hover:bg-white/10 p-2 rounded" onclick="zoomIn()"><i class="fas fa-plus text-white"></i></button>
+                </div>
+                <div class="h-8 w-px bg-white/20 mx-1"></div>
+                <button class="btn-premium" style="background: linear-gradient(135deg, #10B981, #059669); color: white;" onclick="validateAndPrint()">
+                    <i class="fas fa-print mr-1"></i> Validar e Imprimir
+                </button>
+                <div class="flex gap-1">
+                    <button class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 p-2 rounded-lg border border-blue-500/30" title="Exportar JSON" onclick="exportarPedimento()">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 p-2 rounded-lg border border-purple-500/30" title="Importar JSON" onclick="importarPedimento()">
+                        <i class="fas fa-upload"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+<input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
+<div style="border-left: 1px solid #666; margin: 0 5px;"></div>
+<button style="background:#0F2C59;color:#D4AF37;font-weight:bold;border:1px solid #D4AF37;" onclick="document.getElementById('tigieSidebar').classList.toggle('open')">🔍 TIGIE/LIGIE Search</button>
+<button style="background:#1E3A8A;color:#94a3b8;" onclick="showModal('Toda la ayuda está integrada en los íconos ⓘ de cada campo. Haz clic en cualquiera para ver el instructivo oficial.', {type:'info', title:'📘 Ayuda'})">📘 Ayuda (ⓘ)</button>
+</div>
+
+        <div id="desktop-preview" class="bg-white rounded-lg p-6 shadow-2xl text-black">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-black text-cesa-navy uppercase">Vista Oficial (Anexo 22)</h2>
+                <button class="bg-cesa-navy text-white px-4 py-2 rounded font-bold" onclick="window.print()">
+                    <i class="fas fa-print mr-2"></i> Imprimir Pedimento
+                </button>
+            </div>
+            
+            <div class="border-2 border-black p-2 font-mono text-xs max-w-5xl mx-auto bg-white overflow-x-auto">
+<form id="pedimentoForm">
+<!-- ==================== PÁGINA 1 ==================== -->
+<div class="page" id="pagina1">
+<table style="table-layout: fixed; width: 100%;">
+<colgroup>
+    <col style="width: 7.1428%;" span="14">
+</colgroup>
+<!-- HEADER -->
+<tr>
+<td class="header-title" colspan="12" style="position:relative;">
+<span style="position:absolute; left:5px; font-size:9px; font-weight:normal;">REF: <input name="referencia" style="width:80px; text-align:left;" type="text"/></span>
+                        Pedimento - V9.3.2
+                    </td>
+<td class="label text-right" colspan="2">Página <input style="width:15px; text-align:center;" type="text" value="1"/> de <input style="width:15px; text-align:center;" type="text" value="2"/></td>
+</tr>
+<!-- ROW 1: NUM.PEDIMENTO, T.OPER, CVE, REGIMEN -->
+<tr>
+<td class="label">NUM. PEDIMENTO: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+                                <div class="tt-header">
+                                    <span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+                                    <button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+                                </div>
+                                <div class="tt-body">
+                                    <p><strong>REGLA DE CONSTRUCCIÓN:</strong></p>
+                                    <ul style="list-style: none; padding-left: 0; margin-bottom: 8px;">
+                                        <li><b style="color:#10b981;">[26]</b> — Año de validación (2026)</li>
+                                        <li><b style="color:#10b981;">[48]</b> — Aduana de despacho (ej. 480 Guadalajara)</li>
+                                        <li><b style="color:#10b981;">[3480]</b> — Patente del Agente Aduanal</li>
+                                        <li><b style="color:#10b981;">[6]</b> — Último dígito del año (Ejercicio 2026)</li>
+                                        <li><b style="color:#10b981;">[7000042]</b> — Número progresivo por aduana</li>
+                                    </ul>
+                                    <span class="tt-ref">📋 Fuente: Anexo 22, Instrucciones de Llenado</span>
+                                    <p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 26 48 3480 6000042</b></p>
+                                </div>
+                            </span>
+                        </span></td>
+<td class="data" colspan="2"><input name="numPedimento" placeholder="00 00 0000 0000000" type="text" value="26  40  1234  7000001"/></td>
+<td class="label">T OPER <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>TIPO DE OPERACIÓN</strong></p>
+<p>Leyenda que identifica al tipo de operación:</p>
+<ul>
+<li><strong>IMP:</strong> Importación.</li>
+<li><strong>EXP:</strong> Exportación.</li>
+<li><strong>TRA:</strong> Tránsito.</li>
+</ul>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: IMP (Importación)</b></p>
+</div>
+</span>
+</span></td>
+<td class="data">
+<select name="tipoOper">
+<option value="">Sel...</option>
+<option selected="selected" value="IMP">IMP - Importación</option>
+<option value="EXP">EXP - Exportación</option>
+<option value="TRA">TRA - Tránsito</option>
+</select>
+</td>
+<td class="label">CVE. PEDIMENTO: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>CLAVE DE PEDIMENTO</strong></p>
+<p>Clave alfanumérica (2 caracteres) que identifica el tipo de operación, conforme al <b>Apéndice 2 del Anexo 22</b>.</p>
+<p><strong>CLAVES MÁS COMUNES:</strong></p>
+<ul style="list-style:none; padding-left:0; margin:0;">
+<li><b style="color:#10b981;">A1</b> — Importación/Exportación Definitiva</li>
+<li><b style="color:#10b981;">IN</b> — Importación Temporal (IMMEX)</li>
+<li><b style="color:#10b981;">RT</b> — Retorno de Importación Temporal</li>
+<li><b style="color:#10b981;">F4</b> — Cambio de Régimen (Temporal → Definitivo, Insumos)</li>
+<li><b style="color:#10b981;">F5</b> — Cambio de Régimen (Temporal → Definitivo, Activo Fijo)</li>
+<li><b style="color:#10b981;">V1</b> — Transferencia Virtual entre IMMEX</li>
+<li><b style="color:#10b981;">K1</b> — Importación Temporal (Depósito Fiscal)</li>
+<li><b style="color:#10b981;">R1</b> — Rectificación</li>
+</ul>
+<span class="tt-ref">📋 Fuente: Apéndice 2, Anexo 22, DOF 15/01/2026</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: IN (Temporal IMMEX) o F4 (Cambio de Régimen).</b></p>
+</div>
+</span>
+</span></td>
+<td class="data">
+<select name="cvePedimento" onchange="checkRectificacion()">
+<option value="">Sel...</option>
+<option value="A1">A1 - Importación/Exportación definitiva</option>
+<option value="A2">A2 - Importación de remesas de empresas de mensajería</option>
+<option value="A3">A3 - Regularización de mercancías</option>
+<option value="A4">A4 - Importación por cambio de régimen</option>
+<option value="AF">AF - Activos Fijos (maquinaria/equipo)</option>
+<option value="B1">B1 - Retorno de mercancías temporales</option>
+<option value="C1">C1 - Importación definitiva a franja fronteriza</option>
+<option value="C2">C2 - Imp. zona libre - no nacional</option>
+<option value="C3">C3 - Importación temporal a Franja Fronteriza</option>
+<option value="CT">CT - Consolidado de tránsitos</option>
+<option value="D1">D1 - Retorno por sustitución</option>
+<option value="E1">E1 - Extracción de depósito fiscal</option>
+<option value="E2">E2 - Extracción depósito para exportación</option>
+<option value="F1">F1 - Rect. datos del pedimento sin afectar cantidad</option>
+<option value="F4">F4 - Retorno de expo temporal</option>
+<option value="F5">F5 - Cambio de depósito fiscal</option>
+<option value="F9">F9 - Extracción de tienda libre de impuestos</option>
+<option value="G1">G1 - Retorno temporal a depósito fiscal</option>
+<option value="G7">G7 - Rectificación datos en documento de retorno</option>
+<option value="H1">H1 - Exportación por cambio de régimen</option>
+<option value="H2">H2 - Retorno de mercancías IMMEX</option>
+<option selected="selected" value="IN">IN - Importación Temporal (IMMEX)</option>
+<option value="J1">J1 - Tránsito interno de entrada</option>
+<option value="J2">J2 - Tránsito interno de salida</option>
+<option value="K1">K1 - Desistimiento de régimen/Retorno</option>
+<option value="K2">K2 - Rectificación de facturas</option>
+<option value="L1">L1 - Pequeña Importación/Exportación</option>
+<option value="P1">P1 - Reexpedición</option>
+<option value="R1">R1 - Tránsito internacional de entrada</option>
+<option value="R2">R2 - Tránsito internacional de salida</option>
+<option value="RT">RT - Retorno de mercancías</option>
+<option value="T1">T1 - Operaciones virtuales IMMEX</option>
+<option value="T3">T3 - Transferencia entre IMMEX</option>
+<option value="T6">T6 - Transferencia virtual empresa certificada</option>
+<option value="V1">V1 - Transferencias virtuales</option>
+<option value="V5">V5 - Retorno de empresas certificadas</option>
+<option value="V7">V7 - Extracción virtual depósito fiscal</option>
+</select>
+</td>
+<td class="label">REGIMEN: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>RÉGIMEN ADUANERO</strong></p>
+<p>Clave del régimen aduanero al que se destinan las mercancías, conforme al
+                                        Apéndice 16.</p>
+<p>Ejemplos: IMD (Definitivo), ITR (Temporal), DFI (Depósito Fiscal).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: IMD (Definitiva de Importación)</b></p>
+</div>
+</span>
+</span></td>
+<td class="data">
+<select name="regimen">
+<option value="">Sel...</option>
+<option value="IMD">IMD - Importación Definitiva</option>
+<option value="EXD">EXD - Exportación Definitiva</option>
+<option value="ITR">ITR - Importación Temporal de Remolques</option>
+<option value="ETR">ETR - Exportación Temporal de Remolques</option>
+<option selected="selected" value="ITE">ITE - Importación Temporal para Elaboración/Transformación</option>
+<option value="ETE">ETE - Exportación Temporal para Elaboración/Transformación</option>
+<option value="DFI">DFI - Depósito Fiscal</option>
+<option value="RFE">RFE - Recinto Fiscalizado Estratégico</option>
+<option value="TRA">TRA - Tránsito</option>
+</select>
+</td>
+<td class="label text-center" colspan="5">CERTIFICACIONES</td>
+</tr>
+<!-- ROW 2: DESTINO, TIPO CAMBIO, PESO BRUTO, ADUANA -->
+<tr>
+<td class="label">DESTINO: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>DESTINO / ORIGEN</strong></p>
+<p>Clave del país de destino (en exportación) o de origen (en importación) de las
+                                        mercancías, conforme al Apéndice 4.</p>
+<p>Ejemplos: MEX, USA, CAN, CHN, DEU.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: 9 (Interior de la República)</b></p>
+</div>
+</span>
+</span></td>
+<td class="data">
+<select name="destino" class="country-sel">
+<option value="">Sel...</option>
+</select>
+</td>
+<td class="label">TIPO CAMBIO: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>TIPO DE CAMBIO</strong></p>
+<p>El tipo de cambio del peso mexicano con respecto al dólar de los Estados Unidos
+                                        de América para efectos fiscales, vigente en la fecha de entrada o presentación.
+                                    </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: 17.1500 (DOF)</b></p>
+</div>
+</span>
+</span></td>
+<td class="data"><input name="tipoCambio" type="text" onblur="this.value = parseFloat(this.value.replace(',','')).toFixed(4); calcValorAduana();" value="17.0000"/><br/><button type="button" onclick="fetchTipoCambioBanxico()" style="font-size:7px;margin-top:1px;padding:1px 4px;background:#0F2C59;color:#D4AF37;border:1px solid #D4AF37;border-radius:3px;cursor:pointer;font-weight:bold;">🏦 Banxico</button></td>
+<td class="label">PESO BRUTO: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>PESO BRUTO</strong></p>
+<p>Peso bruto total de la mercancía en kilogramos, incluyendo embalajes y palets
+                                        (excluyendo el equipo de transporte como contenedores).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: 1540.50 (En kilogramos).</b></p>
+</div>
+</span>
+</span></td>
+<td class="data"><input name="pesoBruto" type="text" value="1500"/></td>
+<td class="label" colspan="2">ADUANA E/S: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>ADUANA DE ENTRADA / SALIDA</strong></p>
+<p>Clave de la aduana y sección aduanera por la que entra (importación) o sale
+                                        (exportación) la mercancía del territorio nacional, conforme al Apéndice 1.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 470 (Aduana AICM).</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="6">
+<select name="aduanaES">
+<option value="">Seleccionar...</option>
+<option value="01">01 - Aguascalientes</option>
+<option value="02">02 - Acapulco</option>
+<option value="05">05 - Agua Prieta</option>
+<option value="06">06 - Ensenada</option>
+<option value="07">07 - Cd. Juárez</option>
+<option value="09">09 - Chihuahua</option>
+<option value="10">10 - Ciudad Hidalgo</option>
+<option value="11">11 - Coatzacoalcos</option>
+<option value="12">12 - Columbia</option>
+<option value="14">14 - Cd. Camargo</option>
+<option value="15">15 - Cd. Reynosa</option>
+<option value="16">16 - Guaymas</option>
+<option value="17">17 - Matamoros</option>
+<option value="18">18 - Cd. Ojinaga</option>
+<option value="19">19 - Mexicali</option>
+<option value="20">20 - Nogales</option>
+<option value="21">21 - Nuevo Laredo</option>
+<option value="22">22 - Naco</option>
+<option value="23">23 - Piedras Negras</option>
+<option value="24">24 - San Luis Río Colorado</option>
+<option value="25">25 - Sonoyta</option>
+<option value="26">26 - Cd. Acuña</option>
+<option value="27">27 - Subteniente López</option>
+<option value="28">28 - Tecate</option>
+<option value="30">30 - Tijuana</option>
+<option value="35">35 - La Paz</option>
+<option value="37">37 - Manzanillo</option>
+<option value="40">40 - Mazatlán</option>
+<option value="41">41 - Puerto Vallarta</option>
+<option value="43">43 - Veracruz</option>
+<option value="44">44 - Progreso</option>
+<option value="46">46 - Dos Bocas</option>
+<option value="47">47 - AICM (Aeropuerto CDMX)</option>
+<option value="48">48 - Guadalajara</option>
+<option value="49">49 - Torreon</option>
+<option value="50">50 - Monterrey</option>
+<option value="51">51 - Lázaro Cárdenas</option>
+<option value="52">52 - Cd. del Carmen</option>
+<option value="53">53 - Cancún</option>
+<option value="54">54 - Cd. Industrial Bruno Pagliai</option>
+<option value="55">55 - Salina Cruz</option>
+<option value="56">56 - Altamira</option>
+<option value="57">57 - Tuxpan</option>
+<option value="58">58 - Tampico</option>
+<option value="60">60 - Toluca (Aeropuerto)</option>
+<option value="64">64 - Querétaro (Aeropuerto)</option>
+<option value="65">65 - San Luis Potosí</option>
+<option value="66">66 - Aguascalientes (Aeropuerto)</option>
+<option value="67">67 - Guanajuato</option>
+<option value="72">72 - Puebla</option>
+<option value="80">80 - INT. Pantaco</option>
+<option value="81">81 - INT. Colombia</option>
+<option value="82">82 - INT. Santa Teresa</option>
+<option value="83">83 - INT. Silao</option>
+<option value="84">84 - INT. Aguascalientes</option>
+</select>
+</td>
+</tr>
+<!-- ROW 3: MEDIOS DE TRANSPORTE + VALORES -->
+<tr>
+<td class="label">M. TRANSP. ARRIBO: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>MEDIO DE TRANSPORTE DE ARRIBO</strong></p>
+<p>Clave del medio de transporte en el que la mercancía ARRIBÓ a territorio nacional (Apéndice 3).</p>
+<span class="tt-ref">📋 Anexo 22, Campo 10</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 3 (Marítimo), 7 (Carretero).</b></p>
+</div>
+</span>
+</span></td>
+<td class="data">
+<select name="medioTranspArribo">
+<option value="">Sel...</option>
+<option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+<option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+</select>
+</td>
+<td class="label">M. TRANSP. SALIDA: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>MEDIO DE TRANSPORTE DE SALIDA</strong></p>
+<p>Clave del medio de transporte en el que la mercancía abandona la ADUANA (Apéndice 3).</p>
+<span class="tt-ref">📋 Anexo 22, Campo 11</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 3 (Marítimo), 7 (Carretero).</b></p>
+</div>
+</span>
+</span></td>
+<td class="data">
+<select name="medioTranspSalida">
+<option value="">Sel...</option>
+<option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+<option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+</select>
+</td>
+<td class="label">VALOR DOLARES: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>VALOR DÓLARES</strong></p>
+<p>El equivalente en dólares de los Estados Unidos de América del valor total de las
+                                        mercancías asentadas en el pedimento.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 150,000.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="2"><input name="valorDolares" onblur="this.value = formatter(this.value); calcValorAduana();" type="text" value="2,283"/></td>
+<td class="label" colspan="2">VALOR ADUANA: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>VALOR ADUANA (V.A.)</strong></p>
+<p>Es el valor de transacción más los incrementables (fletes, seguros). Es la BASE GRAVABLE para determinar el IGI y el DTA (8 al millar).</p>
+<ul style="list-style:none; padding:0; font-size:9px; color:#cbd5e1;">
+    <li>✅ Debe expresarse en Pesos Mexicanos.</li>
+    <li>✅ Resultado de: (Valor Factura USD * Tipo de Cambio) + Incrementables.</li>
+</ul>
+<span class="tt-ref">📋 Fuente: Ley Aduanera Art. 64-78.</span>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="2"><input name="valorAduana" onblur="this.value = formatter(this.value)" type="text" value="47,740"/><br/><button type="button" onclick="calcValorAduana()" style="font-size:7px;margin-top:1px;padding:1px 4px;background:#D4AF37;color:#0F2C59;border:none;border-radius:3px;cursor:pointer;font-weight:bold;">⚡ Calc V.A.</button></td>
+<td class="label text-center" colspan="3" rowspan="2">
+                        PRECIO PAGADO/<br/>VALOR COMERCIAL: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>PRECIO PAGADO / VALOR COMERCIAL</strong></p>
+<p>El pago total por las mercancías importadas (Precio Pagado) o el valor comercial
+                                        de las mismas (si no hay compra-venta).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 150,000.00</b></p>
+</div>
+</span>
+</span><br/>
+<input name="precioPagado" onblur="this.value = formatter(this.value)" style="margin-top:3px;" type="text" value="38,815"/>
+</td>
+</tr>
+<!-- ROW 4: FECHAS -->
+<tr>
+<td class="label">ENT/SALIDA:</td>
+<td class="data" colspan="2"><input name="fechaEntrada" placeholder="DD/MM/AAAA" type="text"/></td>
+<td class="label">PAGO:</td>
+<td class="data" colspan="2"><input name="fechaPagoHeader" placeholder="DD/MM/AAAA" type="text"/></td>
+<td class="label">EXTRACCIÓN:</td>
+<td class="data" colspan="2"><input name="fechaExtraccion" placeholder="DD/MM/AAAA" type="text"/></td>
+<td class="label">ARRIBO:</td>
+<td class="data"><input name="fechaArribo" placeholder="DD/MM/AAAA" type="text" style="width: 85%;"/></td>
+</tr>
+<tr>
+<td class="label" colspan="2">PRESENTACIÓN:</td>
+<td class="data" colspan="12"><input name="fechaPresentacion" placeholder="DD/MM/AAAA" type="text" style="max-width:120px;"/></td>
+</tr>
+<!-- DATOS DEL IMPORTADOR/EXPORTADOR -->
+<tr>
+<td class="section-header" colspan="14">DATOS DEL IMPORTADOR/EXPORTADOR</td>
+</tr>
+<tr>
+<td class="label">RFC: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>RFC (REGISTRO FEDERAL DE CONTRIBUYENTES)</strong></p>
+<p>Clave obligatoria del importador/exportador:</p>
+<ul style="list-style: none; padding-left: 0;">
+<li><b style="color:#10b981;">[12 Caracteres]</b> - Personas Morales (Empresas)</li>
+<li><b style="color:#10b981;">[13 Caracteres]</b> - Personas Físicas</li>
+</ul>
+<p>Debe coincidir con la lista de contribuyentes autorizados (Padrón de Importadores).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, Apéndice 1.</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: GME123456ABC (Moral)</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="2"><input name="rfcImpExp" type="text"/></td>
+<td class="label text-left" colspan="11">
+                        NOMBRE, DENOMINACIÓN O RAZÓN SOCIAL: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>NOMBRE O RAZÓN SOCIAL</strong></p>
+<p>Nombre, denominación o razón social del importador o exportador, tal como aparece
+                                        en su constancia de situación fiscal.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: GLOBAL ASSETS MEXICO S.A. DE C.V.</b></p>
+</div>
+</span>
+</span><br/>
+<textarea name="nombreImpExp" oninput="autoResize(this)"></textarea>
+</td>
+</tr>
+<tr>
+<td class="label">CURP: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>CURP</strong></p>
+<p>Clave Única de Registro de Población del importador o exportador (cuando sea
+                                        persona física).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: (Campo vacío para Personas Morales) o RERJ800101HXXXXX01.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="13"><input name="curpImpExp" type="text"/></td>
+</tr>
+<tr>
+<td class="label">DOMICILIO: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>DOMICILIO</strong></p>
+<p>Domicilio fiscal del importador o exportador, compuesto por calle, número
+                                        exterior, número interior, código postal, municipio, ciudad, entidad federativa
+                                        y país.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: INSURGENTES SUR 1234, CDMX, CP 03100</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="13"><textarea name="domicilioImpExp" oninput="autoResize(this)"></textarea></td>
+</tr>
+<!-- INCREMENTABLES -->
+<tr>
+<td class="label" colspan="2">VAL. SEGUROS (USD) <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>VALOR SEGUROS</strong></p>
+<p>Valor total de los seguros pagados por el transporte de las mercancías hasta el
+                                        lugar de entrada al territorio nacional.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 150,000.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="data"><input name="valSeguros" type="text" value="2,125"/></td>
+<td class="label">SEGUROS (MXN) <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>SEGUROS (MONEDA EXTRANJERA)</strong></p>
+<p>Importe de los seguros en dólares de los Estados Unidos de América (o su
+                                        equivalente).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 5,400.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="data"><input name="seguros" type="text" value="2,125" onblur="calcValorAduana()"/></td>
+<td class="label">FLETES <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>FLETES</strong></p>
+<p>Costo del transporte de las mercancías hasta que se dan los supuestos de entrada
+                                        al territorio nacional.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 5,400.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="data"><input name="fletes" type="text" value="6,800" onblur="calcValorAduana()"/></td>
+<td class="label">EMBALAJES <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>EMBALAJES</strong></p>
+<p>Costo de los envases y embalajes, si no están incluidos en el precio pagado de
+                                        las mercancías.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 5,400.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="data"><input name="embalajes" type="text" value="0" onblur="calcValorAduana()"/></td>
+<td class="label" colspan="2">OTROS INCREMENTABLES <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>OTROS INCREMENTABLES</strong></p>
+<p>Cualquier otro gasto que deba incrementarse al precio pagado para determinar el
+                                        valor en aduana (ej. regalías, materiales aportados, etc.).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: 1540 (Gastos de embalaje o inspección)</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="3"><input name="otrosIncr" type="text" value="0" onblur="calcValorAduana()"/></td>
+</tr>
+<!-- VALOR DECREMENTABLES -->
+<tr>
+<td class="section-header" colspan="14">VALOR DECREMENTABLES</td>
+</tr>
+<tr>
+<td class="label" colspan="2">TRANSPORTE DECREMENTABLES <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>TRANSPORTE DECREMENTABLE</strong></p>
+<p>Gastos de transporte incurridos después de la llegada de las mercancías, si están
+                                        desglosados y se pueden deducir.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de transporte decrementable.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data"><input name="transpDecrem" type="text"/></td>
+<td class="label" colspan="2">SEGURO DECREMENTABLES <span class="info">ⓘ<span class="tooltip">Gastos
+                                de seguro deducibles</span></span></td>
+<td class="data"><input name="seguroDecrem" type="text"/></td>
+<td class="label">CARGA <span class="info">ⓘ<span class="tooltip">Gastos de carga</span></span></td>
+<td class="data"><input name="carga" type="text"/></td>
+<td class="label">DESCARGA <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>DESCARGA / MANIOBRAS</strong></p>
+<p>Gastos de descarga y manipulación en el territorio nacional, si son deducibles.
+                                    </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de descarga / maniobras.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data"><input name="descarga" type="text"/></td>
+<td class="label" colspan="2">OTROS DECREMENTABLES</td>
+<td class="data" colspan="2"><input name="otrosDecrem" type="text"/></td>
+</tr>
+<!-- CÓDIGOS -->
+<tr>
+<td class="label" colspan="2">ACUSE ELECTRÓNICO DE VALIDACIÓN <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>ACUSE DE VALIDACIÓN</strong></p>
+<p>Número de acuse electrónico otorgado por el sistema de validación aduanera.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de acuse de validación.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="5"><input name="acuseValidacion" type="text"/></td>
+<td class="label" colspan="3">CLAVE DE LA SECCIÓN ADUANERA DE DESPACHO: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>SECCIÓN ADUANERA</strong></p>
+<p>Clave de la aduana y sección aduanera ante la cual se promueve el despacho (ej.
+                                        470, 240, 430).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de sección aduanera.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="4"><input name="cveSeccion" type="text"/></td>
+</tr><tr>
+<td class="label" colspan="4" style="background-color:#d0d0d0; text-align:center;">
+                    E-DOCUMENT (VUCEM) / CERTIFICADO DE ORIGEN:
+                    <span class="info" onclick="toggleTooltip(this)">ⓘ
+                        <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO VUCEM</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>E-DOCUMENT (CERTIFICADO DE ORIGEN)</strong></p>
+<p>En el esquema de Ventanilla Única (VUCEM), los Certificados de Origen (Ej. TLCAN/USMCA o ALADI) se digitalizan y el portal arroja un "e-Document".</p>
+<p>Este número de e-Document (13 a 15 caracteres) debe asentarse para amparar el origen. Adicionalmente, puede declararse en el campo de "Identificadores" con la clave "TL" o "CO".</p>
+<span class="tt-ref">📋 Fuente: VUCEM Manuales SHCP & Anexo 22</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: 000000000123A1 (Acuse VUCEM)</b></p>
+</div>
+</span>
+</span>
+</td>
+<td class="data" colspan="10">
+<div style="display:flex; gap:10px; align-items:center;">
+<input name="eDocumentVucem" placeholder="Obligatorio: Ej. 2401EDC123456" style="text-transform:uppercase; font-size:10px; font-weight:bold; width:70%;" type="text"/>
+<span class="label" style="padding:2px 5px;">ID TIPO DOC:</span>
+<input name="tipoDocumentoVucem" placeholder="Ej. 002" style="width:30%; font-size:10px; text-align:center;" title="Clave del documento según el Clasificador VUCEM" type="text"/>
+</div>
+</td>
+</tr>
+<!-- MARCAS Y BULTOS -->
+<tr>
+<td class="label" colspan="3">MARCAS, NÚMEROS Y TOTAL DE BULTOS <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>MARCAS Y BULTOS</strong></p>
+<p>Descripción de las marcas, números y la cantidad total de bultos que contienen
+                                        las mercancías.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: 10 PALETS C/ 50 CAJAS (FLEJADO)</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="11"><textarea name="marcasBultos" oninput="autoResize(this)"></textarea>
+</td>
+</tr>
+<!-- FECHAS + TASAS A NIVEL PEDIMENTO -->
+<tr>
+<td class="label" rowspan="2">FECHAS</td>
+<td class="label">ENTRADA</td>
+<td class="data" colspan="2"><input name="fechaEntradaPed" type="text"/></td>
+<td class="section-header" colspan="7">TASAS A NIVEL PEDIMENTO</td>
+<td class="data" colspan="3" rowspan="3"></td>
+</tr>
+<tr>
+<td class="label">PAGO <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>FECHA DE PAGO</strong></p>
+<p>Fecha en la que se efectuó el pago de las contribuciones y cuotas compensatorias.
+                                    </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 12/05/2026.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="2"><input name="fechaPago" type="text"/></td>
+<td class="label">CONTRIB. <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>CONTRIBUCIÓN</strong></p>
+<p>Clave de la contribución o aprovechamiento a liquidar (ej. DTA, IGI, IVA, IEPS).
+                                    </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de contribución.</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="2">CVE.T.TASA</td>
+<td class="label" colspan="4">TASA</td>
+</tr>
+<tr>
+<td class="data" colspan="4"></td>
+<td class="data"><input name="tasaContrib" type="text"/></td>
+<td class="data" colspan="2"><input name="tasaCve" type="text"/></td>
+<td class="data" colspan="4"><input name="tasa" type="text"/></td>
+</tr>
+<!-- CUADRO DE LIQUIDACIÓN -->
+<!-- CUADRO DE LIQUIDACIÓN -->
+<tr>
+    <td class="section-header" colspan="14">CUADRO DE LIQUIDACIÓN</td>
+</tr>
+<tr>
+    <td class="label" colspan="2">CONCEPTO</td>
+    <td class="label">F.P.</td>
+    <td class="label" colspan="2">IMPORTE</td>
+    <td class="label" colspan="2">CONCEPTO</td>
+    <td class="label">F.P.</td>
+    <td class="label" colspan="2">IMPORTE</td>
+    <td class="label" colspan="2">TOTALES</td>
+    <td class="data" colspan="2"></td>
+</tr>
+<tr>
+    <td class="data" colspan="2">DTA <span class="info">ⓘ</span></td>
+    <td class="data"><input name="liqDtaFp" type="text" value="0" style="text-align:center; font-weight:bold;"/></td>
+    <td class="data" colspan="2"><input name="liqDtaImporte" type="text" id="liqDtaImporte" onblur="this.value = formatter(this.value)"/><br/><button type="button" onclick="calcDTA()" style="font-size:7px;margin-top:2px;padding:1px 4px;background:#1e40af;color:white;border:none;border-radius:3px;cursor:pointer;">⚡ DTA</button></td>
+    <td class="data" colspan="2">IEPS <span class="info">ⓘ</span></td>
+    <td class="data"><input name="liqIepsFp" type="text" value="0" style="text-align:center; font-weight:bold;"/></td>
+    <td class="data" colspan="2"><input name="liqIepsImporte" id="liqIepsImporte" onblur="this.value = formatter(this.value)" type="text"/></td>
+    <td class="label" colspan="2">EFECTIVO</td>
+    <td class="data" colspan="2"><input name="liqEfectivo" id="liqEfectivo" type="text" style="font-weight:bold;"/></td>
+</tr>
+<tr>
+    <td class="data" colspan="2">IGI (1) <span class="info">ⓘ</span></td>
+    <td class="data"><input name="liqIgiFp" type="text" value="0" style="text-align:center; font-weight:bold;"/></td>
+    <td class="data" colspan="2"><input name="liqIgiImporte" id="liqIgiImporte" onblur="this.value = formatter(this.value)" type="text"/></td>
+    <td class="data" colspan="2">REC <span class="info">ⓘ</span></td>
+    <td class="data"><input name="liqRecFp" type="text" value="0" style="text-align:center; font-weight:bold;"/></td>
+    <td class="data" colspan="2"><input name="liqRecImporte" id="liqRecImporte" onblur="this.value = formatter(this.value)" type="text"/></td>
+    <td class="label" colspan="2">OTROS</td>
+    <td class="data" colspan="2"><input name="liqOtros" id="liqOtros" type="text" value="0"/></td>
+</tr>
+<tr>
+    <td class="data" colspan="2">IVA <span class="info">ⓘ</span></td>
+    <td class="data"><input name="liqIvaFp" type="text" value="0" style="text-align:center; font-weight:bold;"/></td>
+    <td class="data" colspan="2"><input name="liqIvaImporte" type="text" id="liqIvaImporte" onblur="this.value = formatter(this.value)"/><br/><button type="button" onclick="calcIVA()" style="font-size:7px;margin-top:2px;padding:1px 4px;background:#1e40af;color:white;border:none;border-radius:3px;cursor:pointer;">⚡ IVA</button></td>
+    <td class="data" colspan="2">C.C. <span class="info">ⓘ</span></td>
+    <td class="data"><input name="liqCcFp" type="text" value="0" style="text-align:center; font-weight:bold;"/></td>
+    <td class="data" colspan="2"><input name="liqCcImporte" id="liqCcImporte" onblur="this.value = formatter(this.value)" type="text"/></td>
+    <td class="label font-bold" colspan="2">TOTAL</td>
+    <td class="data" colspan="2"><input name="liqTotal" id="liqTotal" style="font-weight:bold; background:#f0fdf4;" type="text"/><br/><button type="button" onclick="calcTotal()" style="font-size:7px;margin-top:2px;padding:1px 4px;background:#16a34a;color:white;border:none;border-radius:3px;cursor:pointer;">⚡ Auto-calc TOTALES</button></td>
+</tr>
+<tr>
+    <td class="data" colspan="2">PRV <span class="info">ⓘ</span></td>
+    <td class="data"><input name="liqPrvFp" type="text" value="0" style="text-align:center; font-weight:bold;"/></td>
+    <td class="data" colspan="2"><input name="liqPrvImporte" id="liqPrvImporte" onblur="this.value = formatter(this.value)" type="text"/><br/><button type="button" onclick="calcPRV()" style="font-size:7px;margin-top:2px;padding:1px 4px;background:#1e40af;color:white;border:none;border-radius:3px;cursor:pointer;">⚡ PRV</button></td>
+    <td class="data" colspan="2">MT <span class="info">ⓘ</span></td>
+    <td class="data"><input name="liqMtFp" type="text" value="0" style="text-align:center; font-weight:bold;"/></td>
+    <td class="data" colspan="2"><input name="liqMtImporte" id="liqMtImporte" onblur="this.value = formatter(this.value)" type="text"/></td>
+    <td colspan="4"></td>
+</tr>
+<tr>
+    <td class="data" colspan="2">CNT <span class="info">ⓘ</span></td>
+    <td class="data"><input name="liqCntFp" type="text" value="0" style="text-align:center; font-weight:bold;"/></td>
+    <td class="data" colspan="2"><input name="liqCntImporte" id="liqCntImporte" onblur="this.value = formatter(this.value)" value="70" type="text"/></td>
+    <td colspan="11"></td>
+</tr>
+
+<!-- RECTIFICACION -->
+<tr class="rect-section" style="display:none;">
+    <td class="section-header" colspan="14">RECTIFICACION</td>
+</tr>
+<tr class="rect-section" style="display:none;">
+    <td class="label" colspan="2">PED. ORIGINAL</td>
+    <td class="label" colspan="2">CVE. ORIGINAL</td>
+    <td class="label" colspan="2">CVE. RECT.</td>
+    <td class="label" colspan="2">FECHA PAGO RECT.</td>
+    <td class="label" colspan="6"></td>
+</tr>
+<tr class="rect-section" style="display:none;">
+    <td class="data" colspan="2"><input name="rectPedOriginal" placeholder="00 00 0000 0000000" type="text"/></td>
+    <td class="data" colspan="2"><input name="rectCveOriginal" type="text"/></td>
+    <td class="data" colspan="2"><input name="rectCveRect" type="text"/></td>
+    <td class="data" colspan="2"><input name="rectFechaPago" placeholder="DD/MM/AAAA" type="text"/></td>
+    <td class="data" colspan="6"></td>
+</tr>
+
+<!-- DIFERENCIAS DE CONTRIBUCIONES A NIVEL PEDIMENTO -->
+<tr class="rect-section" style="display:none;">
+    <td class="section-header" colspan="14">DIFERENCIAS DE CONTRIBUCIONES A NIVEL PEDIMENTO</td>
+</tr>
+<tr class="rect-section" style="display:none;">
+    <td class="label" colspan="2">CONCEPTO</td>
+    <td class="label">F.P.</td>
+    <td class="label" colspan="2">DIFERENCIA</td>
+    <td class="label" colspan="2">CONCEPTO</td>
+    <td class="label">F.P.</td>
+    <td class="label" colspan="2">DIFERENCIA</td>
+    <td class="label" colspan="2">DIFERENCIAS TOTALES</td>
+    <td class="data" colspan="2"></td>
+</tr>
+<tbody class="rect-section" style="display:none;">
+    <tr>
+        <td class="data" colspan="2"><input name="diff[0][con]" type="text"/></td>
+        <td class="data"><input name="diff[0][fp]" type="text"/></td>
+        <td class="data" colspan="2"><input name="diff[0][imp]" type="text"/></td>
+        <td class="data" colspan="2"><input name="diff[1][con]" type="text"/></td>
+        <td class="data"><input name="diff[1][fp]" type="text"/></td>
+        <td class="data" colspan="2"><input name="diff[1][imp]" type="text"/></td>
+        <td class="label" colspan="2">EFECTIVO</td>
+        <td class="data" colspan="2"><input name="diffEfectivo" type="text"/></td>
+    </tr>
+    <tr>
+        <td class="data" colspan="2"><input name="diff[2][con]" type="text"/></td>
+        <td class="data"><input name="diff[2][fp]" type="text"/></td>
+        <td class="data" colspan="2"><input name="diff[2][imp]" type="text"/></td>
+        <td class="data" colspan="2"><input name="diff[3][con]" type="text"/></td>
+        <td class="data"><input name="diff[3][fp]" type="text"/></td>
+        <td class="data" colspan="2"><input name="diff[3][imp]" type="text"/></td>
+        <td class="label" colspan="2">OTROS</td>
+        <td class="data" colspan="2"><input name="diffOtros" type="text"/></td>
+    </tr>
+    <tr>
+        <td colspan="10"></td>
+        <td class="label font-bold" colspan="2">TOTAL</td>
+        <td class="data" colspan="2"><input name="diffTotal" style="font-weight:bold;" type="text"/></td>
+    </tr>
+</tbody>
+
+<!-- IDENTIFICADORES (NIVEL PEDIMENTO) -->
+<tr>
+    <td class="section-header" colspan="14" style="background:#0f172a; color:white; padding:0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 10px; width:100%; box-sizing:border-box;">
+            <span>IDENTIFICADORES (NIVEL PEDIMENTO)</span>
+            <button type="button" onclick="addGlobalIdRow()" class="no-print" style="background:#10b981; border:none; color:white; border-radius:3px; padding:2px 8px; font-size:9px; cursor:pointer;">+ Agregar Identificador Pedimento</button>
+        </div>
+    </td>
+</tr>
+<tr>
+    <td class="label" colspan="2">CLAVE</td>
+    <td class="label" colspan="4">COMPLEMENTO 1</td>
+    <td class="label" colspan="4">COMPLEMENTO 2</td>
+    <td class="label" colspan="4">COMPLEMENTO 3</td>
+</tr>
+<tbody id="globalIdTbody">
+    <tr class="glob-id-row">
+        <td class="data" colspan="2"><input name="globIdClave[]" type="text" style="text-align:center; font-weight:bold;"/></td>
+        <td class="data" colspan="4"><input name="globIdC1[]" type="text"/></td>
+        <td class="data" colspan="4"><input name="globIdC2[]" type="text"/></td>
+        <td class="data" colspan="4"><input name="globIdC3[]" type="text"/></td>
+    </tr>
+</tbody>
+<tr class="no-print">
+    <td class="text-center" colspan="14" style="background:#f8f8f8; padding:3px;">
+    </td>
+</tr>
+<!-- DEPÓSITO REFERENCIADO -->
+<tr>
+<td class="section-header" colspan="14">DEPÓSITO REFERENCIADO - LÍNEA DE CAPTURA</td>
+</tr>
+<tr>
+<td class="data text-center" colspan="10" style="padding:10px;">
+<input name="lineaCaptura" placeholder="0321 02FH S3P1 3147 9229 278" style="font-size:12px; font-family:monospace; text-align:center; width:80%;" type="text"/>
+</td>
+<td class="data text-center" colspan="4" rowspan="6">
+<div id="vucemQrContainer" style="border: 2px dashed #059669; height: 100px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; border-radius: 8px; background: #f0fdf4;" onclick="loadVucemQR()">
+    <span style="font-size: 8px; color: #047857; font-weight: bold; margin-bottom: 2px;">Sello VUCEM</span>
+    <span style="font-size: 6px; color: #10b981;">Clic para generar/subir<br/>QR Oficial</span>
+</div>
+<img id="vucemQrImage" src="" style="display:none; width:100%; max-height:100px; object-fit:contain; margin:0 auto; cursor:pointer;" onclick="loadVucemQR()" title="Clic para modificar o eliminar QR VUCEM" />
+</td>
+</tr>
+<tr>
+<td class="section-header" colspan="10">***PAGO ELECTRÓNICO***</td>
+</tr>
+<tr>
+<td class="label" colspan="4">Nombre de la Institución Bancaria: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>NOMBRE DE LA INSTITUCIÓN BANCARIA</strong></p>
+<p>Nombre del banco autorizado donde se realiza el pago de las contribuciones.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de nombre de la institución bancaria.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="6"><input name="nombreBanco" type="text"/></td>
+</tr>
+<tr>
+<td class="label">Patente: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>PATENTE</strong></p>
+<p>Número de patente del agente aduanal autorizado.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 1234</b></p>
+</div>
+</span>
+</span></td>
+<td class="data"><input name="patente" type="text"/></td>
+<td class="label">Pedimento:</td>
+<td class="data" colspan="2"><input name="pedimentoNum" type="text"/></td>
+<td class="label">Aduana:</td>
+<td class="data" colspan="2"><input name="aduanaNum" type="text"/></td>
+<td class="label">Fecha de pago:</td>
+<td class="data"><input name="fechaPagoRef" type="text"/></td>
+</tr>
+<tr>
+<td class="label" colspan="2">Línea de Captura: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>LÍNEA DE CAPTURA</strong></p>
+<p>Referencia bancaria alfanumérica para el pago de contribuciones (21 caracteres).
+                                    </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de línea de captura.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="4"><input name="lineaCapturaRef" type="text"/></td>
+<td class="label" colspan="2">Importe de Pago:</td>
+<td class="data" colspan="2"><input name="importePago" type="text"/></td>
+</tr>
+<tr>
+<td class="label" colspan="3">Número de Transacción SAT: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>NÚMERO DE OPERACIÓN / TRANSACCIÓN</strong></p>
+<p>Número de operación bancaria o de transacción otorgado por el SAT.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de número de operación / transacción.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="4"><input name="numTransaccionSat" type="text"/></td>
+<td class="data" colspan="3"></td>
+</tr>
+<tr>
+<td class="label" colspan="2">Medio de presentación:</td>
+<td class="data" colspan="4"><input name="medioPresentacion" type="text" value="PAGO ELECTRÓNICO"/>
+</td>
+<td class="data" colspan="8"></td>
+</tr>
+<tr>
+<td class="label" colspan="3">Medio de recepción/cobro:</td>
+<td class="data" colspan="4"><input name="medioRecepcion" type="text" value="Efectivo - Cargo a cuenta"/></td>
+<td class="data" colspan="7"></td>
+</tr>
+<!-- AGENTE ADUANAL -->
+<tr>
+<td class="label text-left" colspan="7" style="font-size:6px; line-height:1.3; vertical-align:top; border-right:1px solid #666; padding:4px;">
+    AGENTE ADUANAL, AGENCIA ADUANAL, APODERADO ADUANAL O DE ALMACÉN<br/>
+    NOMBRE O RAZ. SOC.: <input name="agenteNombre" style="width:65%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/><br/><br/>
+    RFC: <input name="agenteRfc" style="width:30%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/> CURP: <input name="agenteCurp" style="width:40%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/><br/><br/>
+    MANDATARIO / PERSONA AUTORIZADA<br/>
+    NOMBRE: <input name="mandatarioNombre" style="width:65%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/><br/><br/>
+    RFC: <input name="mandatarioRfc" style="width:30%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/> CURP: <input name="mandatarioCurp" style="width:40%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/>
+</td>
+<td class="data" colspan="7" style="font-size:6px; line-height:1.3; padding:4px; vertical-align:top;">
+    DECLARO BAJO PROTESTA DE DECIR VERDAD, EN LOS TÉRMINOS DE LO DISPUESTO POR EL ARTÍCULO 81 DE LA LEY, PATENTE O AUTORIZACIÓN: <input name="agentePatente" style="width:40px; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/><br/><br/>
+    NÚMERO DE SERIE DEL CERTIFICADO: <input name="numSerieCertificado" style="width:120px; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/><br/><br/>
+    <textarea name="firmaElectronica" placeholder="Firma electrónica avanzada / E.Firma..." style="font-size:5px; height:20px; width:98%; border:1px solid #ccc; background:#f9f9f9; padding:2px;"></textarea>
+</td>
+</tr>
+<tr>
+<td class="label" colspan="7">Copia: Nula</td>
+<td class="label text-right" colspan="7">Destino/Origen, interior del país.</td>
+</tr>
+</table>
+</div>
+<!-- ==================== PÁGINA 2: ANEXO DEL PEDIMENTO ==================== -->
+<div class="page page-break" id="pagina2">
+<table style="table-layout: fixed; width: 100%;">
+<colgroup>
+    <col style="width: 7.1428%;" span="14">
+</colgroup>
+<tr>
+<td class="header-title anexo-header" colspan="12">ANEXO DEL PEDIMENTO</td>
+<td class="label text-right" colspan="2">Página 2 de 2</td>
+</tr>
+<!-- DATOS DEL PROVEEDOR O COMPRADOR -->
+<tr>
+<td class="section-header anexo-header" colspan="14">DATOS DEL PROVEEDOR O COMPRADOR</td>
+</tr>
+<tr>
+<td class="label">ID. FISCAL <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>IDENTIFICACIÓN FISCAL</strong></p>
+<p>Número de registro o identificación fiscal del proveedor o comprador en el
+                                        extranjero.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de identificación fiscal.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="2"><input name="provIdFiscal" type="text"/></td>
+<td class="label" colspan="4">NOMBRE, DENOMINACIÓN O RAZÓN SOCIAL <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>NOMBRE DEL PROVEEDOR / COMPRADOR</strong></p>
+<p>Nombre, denominación o razón social del proveedor o comprador en el extranjero.
+                                    </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de nombre del proveedor / comprador.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="3"><textarea name="provNombre" oninput="autoResize(this)"></textarea></td>
+<td class="label">DOMICILIO:</td>
+<td class="data" colspan="2"><input name="provDomicilio" type="text"/></td>
+<td class="label">VINCULACIÓN <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>VINCULACIÓN</strong></p>
+<p>Indicar si existe vinculación entre el importador y el proveedor extranjero.</p>
+<ul>
+<li>0 - No existe vinculación.</li>
+<li>1 - Sí existe vinculación.</li>
+</ul>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de vinculación.</b></p>
+</div>
+</span>
+</span></td>
+</tr>
+<tr>
+<td class="data" colspan="13"></td>
+<td class="data">
+<select name="provVinculacion">
+<option value="0">0 - No</option>
+<option value="1">1 - Sí</option>
+</select>
+</td>
+</tr>
+<!-- FACTURA -->
+<tr>
+<td class="label" colspan="2">NUM. FACTURA <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>NÚMERO DE FACTURA</strong></p>
+<p>Número de la factura comercial o documento equivalente que ampara las mercancías.
+                                    </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de número de factura.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="2"><input name="numFactura" type="text"/></td>
+<td class="label">FECHA <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>FECHA FACTURA</strong></p>
+<p>Fecha de expedición de la factura comercial.</p>
+<p>Formato: DD/MM/AAAA</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 12/05/2026.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data"><input name="fechaFactura" type="text"/></td>
+<td class="label">INCOTERM <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>INCOTERM</strong></p>
+<p>Clave del término de facturación conforme al Apéndice 14 (Ej. FOB, CIF, EXW).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo real: FOB (Free on Board)</b></p>
+</div>
+</span>
+</span></td>
+<td class="data">
+<select name="incoterm">
+<option value="">Sel...</option>
+<option value="EXW">EXW - En fábrica (Ex Works)</option>
+<option value="FCA">FCA - Franco transportista (Free Carrier)</option>
+<option value="CPT">CPT - Transporte pagado hasta (Carriage Paid To)</option>
+<option value="CIP">CIP - Transporte y seguro pagados hasta</option>
+<option value="DAP">DAP - Entregado en lugar (Delivered At Place)</option>
+<option value="DPU">DPU - Entregado en lugar descargado</option>
+<option value="DDP">DDP - Entregado derechos pagados</option>
+<option value="FAS">FAS - Franco al costado del buque</option>
+<option value="FOB">FOB - Franco a bordo (Free On Board)</option>
+<option value="CFR">CFR - Costo y flete</option>
+<option value="CIF">CIF - Costo, seguro y flete</option>
+</select>
+</td>
+<td class="label">MONEDA FACT <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>MONEDA DE FACTURACIÓN</strong></p>
+<p>Clave de la moneda utilizada en la factura comercial (Ej. USD, EUR, MXN),
+                                        conforme al Apéndice 5.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: USD, EUR, MXN.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data">
+<select name="monedaFact">
+<option value="">Sel...</option>
+<option value="USD">USD - Dólar Americano</option>
+<option value="MXN">MXN - Peso Mexicano</option>
+<option value="EUR">EUR - Euro</option>
+<option value="JPY">JPY - Yen Japonés</option>
+<option value="CAD">CAD - Dólar Canadiense</option>
+<option value="GBP">GBP - Libra Esterlina</option>
+<option value="CNY">CNY - Yuan Chino</option>
+<option value="CHF">CHF - Franco Suizo</option>
+<option value="KRW">KRW - Won Coreano</option>
+<option value="TWD">TWD - Dólar Taiwanés</option>
+<option value="HKD">HKD - Dólar Hong Kong</option>
+<option value="SGD">SGD - Dólar Singapur</option>
+<option value="AUD">AUD - Dólar Australiano</option>
+<option value="NZD">NZD - Dólar Neozelandés</option>
+<option value="BRL">BRL - Real Brasileño</option>
+<option value="ARS">ARS - Peso Argentino</option>
+<option value="CLP">CLP - Peso Chileno</option>
+<option value="COP">COP - Peso Colombiano</option>
+<option value="INR">INR - Rupia India</option>
+<option value="SEK">SEK - Corona Sueca</option>
+<option value="NOK">NOK - Corona Noruega</option>
+<option value="DKK">DKK - Corona Danesa</option>
+<option value="PLN">PLN - Zloty Polaco</option>
+<option value="RUB">RUB - Rublo Ruso</option>
+</select>
+</td>
+<td class="label">VAL.MON FACT</td>
+<td class="data"><input name="valMonFact" type="text"/></td>
+<td class="data" colspan="2"></td>
+</tr>
+<tr>
+<td class="data" colspan="10"></td>
+<td class="label">FACTOR MON FACT</td>
+<td class="data"><input name="factorMonFact" type="text"/></td>
+<td class="label">VAL.DOLARES</td>
+<td class="data"><input name="valDolaresFact" type="text"/></td>
+</tr>
+<!-- TRANSPORTE -->
+<tr>
+<td class="label" colspan="2">TRANSPORTE IDENTIFICACIÓN: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>IDENTIFICACIÓN DE TRANSPORTE</strong></p>
+<p>Identificación del medio de transporte (Placas, número económico, nombre del
+                                        buque, matrícula de aeronave).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de identificación de transporte.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="12"><input name="transpIdentificacion" type="text"/></td>
+</tr>
+<tr>
+<td class="label" colspan="3">NÚMERO (GUÍA/ORDEN EMBARQUE) / ID:</td>
+<td class="data" colspan="11"><input name="numeroGuia" type="text"/></td>
+</tr>
+<tr>
+<td class="label" colspan="3">NÚMERO / TIPO DE CONTENEDOR:</td>
+<td class="data" colspan="11"><input name="contenedor" type="text"/></td>
+</tr>
+<tr>
+<td class="label">TRANSPORTISTA: <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>TRANSPORTISTA</strong></p>
+<p>Nombre o razón social de la empresa transportista que conduce las mercancías.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de transportista.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="5"><input name="transportista" type="text"/></td>
+<td class="label">RFC</td>
+<td class="data" colspan="7"><input name="transpRfc" type="text"/></td>
+</tr>
+<tr>
+<td class="label">CURP</td>
+<td class="data" colspan="5"><input name="transpCurp" type="text"/></td>
+<td class="label" colspan="2">DOMICILIO/CIUDAD/ESTADO</td>
+<td class="data" colspan="6"><input name="transpDomicilio" type="text"/></td>
+</tr>
+<tr>
+<td class="label" colspan="2">NÚMERO DE CANDADO <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>CANDADOS OFICIALES</strong></p>
+<p>Números de los candados oficiales o precintos fiscales colocados al vehículo o
+                                        contenedor.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de candados oficiales.</b></p>
+</div>
+</span>
+</span></td>
+<td class="data" colspan="12"><input name="numCandado" type="text"/></td>
+</tr>
+<tr>
+<td class="label">1RA. REVISION</td>
+<td class="data" colspan="13"><input name="primeraRevision" type="text"/></td>
+</tr>
+<tr>
+<td class="label">NÚMERO/TIPO</td>
+<td class="data" colspan="2"><input name="numTipo" type="text"/></td>
+<td class="data" colspan="11"></td>
+</tr>
+<!-- IDENTIFICADORES -->
+<tr>
+<td class="label" colspan="3">CLAVE/COMPL. IDENTIFICADOR <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>IDENTIFICADORES</strong></p>
+<p>Clave que define situaciones relacionadas con la operación, conforme al Apéndice
+                                        8 (Ej. TL, IN, PSA).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de identificadores.</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="3">COMPLEMENTO 1</td>
+<td class="label" colspan="4">COMPLEMENTO 2</td>
+<td class="label" colspan="4">COMPLEMENTO 3</td>
+</tr>
+<tbody id="identificadores">
+<tr class="ident-row">
+<td class="data" colspan="3"><input name="ident[0][clave]" type="text"/></td>
+<td class="data" colspan="3"><input name="ident[0][comp1]" type="text"/></td>
+<td class="data" colspan="4"><input name="ident[0][comp2]" type="text"/></td>
+<td class="data" colspan="4"><input name="ident[0][comp3]" type="text"/></td>
+</tr>
+</tbody>
+<tr class="no-print">
+<td class="text-center" colspan="14" style="background:#f8f8f8;">
+<button onclick="agregarIdentificador()" style="color:blue; background:none; border:none; cursor:pointer; font-size:9px;" type="button">+ Agregar
+                            Identificador</button>
+</td>
+</tr>
+<!-- ========== SECCIONES OPCIONALES (COLAPSABLES) ========== -->
+<tr class="no-print">
+<td class="collapsible-container" colspan="14" style="background:#f5f5f5; border:1px solid #ccc;">
+<div class="collapsible-header" onclick="toggleSection('descargos')">
+<span>DESCARGOS <span class="optional-tag">OPC</span></span>
+<span class="toggle-icon">▼</span>
+</div>
+<div class="collapsible-header" onclick="toggleSection('permisos')">
+<span>PERMISOS/RRNA <span class="optional-tag">OPC</span></span>
+<span class="toggle-icon">▼</span>
+</div>
+<div class="collapsible-header" onclick="toggleSection('cuentasAduaneras')">
+<span>CUENTAS ADUANERAS <span class="optional-tag">OPC</span></span>
+<span class="toggle-icon">▼</span>
+</div>
+<div class="collapsible-header" onclick="toggleSection('compensaciones')">
+<span>COMPENSACIONES <span class="optional-tag">OPC</span></span>
+<span class="toggle-icon">▼</span>
+</div>
+</td>
+</tr>
+<!-- DESCARGOS Content -->
+<tbody class="collapsible-content" id="descargos">
+<tr>
+<td class="label" colspan="3">PEDIMENTO ORIGINAL <span class="info">ⓘ<span class="tooltip">Número del pedimento que se está descargando</span></span></td>
+<td class="label" colspan="3">FECHA ORIGINAL</td>
+<td class="label" colspan="2">CVE. ADUANA</td>
+<td class="label" colspan="2">PATENTE ORIG.</td>
+<td class="label" colspan="2">CANTIDAD</td>
+<td class="label" colspan="2">UNIDAD</td>
+</tr>
+<tr>
+<td class="data" colspan="3"><input name="descargo[0][pedOriginal]" placeholder="00 00 0000 0000000" type="text"/></td>
+<td class="data" colspan="3"><input name="descargo[0][fechaOriginal]" placeholder="DD/MM/AAAA" type="text"/></td>
+<td class="data" colspan="2"><input name="descargo[0][cveAduana]" type="text"/></td>
+<td class="data" colspan="2"><input name="descargo[0][patenteOrig]" type="text"/></td>
+<td class="data" colspan="2"><input name="descargo[0][cantidad]" type="text"/></td>
+<td class="data" colspan="2"><input name="descargo[0][unidad]" type="text"/></td>
+</tr>
+<tr class="no-print">
+<td class="text-center" colspan="14" style="background:#f0f0f0;">
+<button onclick="agregarDescargo()" style="color:blue; background:none; border:none; cursor:pointer; font-size:9px;" type="button">+
+                                Agregar Descargo</button>
+</td>
+</tr>
+</tbody>
+<!-- PERMISOS Content -->
+<tbody class="collapsible-content" id="permisos">
+<tr>
+<td class="label" colspan="2">CVE. PERMISO <span class="info">ⓘ<span class="tooltip">Clave del
+                                    permiso según Apéndice 11: NOM, SE, SAGARPA</span></span></td>
+<td class="label" colspan="4">NÚM. PERMISO</td>
+<td class="label" colspan="2">FIRMA DESCARGO</td>
+<td class="label" colspan="3">VAL. COMERCIAL DLS</td>
+<td class="label" colspan="3">CANTIDAD</td>
+</tr>
+<tr>
+<td class="data" colspan="2"><input name="permiso[0][cvePermiso]" placeholder="Ej: NOM, SE" type="text"/></td>
+<td class="data" colspan="4"><input name="permiso[0][numPermiso]" type="text"/></td>
+<td class="data" colspan="2"><input name="permiso[0][firmaDescargo]" type="text"/></td>
+<td class="data" colspan="3"><input name="permiso[0][valComercial]" type="text"/></td>
+<td class="data" colspan="3"><input name="permiso[0][cantidad]" type="text"/></td>
+</tr>
+<tr class="no-print">
+<td class="text-center" colspan="14" style="background:#f0f0f0;">
+<button onclick="agregarPermiso()" style="color:blue; background:none; border:none; cursor:pointer; font-size:9px;" type="button">+
+                                Agregar Permiso</button>
+</td>
+</tr>
+</tbody>
+<!-- CUENTAS ADUANERAS Content -->
+<tbody class="collapsible-content" id="cuentasAduaneras">
+<tr>
+<td class="label" colspan="3">INSTITUCIÓN EMISORA <span class="info">ⓘ<span class="tooltip">Banco o institución que emite la garantía</span></span></td>
+<td class="label" colspan="3">NÚM. CUENTA</td>
+<td class="label" colspan="3">FOLIO CONSTANCIA</td>
+<td class="label" colspan="2">FECHA</td>
+<td class="label" colspan="3">IMPORTE GARANTÍA</td>
+</tr>
+<tr>
+<td class="data" colspan="3"><input name="cuentaGarantia[institucion]" type="text"/></td>
+<td class="data" colspan="3"><input name="cuentaGarantia[numCuenta]" type="text"/></td>
+<td class="data" colspan="3"><input name="cuentaGarantia[folioConstancia]" type="text"/></td>
+<td class="data" colspan="2"><input name="cuentaGarantia[fecha]" type="text"/></td>
+<td class="data" colspan="3"><input name="cuentaGarantia[importe]" type="text"/></td>
+</tr>
+</tbody>
+<!-- COMPENSACIONES Content -->
+<tbody class="collapsible-content" id="compensaciones">
+<tr>
+<td class="label" colspan="3">CONCEPTO <span class="info">ⓘ<span class="tooltip">Tipo de
+                                    impuesto a compensar: IVA, ISR, IEPS</span></span></td>
+<td class="label" colspan="3">IMPORTE A COMPENSAR</td>
+<td class="label" colspan="4">RFC CONTRIBUYENTE</td>
+<td class="label" colspan="4">PERIODO ORIGEN</td>
+</tr>
+<tr>
+<td class="data" colspan="3"><input name="compensacion[concepto]" placeholder="IVA, ISR..." type="text"/></td>
+<td class="data" colspan="3"><input name="compensacion[importe]" type="text"/></td>
+<td class="data" colspan="4"><input name="compensacion[rfcContrib]" type="text"/></td>
+<td class="data" colspan="4"><input name="compensacion[periodo]" type="text"/></td>
+</tr>
+</tbody>
+<!-- ========== FIN SECCIONES OPCIONALES ========== -->
+<!-- OBSERVACIONES -->
+<tr>
+<td class="section-header" colspan="14">Observaciones <span class="info">ⓘ<span class="tooltip">Observaciones generales del pedimento</span></span></td>
+</tr>
+<tr>
+<td class="data" colspan="14"><textarea name="observaciones" oninput="autoResize(this)" style="min-height:30px;"></textarea></td>
+</tr>
+<!-- PARTIDAS -->
+<tr>
+<td class="section-header" colspan="14">PARTIDAS</td>
+</tr>
+<tr>
+<td class="label">FRACCIÓN <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>FRACCIÓN ARANCELARIA</strong></p>
+<p>Clave de la fracción arancelaria (8 dígitos) conforme a la TIGIE, que corresponda
+                                        a la mercancía.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 0901.11.01 (Café)</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">SUBD <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>SUBDIVISIÓN</strong></p>
+<p>Clave de subdivisión cuando la fracción arancelaria lo requiera.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de subdivisión.</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">VINC <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>VINCULACIÓN</strong></p>
+<p>Clave de vinculación del importador con el vendedor (0-No, 1-Sí, 2-Sí y afecta
+                                        valor).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de vinculación.</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">MET. VAL <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>MÉTODO DE VALORACIÓN</strong></p>
+<p>Clave del método de valoración conforme al Apéndice 11:</p>
+<ul style="margin-left: 15px; margin-top: 5px; list-style-type: disc;">
+    <li><b>1</b>: Valor de Transacción de las Mercancías.</li>
+    <li><b>2</b>: Valor de Transacción de Mercancías Idénticas.</li>
+    <li><b>3</b>: Valor de Transacción de Mercancías Similares.</li>
+    <li><b>4</b>: Valor de Precio Unitario de Venta.</li>
+    <li><b>5</b>: Valor Reconstruido.</li>
+    <li><b>6</b>: Último Recurso.</li>
+    <li><b>7</b>: Valor Comercial.</li>
+</ul>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 1 (Valor de Transacción)</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">UMC <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>UNIDAD DE MEDIDA DE COMERCIALIZACIÓN</strong></p>
+<p>Clave de la unidad de medida utilizada en la factura comercial (Apéndice 7):</p>
+<ul style="margin-left: 15px; margin-top: 5px; list-style-type: disc;">
+    <li><b>01</b>: KILO</li>
+    <li><b>03</b>: METRO LINEAL</li>
+    <li><b>04</b>: METRO CUADRADO</li>
+    <li><b>05</b>: METRO CUBICO</li>
+    <li><b>06</b>: PIEZA</li>
+    <li><b>08</b>: LITRO</li>
+    <li><b>09</b>: PAR</li>
+    <li><b>15</b>: KILOMETRO</li>
+</ul>
+<span class="tt-ref">📋 Fuente: Anexo 22, Apéndice 7, DOF 2026</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 06 (Pieza) o 01 (Kilo)</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">CANTIDAD UMC <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>CANTIDAD UMC</strong></p>
+<p>Cantidad de mercancía conforme a la unidad de medida de comercialización.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 50</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">UMT <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>UNIDAD DE MEDIDA TARIFA</strong></p>
+<p>Clave de la unidad de medida de la TIGIE (Tarifa).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de unidad de medida tarifa.</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">CANTIDAD UMT <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>CANTIDAD UMT</strong></p>
+<p>Cantidad de mercancía conforme a la unidad de medida de la TIGIE.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 50</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">P.V/C <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>PAÍS VENDEDOR / COMPRADOR</strong></p>
+<p>Clave del país del vendedor o comprador.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de país vendedor / comprador.</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">P.O/D <span class="info" onclick="toggleTooltip(this)">ⓘ
+                            <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>PAÍS ORIGEN / DESTINO</strong></p>
+<p>Clave del país de origen o destino de la mercancía.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de país origen / destino.</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="4"></td>
+</tr>
+<tbody class="partida-tbody">
+<tr class="partida-row">
+<td class="data"><input name="partidas[0][fraccion]" placeholder="Fracción" type="text" value="4407.11.99"/></td>
+<td class="data"><input name="partidas[0][subd]" placeholder="Subd" type="text"/></td>
+<td class="data">
+<select name="partidas[0][vinc]">
+<option value="0">0</option>
+<option value="1">1</option>
+</select>
+</td>
+<td class="data">
+<select name="partidas[0][met]">
+<option value="0">0 - Comercial / Exportación</option>
+<option value="1">1 - Valor de Transacción</option>
+<option value="2">2 - Trans. Idénticas</option>
+<option value="3">3 - Trans. Similares</option>
+<option value="4">4 - Precio Unitario</option>
+<option value="5">5 - Valor Reconstruido</option>
+<option value="6">6 - Último Recurso</option>
+<option value="7">7 - Valor Comercial</option>
+</select>
+</td>
+<td class="data">
+<select name="partidas[0][umc]">
+<option value="01">01 - Kilo</option>
+<option value="02">02 - Gramo</option>
+<option value="03">03 - Metro Lineal</option>
+<option value="04">04 - Metro Cuadrado</option>
+<option value="05">05 - Metro Cúbico</option>
+<option value="06">06 - Pieza</option>
+<option value="07">07 - Cabeza</option>
+<option value="08">08 - Litro</option>
+<option value="09">09 - Par</option>
+<option value="15">15 - Kilómetro</option>
+</select>
+</td>
+<td class="data"><input name="partidas[0][cantUmc]" type="text"/></td>
+<td class="data">
+<select name="partidas[0][umt]">
+<option value="01">01 - Kilo</option>
+<option value="02">02 - Gramo</option>
+<option value="03">03 - Metro Lineal</option>
+<option value="04">04 - Metro Cuadrado</option>
+<option value="05">05 - Metro Cúbico</option>
+<option value="06">06 - Pieza</option>
+<option value="07">07 - Cabeza</option>
+<option value="08">08 - Litro</option>
+<option value="09">09 - Par</option>
+<option value="15">15 - Kilómetro</option>
+</select>
+</td>
+<td class="data"><input name="partidas[0][cantUmt]" type="text" value="300"/></td>
+<td class="data"><select name="partidas[0][pvc]" class="country-sel">
+<option value=""></option>
+</select></td>
+<td class="data"><select name="partidas[0][pod]" class="country-sel" onchange="applyTreatyLogic(0)">
+<option value=""></option>
+</select></td>
+<td class="data" colspan="4">
+    <div style="display:flex; flex-direction:column; gap:2px;">
+        <span style="font-size:7px; color:#64748b; font-weight:bold;">PREFERENCIA / TRATADO</span>
+        <select name="partidas[0][tratado]" class="select-tlc" onchange="applyTreatyLogic(0)">
+            <option value="">Ninguna (Arancel General)</option>
+            <option value="TMEC">T-MEC (EE.UU. / CAN)</option>
+            <option value="TLCUEM">TLCUEM (Uniòn Europea)</option>
+            <option value="TIPAT">TIPAT (CPTPP)</option>
+            <option value="AP">Alianza del Pacífico</option>
+        </select>
+        <div id="partida-0-pref-badge" style="display:none;"><span class="pref-badge">PREFERENCIA ACTIVA (FP 6)</span></div>
+    </div>
+</td>
+</tr>
+<tr>
+<td class="label">SEC <span class="info">ⓘ<span class="tooltip">Número de secuencia de la
+                                    partida</span></span></td>
+<td class="label" colspan="6">DESCRIPCIÓN (RENGLONES VARIABLES SEGÚN SE REQUIERA) <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>DESCRIPCIÓN DE LA MERCANCÍA</strong></p>
+<p>Descripción detallada de la naturaleza y características técnicas de la
+                                            mercancía (estado, marca, modelo, etc.).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de descripción de la mercancía.</b></p>
+</div>
+</span>
+</span></td>
+</tr>
+<tr>
+    <td class="data"><input name="partidas[0][sec]" type="text" value="1"/></td>
+    <td class="data" colspan="13"><textarea name="partidas[0][descripcion]" oninput="autoResize(this)">ESTUCHE DE POLVO CON ESPEJO</textarea></td>
+</tr>
+<tr>
+    <td class="section-header" colspan="14" style="background:#f1f5f9; color:#475569; font-size:7px; height:12px; padding:0;">LIQUIDACIÓN DE LA PARTIDA</td>
+</tr>
+<tr>
+    <td class="label">CON. <span class="info" onclick="toggleTooltip(this)">ⓘ
+        <span class="tooltip">
+            <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+            <div class="tt-body">
+                <p><strong>CONCEPTO</strong></p>
+                <p>Clave del concepto de la contribución o aprovechamiento conforme al Apéndice 12 (ej. IGI, DTA, IVA).</p>
+                <span class="tt-ref">📋 Fuente: Anexo 22, Apéndice 12.</span>
+            </div>
+        </span>
+    </span></td>
+    <td class="label">TASA <span class="info" onclick="toggleTooltip(this)">ⓘ
+        <span class="tooltip">
+            <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+            <div class="tt-body">
+                <p><strong>TASA</strong></p>
+                <p>Factor o porcentaje aplicable a la base gravable para determinar el impuesto.</p>
+            </div>
+        </span>
+    </span></td>
+    <td class="label">T.T. <span class="info" onclick="toggleTooltip(this)">ⓘ
+        <span class="tooltip">
+            <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+            <div class="tt-body">
+                <p><strong>TIPO DE TASA</strong></p>
+                <p>Clave que identifica el tipo de tasa aplicable conforme al Apéndice 18 (ej. 1 para Porcentual, 6 para Específica).</p>
+                <span class="tt-ref">📋 Fuente: Anexo 22, Apéndice 18.</span>
+            </div>
+        </span>
+    </span></td>
+    <td class="label">F.P. <span class="info" onclick="toggleTooltip(this)">ⓘ
+        <span class="tooltip">
+            <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+            <div class="tt-body">
+                <p><strong>FORMA DE PAGO</strong></p>
+                <p>Clave de la forma de pago de la contribución o aprovechamiento conforme al Apéndice 13 (ej. 0 para Efectivo, 21 para Crédito Fiscal).</p>
+                <span class="tt-ref">📋 Fuente: Anexo 22, Apéndice 13.</span>
+            </div>
+        </span>
+    </span></td>
+    <td class="label" colspan="3">IMPORTE <span class="info" onclick="toggleTooltip(this)">ⓘ
+        <span class="tooltip">
+            <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+            <div class="tt-body">
+                <p><strong>IMPORTE</strong></p>
+                <p>Monto de la contribución o aprovechamiento a pagar.</p>
+            </div>
+        </span>
+    </span></td>
+    <td class="label" colspan="7"></td>
+</tr>
+<tbody id="partida-0-contribs">
+    <tr class="contrib-row">
+        <td class="data"><input name="partidas[0][contribs][0][con]" type="text" value="IGI"/></td>
+        <td class="data"><input name="partidas[0][contribs][0][tasa]" type="text" value="16"/></td>
+        <td class="data"><input name="partidas[0][contribs][0][tt]" type="text" value="1"/></td>
+        <td class="data">
+            <select name="partidas[0][contribs][0][fp]">
+                <option value="0">0</option>
+                <option value="6">6</option>
+                <option value="21">21</option>
+            </select>
+        </td>
+        <td class="data" colspan="3"><input name="partidas[0][contribs][0][importe]" onblur="this.value = formatter(this.value)" type="text" value="0"/></td>
+        <td class="data text-center" colspan="7" style="background:#f8fafc;">
+            <button type="button" onclick="addContribRow(0)" style="font-size:7px; background:#e2e8f0; border:1px solid #cbd5e1; border-radius:3px; cursor:pointer;">+ Agregar Contribución</button>
+        </td>
+    </tr>
+</tbody>
+<tr class="subtotal-row" style="background:#f8fafc;">
+    <td colspan="4" style="text-align:right; font-size:7px; font-weight:bold; color:#64748b; padding-right:10px;">SUMA CONTRIBUCIONES PARTIDA:</td>
+    <td colspan="3" class="data"><input name="partidas[0][subtotal]" type="text" readonly style="background:#f1f5f9; font-weight:bold;"/></td>
+    <td colspan="7"></td>
+</tr>
+<!-- ARTICULO 2.5 T-MEC (NUEVO SEGUN M1.1-2) -->
+<tr>
+    <td colspan="14">
+        <div class="art25-section" id="partida-0-art25">
+            <div class="art25-header" onclick="toggleArt25(0)">
+                <span>⚖️ DETERMINACIÓN DE CONTRIBUCIONES (ART. 2.5 T-MEC)</span>
+                <span>▼</span>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <div style="flex:1;">
+                    <span class="label">VALOR MERC. NO ORIGINARIAS:</span>
+                    <input name="partidas[0][art25ValNoOrig]" type="text" style="width:100%; border-bottom:1px solid #cbd5e1;"/>
+                </div>
+                <div style="flex:1;">
+                    <span class="label">MONTO IGI A PAGAR:</span>
+                    <input name="partidas[0][art25MontoIgi]" type="text" style="width:100%; border-bottom:1px solid #cbd5e1;"/>
+                </div>
+            </div>
+        </div>
+    </td>
+</tr>
+<tr>
+<td class="label" colspan="3">VAL.ADU/USD <span class="info" onclick="toggleTooltip(this)">ⓘ
+<span class="tooltip">
+    <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+    <div class="tt-body">
+        <p><strong>VALOR ADUANA / USD</strong></p>
+        <p>Valor en aduana de la mercancía expresado en dólares.</p>
+    </div>
+</span>
+</span></td>
+<td class="label" colspan="3">IMP.PRECIO PAG. <span class="info" onclick="toggleTooltip(this)">ⓘ
+<span class="tooltip">
+    <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+    <div class="tt-body">
+        <p><strong>IMPORTE PRECIO PAGADO</strong></p>
+        <p>Importe total del precio pagado por las mercancías amparadas en esta partida.</p>
+    </div>
+</span>
+</span></td>
+<td class="label" colspan="3">PRECIO UNIT. <span class="info" onclick="toggleTooltip(this)">ⓘ
+<span class="tooltip">
+    <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+    <div class="tt-body">
+        <p><strong>PRECIO UNITARIO</strong></p>
+        <p>Precio unitario de la mercancía en la unidad de medida de comercialización.</p>
+    </div>
+</span>
+</span></td>
+<td class="label" colspan="3">VAL. AGREG. <span class="info" onclick="toggleTooltip(this)">ⓘ
+<span class="tooltip">
+    <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+    <div class="tt-body">
+        <p><strong>VALOR AGREGADO</strong></p>
+        <p>Importe del valor agregado a las mercancías.</p>
+    </div>
+</span>
+</span></td>
+<td class="label" colspan="2">E.F. ORIG-DEST-VEND-COMP</td>
+</tr>
+<tr>
+<td class="data" colspan="3"><input name="partidas[0][valAduUsd]" type="text" value="37,636"/></td>
+<td class="data" colspan="3"><input name="partidas[0][impPrecioPag]" type="text" value="30,600"/></td>
+<td class="data" colspan="3"><input name="partidas[0][precioUnit]" type="text"/></td>
+<td class="data" colspan="3"><input name="partidas[0][valAgreg]" type="text"/></td>
+<td class="data" colspan="2"><input name="partidas[0][efInfo]" type="text"/></td>
+</tr>
+<tr>
+<td class="label" colspan="5">MARCA <span class="info" onclick="toggleTooltip(this)">ⓘ
+    <span class="tooltip">
+        <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+        <div class="tt-body">
+            <p><strong>MARCA</strong></p>
+            <p>Marca comercial de la mercancía tal como aparece en la factura.</p>
+        </div>
+    </span>
+</span></td>
+<td class="label" colspan="4">MODELO <span class="info" onclick="toggleTooltip(this)">ⓘ
+    <span class="tooltip">
+        <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+        <div class="tt-body">
+            <p><strong>MODELO</strong></p>
+            <p>Modelo o referencia del fabricante.</p>
+        </div>
+    </span>
+</span></td>
+<td class="label" colspan="5">CÓDIGO PRODUCTO <span class="info" onclick="toggleTooltip(this)">ⓘ
+    <span class="tooltip">
+        <div class="tt-header"><span class="tt-title">INSTRUCTIVO</span><button class="tt-close" onclick="closeTooltip(event, this)">×</button></div>
+        <div class="tt-body">
+            <p><strong>CÓDIGO PRODUCTO</strong></p>
+            <p>Identificador interno de la empresa o SKU.</p>
+        </div>
+    </span>
+</span></td>
+</tr>
+<tr>
+<td class="data" colspan="5"><input name="partidas[0][marca]" type="text"/></td>
+<td class="data" colspan="4"><input name="partidas[0][modelo]" type="text"/></td>
+<td class="data" colspan="5"><input name="partidas[0][codProducto]" type="text" value="3"/></td>
+</tr>
+</tbody><tbody class="partida-tbody">
+<tr class="partida-row">
+<td class="data"><input name="partidas[1][fraccion]" placeholder="Fracción" type="text" value="3208.90.99"/></td>
+<td class="data"><input name="partidas[1][subd]" placeholder="Subd" type="text"/></td>
+<td class="data">
+<select name="partidas[1][vinc]">
+<option value="0">0</option>
+<option value="1">1</option>
+</select>
+</td>
+<td class="data">
+<select name="partidas[1][met]">
+<option value="1">1 - Valor de Transacción</option>
+<option value="2">2 - Trans. Idénticas</option>
+<option value="3">3 - Trans. Similares</option>
+<option value="4">4 - Precio Unitario</option>
+<option value="5">5 - Valor Reconstruido</option>
+<option value="6">6 - Último Recurso</option>
+<option value="7">7 - Valor Comercial</option>
+</select>
+</td>
+<td class="data">
+<select name="partidas[1][umc]">
+<option value="01">01 - Kilo</option>
+<option value="02">02 - Gramo</option>
+<option value="03">03 - Metro Lineal</option>
+<option value="04">04 - Metro Cuadrado</option>
+<option value="05">05 - Metro Cúbico</option>
+<option value="06">06 - Pieza</option>
+<option value="07">07 - Cabeza</option>
+<option value="08">08 - Litro</option>
+<option value="09">09 - Par</option>
+<option value="15">15 - Kilómetro</option>
+</select>
+</td>
+<td class="data"><input name="partidas[1][cantUmc]" type="text"/></td>
+<td class="data">
+<select name="partidas[1][umt]">
+<option value="01">01 - Kilo</option>
+<option value="02">02 - Gramo</option>
+<option value="03">03 - Metro Lineal</option>
+<option value="04">04 - Metro Cuadrado</option>
+<option value="05">05 - Metro Cúbico</option>
+<option value="06">06 - Pieza</option>
+<option value="07">07 - Cabeza</option>
+<option value="08">08 - Litro</option>
+<option value="09">09 - Par</option>
+<option value="15">15 - Kilómetro</option>
+</select>
+</td>
+<td class="data"><input name="partidas[1][cantUmt]" type="text" value="25"/></td>
+<td class="data"><select name="partidas[1][pvc]" class="country-sel">
+<option value=""></option>
+</select></td>
+<td class="data"><select name="partidas[1][pod]" class="country-sel">
+<option value=""></option>
+</select></td>
+<td class="data" colspan="4"></td>
+</tr>
+<tr>
+<td class="label">SEC <span class="info">ⓘ<span class="tooltip">Número de secuencia de la
+                                    partida</span></span></td>
+<td class="label" colspan="6">DESCRIPCIÓN (RENGLONES VARIABLES SEGÚN SE REQUIERA) <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>DESCRIPCIÓN DE LA MERCANCÍA</strong></p>
+<p>Descripción detallada de la naturaleza y características técnicas de la
+                                            mercancía (estado, marca, modelo, etc.).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de descripción de la mercancía.</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">CON.</td>
+<td class="label">TASA <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>TASA</strong></p>
+<p>Tasa aplicable a la contribución (Ej. 16% IVA, 8 al millar DTA).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 16 (para IVA), Ex. (Exento).</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">T.T.</td>
+<td class="label">F.P.</td>
+<td class="label" colspan="3">IMPORTE</td>
+</tr>
+<tr>
+<td class="data"><input name="partidas[1][sec]" type="text" value="2"/></td>
+<td class="data" colspan="6"><textarea name="partidas[1][descripcion]" oninput="autoResize(this)">ESMALTE INDUSTRIAL DTM COLOR AZUL</textarea></td>
+<td class="data"><input name="partidas[1][con]" type="text"/></td>
+<td class="data"><input name="partidas[1][tasa]" type="text" value="Ex."/></td>
+<td class="data"><input name="partidas[1][tt]" type="text"/></td>
+<td class="data">
+<select name="partidas[1][fp]">
+<option value="0">0</option>
+<option value="6">6</option>
+<option value="21">21</option>
+</select>
+</td>
+<td class="data" colspan="3"><input name="partidas[1][importe]" type="text"/></td>
+</tr>
+<tr>
+<td class="label" colspan="3">VAL.ADU/USD <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>VALOR ADUANA / USD</strong></p>
+<p>Valor en aduana de la mercancía o su equivalente en dólares en el momento de
+                                            entrada.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 470 (Aduana AICM).</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="3">IMP.PRECIO PAG. <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>IMPORTE PRECIO PAGADO</strong></p>
+<p>Importe total del precio pagado por las mercancías amparadas en esta partida.
+                                        </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 150,000.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="3">PRECIO UNIT. <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>PRECIO UNITARIO</strong></p>
+<p>Precio unitario de la mercancía en la unidad de medida de comercialización.
+                                        </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 150,000.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="3">VAL. AGREG. <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>VALOR AGREGADO</strong></p>
+<p>Importe del valor agregado a las mercancías (para exportación de
+                                            maquila/transformación).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 150,000.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="2">E.F. ORIG-DEST-VEND-COMP</td>
+</tr>
+<tr>
+<td class="data" colspan="3"><input name="partidas[1][valAduUsd]" type="text" value="7,595"/></td>
+<td class="data" colspan="3"><input name="partidas[1][impPrecioPag]" type="text" value="6,175"/></td>
+<td class="data" colspan="3"><input name="partidas[1][precioUnit]" type="text"/></td>
+<td class="data" colspan="3"><input name="partidas[1][valAgreg]" type="text"/></td>
+<td class="data" colspan="2"><input name="partidas[1][efInfo]" type="text"/></td>
+</tr>
+<tr>
+<td class="label" colspan="5">MARCA <span class="info">ⓘ<span class="tooltip">Marca comercial
+                                    del producto</span></span></td>
+<td class="label" colspan="4">MODELO <span class="info">ⓘ<span class="tooltip">Modelo o número
+                                    de parte</span></span></td>
+<td class="label" colspan="5">CÓDIGO PRODUCTO <span class="info">ⓘ<span class="tooltip">SKU o
+                                    código del proveedor</span></span></td>
+</tr>
+<td class="data" colspan="5"><input name="partidas[1][marca]" type="text"/></td>
+<td class="data" colspan="4"><input name="partidas[1][modelo]" type="text"/></td>
+<td class="data" colspan="5"><input name="partidas[1][codProducto]" type="text" value="3"/></td>
+</tbody><tbody class="partida-tbody">
+<tr class="partida-row">
+<td class="data"><input name="partidas[2][fraccion]" placeholder="Fracción" type="text" value="7318.15.99"/></td>
+<td class="data"><input name="partidas[2][subd]" placeholder="Subd" type="text"/></td>
+<td class="data">
+<select name="partidas[2][vinc]">
+<option value="0">0</option>
+<option value="1">1</option>
+</select>
+</td>
+<td class="data">
+<select name="partidas[2][met]">
+<option value="1">1 - Valor de Transacción</option>
+<option value="2">2 - Trans. Idénticas</option>
+<option value="3">3 - Trans. Similares</option>
+<option value="4">4 - Precio Unitario</option>
+<option value="5">5 - Valor Reconstruido</option>
+<option value="6">6 - Último Recurso</option>
+<option value="7">7 - Valor Comercial</option>
+</select>
+</td>
+<td class="data">
+<select name="partidas[2][umc]">
+<option value="01">01 - Kilo</option>
+<option value="02">02 - Gramo</option>
+<option value="03">03 - Metro Lineal</option>
+<option value="04">04 - Metro Cuadrado</option>
+<option value="05">05 - Metro Cúbico</option>
+<option value="06">06 - Pieza</option>
+<option value="07">07 - Cabeza</option>
+<option value="08">08 - Litro</option>
+<option value="09">09 - Par</option>
+<option value="15">15 - Kilómetro</option>
+</select>
+</td>
+<td class="data"><input name="partidas[2][cantUmc]" type="text"/></td>
+<td class="data">
+<select name="partidas[2][umt]">
+<option value="01">01 - Kilo</option>
+<option value="02">02 - Gramo</option>
+<option value="03">03 - Metro Lineal</option>
+<option value="04">04 - Metro Cuadrado</option>
+<option value="05">05 - Metro Cúbico</option>
+<option value="06">06 - Pieza</option>
+<option value="07">07 - Cabeza</option>
+<option value="08">08 - Litro</option>
+<option value="09">09 - Par</option>
+<option value="15">15 - Kilómetro</option>
+</select>
+</td>
+<td class="data"><input name="partidas[2][cantUmt]" type="text" value="800"/></td>
+<td class="data"><select name="partidas[2][pvc]" class="country-sel">
+<option value=""></option>
+</select></td>
+<td class="data"><select name="partidas[2][pod]" class="country-sel">
+<option value=""></option>
+</select></td>
+<td class="data" colspan="4"></td>
+</tr>
+<tr>
+<td class="label">SEC <span class="info">ⓘ<span class="tooltip">Número de secuencia de la
+                                    partida</span></span></td>
+<td class="label" colspan="6">DESCRIPCIÓN (RENGLONES VARIABLES SEGÚN SE REQUIERA) <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>DESCRIPCIÓN DE LA MERCANCÍA</strong></p>
+<p>Descripción detallada de la naturaleza y características técnicas de la
+                                            mercancía (estado, marca, modelo, etc.).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo de captura: Texto/Número de descripción de la mercancía.</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">CON.</td>
+<td class="label">TASA <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>TASA</strong></p>
+<p>Tasa aplicable a la contribución (Ej. 16% IVA, 8 al millar DTA).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 16 (para IVA), Ex. (Exento).</b></p>
+</div>
+</span>
+</span></td>
+<td class="label">T.T.</td>
+<td class="label">F.P.</td>
+<td class="label" colspan="3">IMPORTE</td>
+</tr>
+<tr>
+<td class="data"><input name="partidas[2][sec]" type="text" value="3"/></td>
+<td class="data" colspan="6"><textarea name="partidas[2][descripcion]" oninput="autoResize(this)">TORNILLOS DE ACERO GALVANIZADO</textarea></td>
+<td class="data"><input name="partidas[2][con]" type="text"/></td>
+<td class="data"><input name="partidas[2][tasa]" type="text" value="Ex."/></td>
+<td class="data"><input name="partidas[2][tt]" type="text"/></td>
+<td class="data">
+<select name="partidas[2][fp]">
+<option value="0">0</option>
+<option value="6">6</option>
+<option value="21">21</option>
+</select>
+</td>
+<td class="data" colspan="3"><input name="partidas[2][importe]" type="text"/></td>
+</tr>
+<tr>
+<td class="label" colspan="3">VAL.ADU/USD <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>VALOR ADUANA / USD</strong></p>
+<p>Valor en aduana de la mercancía o su equivalente en dólares en el momento de
+                                            entrada.</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 470 (Aduana AICM).</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="3">IMP.PRECIO PAG. <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>IMPORTE PRECIO PAGADO</strong></p>
+<p>Importe total del precio pagado por las mercancías amparadas en esta partida.
+                                        </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 150,000.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="3">PRECIO UNIT. <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>PRECIO UNITARIO</strong></p>
+<p>Precio unitario de la mercancía en la unidad de medida de comercialización.
+                                        </p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 150,000.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="3">VAL. AGREG. <span class="info" onclick="toggleTooltip(this)">ⓘ
+                                <span class="tooltip">
+<div class="tt-header">
+<span class="tt-title">INSTRUCTIVO DE LLENADO</span>
+<button class="tt-close" onclick="closeTooltip(event, this)">×</button>
+</div>
+<div class="tt-body">
+<p><strong>VALOR AGREGADO</strong></p>
+<p>Importe del valor agregado a las mercancías (para exportación de
+                                            maquila/transformación).</p>
+<span class="tt-ref">📋 Fuente: Anexo 22, DOF 15/01/2026 (Integrado)</span>
+<p style="color:#059669; font-size:10px; margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1;">💡 <b>Ejemplo: 150,000.00</b></p>
+</div>
+</span>
+</span></td>
+<td class="label" colspan="2">E.F. ORIG-DEST-VEND-COMP</td>
+</tr>
+<tr>
+<td class="data" colspan="3"><input name="partidas[2][valAduUsd]" type="text" value="2,509"/></td>
+<td class="data" colspan="3"><input name="partidas[2][impPrecioPag]" type="text" value="2,040"/></td>
+<td class="data" colspan="3"><input name="partidas[2][precioUnit]" type="text"/></td>
+<td class="data" colspan="3"><input name="partidas[2][valAgreg]" type="text"/></td>
+<td class="data" colspan="2"><input name="partidas[2][efInfo]" type="text"/></td>
+</tr>
+<tr>
+<td class="label" colspan="5">MARCA <span class="info">ⓘ<span class="tooltip">Marca comercial
+                                    del producto</span></span></td>
+<td class="label" colspan="4">MODELO <span class="info">ⓘ<span class="tooltip">Modelo o número
+                                    de parte</span></span></td>
+<td class="label" colspan="5">CÓDIGO PRODUCTO <span class="info">ⓘ<span class="tooltip">SKU o
+                                    código del proveedor</span></span></td>
+</tr>
+<td class="data" colspan="5"><input name="partidas[2][marca]" type="text"/></td>
+<td class="data" colspan="4"><input name="partidas[2][modelo]" type="text"/></td>
+<td class="data" colspan="5"><input name="partidas[2][codProducto]" type="text" value="3"/></td>
+</tbody>
+<tbody class="partidas-actions">
+<tr class="no-print">
+<td class="text-center" colspan="14" style="background:#f0f0f0; padding: 5px;">
+<button class="btn-add" onclick="agregarPartida()" type="button">+ Agregar Partida</button>
+</td>
+</tr>
+</tbody>
+<tr>
+<td class="section-header" colspan="14">OBSERVACIONES A NIVEL PARTIDA</td>
+</tr>
+<tr>
+<td class="data" colspan="14"><textarea name="obsPartida" oninput="autoResize(this)"></textarea>
+</td>
+</tr>
+<!-- AGENTE ADUANAL (PÁGINA 2) -->
+<tr>
+<td class="label text-left" colspan="7" style="font-size:6px; line-height:1.3; vertical-align:top; border-right:1px solid #666; padding:4px;">
+    AGENTE ADUANAL, AGENCIA ADUANAL, APODERADO ADUANAL O DE ALMACÉN<br/>
+    NOMBRE O RAZ. SOC.: <input name="agenteNombre" style="width:65%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/><br/><br/>
+    RFC: <input name="agenteRfc" style="width:30%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/> CURP: <input name="agenteCurp" style="width:40%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/><br/><br/>
+    MANDATARIO / PERSONA AUTORIZADA<br/>
+    NOMBRE: <input name="mandatarioNombre" style="width:65%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/><br/><br/>
+    RFC: <input name="mandatarioRfc" style="width:30%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/> CURP: <input name="mandatarioCurp" style="width:40%; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/>
+</td>
+<td class="data" colspan="7" style="font-size:6px; line-height:1.3; padding:4px; vertical-align:top;">
+    DECLARO BAJO PROTESTA DE DECIR VERDAD, EN LOS TÉRMINOS DE LO DISPUESTO POR EL ARTÍCULO 81 DE LA LEY, PATENTE O AUTORIZACIÓN: <input name="agentePatente" style="width:40px; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/><br/><br/>
+    NÚMERO DE SERIE DEL CERTIFICADO: <input name="numSerieCertificado" style="width:120px; border:none; border-bottom:1px solid #333; background:transparent;" type="text"/><br/><br/>
+    <textarea name="firmaElectronica" placeholder="Firma electrónica avanzada / E.Firma..." style="font-size:5px; height:20px; width:98%; border:1px solid #ccc; background:#f9f9f9; padding:2px;"></textarea>
+</td>
+</tr>
+</table>
+</div>
+<!-- BOTONES DE ACCIÓN -->
+<div class="actions no-print">
+<button class="btn btn-print" onclick="validateAndPrint()" type="button">🖨️ Imprimir Pedimento</button>
+<button class="btn btn-save" onclick="exportarPedimento()" type="button">📥 Exportar JSON</button>
+</div>
+</form>
+</div>
+</div>
+</main>
+
+    <!-- Modal Buscador TIGIE (Fullscreen on mobile) -->
+    <div id="tigie-modal" class="fixed inset-0 bg-cesa-darkBg z-[9999] hidden flex-col">
+        <div class="bg-cesa-navy p-4 flex justify-between items-center border-b-2 border-cesa-gold">
+            <div>
+                <h3 class="text-white font-black text-lg">Buscador LIGIE</h3>
+                <p class="text-xs text-cesa-gold">Catálogo Oficial DOF 2026</p>
+            </div>
+            <button onclick="closeTigieSearch()" class="text-white text-2xl"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-4">
+            <input type="text" id="tigie-search-input" placeholder="Buscar por palabra clave o fracción..." class="text-lg py-3">
+            <p class="text-xs text-gray-400 mt-2 text-center" id="tigie-status">Cargando base de datos...</p>
+        </div>
+        <div id="tigie-results" class="flex-grow overflow-y-auto p-4 space-y-3">
+            <!-- Resultados -->
+        </div>
+    </div>
+
+    <!-- Custom Modal System (Alerts + Confirmations) -->
+    <div id="custom-alert-modal" class="fixed inset-0 bg-black/80 z-[10000] hidden items-center justify-center backdrop-blur-sm px-4">
+        <div class="bg-cesa-navy border border-cesa-gold rounded-xl p-6 max-w-md w-full shadow-2xl transform transition-all scale-95 opacity-0" id="custom-alert-content">
+            <!-- Icon + Title -->
+            <div class="flex items-center gap-3 mb-4" id="modal-header">
+                <div id="modal-icon" class="w-10 h-10 rounded-full flex items-center justify-center text-xl">
+                    <i id="modal-icon-i" class="fas fa-check-circle"></i>
+                </div>
+                <h3 id="modal-title" class="text-white font-black text-lg">Mensaje</h3>
+            </div>
+            <!-- Body -->
+            <p id="custom-alert-text" class="text-gray-300 text-sm mb-6 leading-relaxed"></p>
+            <!-- Buttons -->
+            <div id="modal-buttons" class="flex gap-3">
+                <!-- For simple alerts: single "Entendido" button -->
+                <button id="modal-btn-ok" onclick="resolveModal(true)" class="flex-1 bg-cesa-gold hover:bg-yellow-500 text-cesa-navy font-black py-3 rounded-lg shadow-lg transition">
+                    Entendido
+                </button>
+                <!-- For confirmations: Yes + No buttons (hidden by default) -->
+                <button id="modal-btn-yes" onclick="resolveModal(true)" class="flex-1 bg-green-600 hover:bg-green-500 text-white font-black py-3 rounded-lg shadow-lg transition hidden">
+                    Sí, Continuar
+                </button>
+                <button id="modal-btn-no" onclick="resolveModal(false)" class="flex-1 bg-red-600/80 hover:bg-red-500 text-white font-black py-3 rounded-lg shadow-lg transition hidden">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/v4_features.js"></script>
+    <script src="js/search_engine.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

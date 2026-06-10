@@ -17,7 +17,16 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 backend/logs/*.log
 backend/vendor/
+backend/storage/rate_limits/
 
 # Tools & Scripts
 scripts/deploy_secrets.sh
 database/temp_dump.sql
+
+# Keys & Temp Scratch files
+unison keys/
+.ssh_temp/
+scratch/
+scratch_*
+*.key
+

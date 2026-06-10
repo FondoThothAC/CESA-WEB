@@ -4,24 +4,42 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/useAuth';
 
 export default function NotificationCenter() {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+
   const fetchNotifications = async () => {
+    if (!token) return;
     try {
-      // Por ahora simulamos notificaciones basadas en el historial del chatbot y reportes
-      // En producción esto conectaría a api/notifications.php
-      const mockNotifs = [
-        { id: 1, text: "Tu post en el muro social tiene un nuevo comentario.", type: "social", time: "Hace 5m" },
-        { id: 2, text: "Bolsa de Trabajo: Hay 3 nuevas vacantes de TI.", type: "job", time: "Hace 1h" },
-        { id: 3, text: "OWL: Tu reporte #452 ha sido recibido.", type: "bot", time: "Hace 2h" }
-      ];
-      setNotifications(mockNotifs);
-      setUnreadCount(mockNotifs.length);
+      const res = await fetch(`${API_URL}/notificaciones.php`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNotifications(data.notifications);
+        setUnreadCount(data.notifications.filter((n: any) => !n.leido).length);
+      }
     } catch (err) {
       console.error("Error fetching notifications", err);
+    }
+  };
+
+  const markRead = async (id?: number) => {
+    try {
+      await fetch(`${API_URL}/notificaciones.php`, {
+        method: 'POST',
+        headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'mark_read', id })
+      });
+      fetchNotifications();
+    } catch (err) {
+      console.error("Error marking read", err);
     }
   };
 
@@ -36,7 +54,7 @@ export default function NotificationCenter() {
   return (
     <div className="relative">
       <button 
-        onClick={() => { setIsOpen(!isOpen); setUnreadCount(0); }}
+        onClick={() => { setIsOpen(!isOpen); if (!isOpen) markRead(); }}
         className="relative p-2 bg-slate-800 rounded-xl border border-slate-700 hover:border-indigo-500 transition-all text-slate-400 hover:text-white"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -50,23 +68,30 @@ export default function NotificationCenter() {
       {isOpen && (
         <div className="absolute right-0 mt-4 w-80 bg-slate-900/90 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50">
           <div className="p-4 border-b border-slate-700 flex justify-between items-center">
-            <h3 className="font-bold text-white">Notificaciones</h3>
-            <span className="text-[10px] text-slate-500 uppercase">Institucional</span>
+            <h3 className="font-bold text-white uppercase text-[10px] tracking-widest opacity-60">Notificaciones</h3>
+            <span className="text-[10px] text-indigo-400 font-black">CESA 2026</span>
           </div>
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-10 text-center text-slate-500 text-sm italic">Sin notificaciones pendientes</div>
+              <div className="p-10 text-center text-slate-500 text-xs italic">Sin novedades institucionales</div>
             ) : (
               notifications.map(n => (
-                <div key={n.id} className="p-4 border-b border-slate-800/50 hover:bg-slate-800/50 transition-all cursor-pointer">
-                  <p className="text-sm text-slate-300">{n.text}</p>
-                  <span className="text-[10px] text-indigo-400 mt-2 block">{n.time}</span>
+                <div 
+                    key={n.id} 
+                    onClick={() => markRead(n.id)}
+                    className={`p-4 border-b border-slate-800/50 hover:bg-slate-800/50 transition-all cursor-pointer ${!n.leido ? 'bg-indigo-500/5' : ''}`}
+                >
+                  <p className={`text-xs ${!n.leido ? 'text-white font-bold' : 'text-slate-400'}`}>{n.mensaje}</p>
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-[9px] text-indigo-400 font-bold uppercase tracking-tighter">{n.tipo}</span>
+                    <span className="text-[9px] text-slate-600 italic">{n.time_ago}</span>
+                  </div>
                 </div>
               ))
             )}
           </div>
           <div className="p-3 bg-slate-800/30 text-center">
-            <button className="text-xs text-slate-400 hover:text-white transition-all">Marcar todo como leído</button>
+            <button onClick={() => markRead()} className="text-[10px] uppercase font-black text-slate-500 hover:text-white transition-all">Limpiar panel</button>
           </div>
         </div>
       )}

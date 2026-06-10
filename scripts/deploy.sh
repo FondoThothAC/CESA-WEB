@@ -10,8 +10,8 @@ HOSTGATOR_USER="roberto_cesa"
 HOSTGATOR_IP="tuservidor.hostgator.com"
 HOSTGATOR_PATH="/public_html/"
 
-ORACLE_USER="opc"
-ORACLE_IP="144.24.23.61"
+ORACLE_USER="ubuntu"
+ORACLE_IP="129.146.150.123"
 
 echo "🚀 Iniciando despliegue de CESA WEB v3.5..."
 

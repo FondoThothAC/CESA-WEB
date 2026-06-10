@@ -1,70 +1,73 @@
 # ==============================================================================
-# CESA WEB - SPEC DRIVEN DEVELOPMENT
+# CESA WEB - SPEC DRIVEN DEVELOPMENT (SDD) v3.6
 # ==============================================================================
-# Proyecto: CESA WEB - Directorio e Identidad Institucional
-# Periodo: 2026-2028 (Gestión: Ángela Carrasco Ibarra)
-# Arquitectura: React + Vite (Frontend Only)
-# Enfoque: Data-Driven UI + Premium Aesthetics
+# Proyecto: CESA WEB - Industrialized Governance Suite
+# Periodo: 2026-2028 (UNISON Administration)
+# Arquitectura: Hybrid (Next.js Frontend + PHP 8.2 Backend + PWA Native)
+# Security: CBIT-01 Audit Grade (JWT + AES-256)
 # ==============================================================================
 
 project:
   name: "CESA WEB"
-  version: "1.1.0"
+  version: "3.6.0"
   description: |
-    Portal institucional del Consejo Estudiantil de Sociedades de Alumnos (CESA).
-    Actúa como vínculo para comunicación, bolsa de empleo, reportes estudiantiles 
-    y apoyo al emprendimiento para la Universidad de Sonora.
+    Plataforma institucional de alta gama para el Consejo Estudiantil (CESA).
+    Industrializada para soportar gobernanza real, bolsa de trabajo corporativa,
+    muro social moderado y un ecosistema PWA con analíticas IA.
   
   motto: "Tu voz, nuestra fuerza motriz"
   management_period: "2026-2028"
 
-  core_principles:
-    - "Digital First: Centralización de servicios estudiantiles"
-    - "Transparency: Acceso a reportes y estadísticas en tiempo real"
-    - "Community: Muro de avisos y Bazar Emprendedor"
+technical_stack:
+  frontend: "Next.js 14 / React 18 (Admin Dashboard & Main Site)"
+  backend: "PHP 8.2 (RESTful APIs & Student Portals)"
+  pwa: "Progressive Web App (Manifest v3, Service Workers, Offline Sync)"
+  database: "MariaDB 10.6 (Industrial Schema)"
+  auth: "JWT (JSON Web Tokens) + Secure Cookies"
+  security:
+    - "Rate-Limiting: IP-based anti-spam (5 posts/min, 3 reports/min)"
+    - "Encryption: AES-256-CBC for IA Keys & Sensitive Config"
+    - "Sanitization: Strict HTML filtering & SQL Injection protection"
 
-identity:
-  mesa_directiva:
-    presidenta: "Ángela Carrasco Ibarra"
-    coord_general: "Arturo Zamorano Córdova"
-    tesorera: "Sherlyn A. Noriega González"
-  
-  coordinaciones:
-    - id: "integral"
-      name: "INTEGRAL"
-      description: "Salud Física y Mental"
-    - id: "la_red"
-      name: "LA RED"
-      description: "Mujeres Universitarias"
-    - id: "librx"
-      name: "LIBRX"
-      description: "Diversidad Estudiantil"
-    - id: "raices"
-      name: "RAÍCES"
-      description: "Pueblos Originarios"
-    - id: "impulso"
-      name: "IMPULSO"
-      description: "Emprendimiento"
-    - id: "humano"
-      name: "HUMANO"
-      description: "Escuela de Liderazgo"
+ai_engine:
+  mode: "Hybrid Industrial"
+  primary: "Local Inference (Mac Mini / Ollama) - Prepared"
+  fallbacks: ["Groq (Llama 3)", "Gemini 1.5 Pro"]
+  features:
+    - "Sentiment Analysis (Buzón de Reportes)"
+    - "Task Detection (Intent Extraction via Chatbot)"
+    - "IA Usage Audit Logs"
 
 modules:
-  - id: "bolsa_trabajo"
-    name: "Bolsa de Trabajo"
-    description: "Portal de vacantes para estudiantes y egresados"
-  - id: "muro"
-    name: "Muro"
-    description: "Avisos y noticias en tiempo real"
-  - id: "bazar"
-    name: "Bazar Emprendedor"
-    description: "Espacio para emprendimientos estudiantiles"
-  - id: "buzon"
-    name: "Buzón (Reportar)"
-    description: "Canalización de sugerencias y quejas"
+  - id: "muro_social"
+    name: "Muro Social Timeline"
+    features: ["Sub-comments (Replies)", "Likes", "Featured Posts", "Image Banners"]
+  
+  - id: "buzon_reportes"
+    name: "Buzón de Reportes (Ticketing)"
+    features: ["Real Anonymity", "Auto-Routing to Councils", "Sentiment Queueing"]
+    councils_routing:
+      - "Integral: Health & Wellness"
+      - "La Red: Security & Gender"
+      - "Impulso: Entrepreneurship"
+      - "Mesa Directiva: Admin & Infrastructure"
 
-architecture:
-  frontend: "React 18"
-  bundler: "Vite"
-  styling: "Vanilla CSS (Custom Properties)"
-  deployment: "GitHub Pages / VPS Replica"
+  - id: "bazar_emprendedor"
+    name: "Bazar Emprendedor"
+    features: ["WhatsApp Analytics", "Business Verification", "Featured Slider"]
+
+  - id: "admin_management_v3.6"
+    name: "Global User Management"
+    features: ["RBAC (Role Based Access Control)", "User Moderation", "Coordination Management"]
+
+pwa_specs:
+  manifest: "/manifest.json"
+  sw: "/sw.js (Network First Strategy)"
+  offline_support: "Enabled (offline.php fallback)"
+  install_banner: "Custom Glassmorphism UI"
+
+deployment:
+  vps: "Oracle Cloud Infrastructure (MariaDB & PHP Engine)"
+  frontend_host: "Next.js / Vercel or Hybrid Node Hosting"
+  repository: "GitHub Enterprise (CBIT-01 Compliance)"
+  hardening: ".htaccess (Directory indexes disabled, Gzip enabled)"

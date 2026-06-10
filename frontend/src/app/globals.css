@@ -3,43 +3,126 @@
 @tailwind utilities;
 
 :root {
-  --primary: #1a73e8;
-  --primary-glow: rgba(26, 115, 232, 0.5);
-  --accent: #ffd700;
-  --bg-dark: #0c0d12;
-  --bg-card: rgba(255, 255, 255, 0.05);
-  --border: rgba(255, 255, 255, 0.1);
-  --text-main: #ffffff;
-  --text-muted: #9ba1b0;
+  /* Design Tokens - Institutional Colors (The Owl) */
+  --primary: #002147; /* Deep Navy Blue from Logo */
+  --accent: #C5A059;  /* Institutional Gold from Logo */
+  --accent-glow: rgba(197, 160, 89, 0.2);
+  
+  --bg-primary: #fdfdfd;
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.8);
+  --border: rgba(0, 33, 71, 0.12); /* Navy tinted border - Increased opacity for better definition */
+  
+  --text-main: #002147; /* Use Navy for text in light mode */
+  --text-muted: #64748b;
+  
+  --shadow: 0 10px 30px -5px rgba(0, 33, 71, 0.08); /* More elegant shadow */
+}
+
+.dark {
+  /* Design Tokens - Dark Theme */
+  --primary: #60a5fa; /* Lighter blue for dark mode contrast */
+  --bg-primary: #060913;
+  --bg-secondary: #0c101b;
+  --bg-card: rgba(12, 16, 28, 0.85);
+  --border: rgba(197, 160, 89, 0.25); /* Gold tinted border - Increased visibility */
+  
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  
+  --shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.8);
+}
+
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+  position: relative;
 }
 
 body {
+  background: radial-gradient(circle at top right, var(--bg-primary), var(--bg-secondary));
   color: var(--text-main);
-  background: radial-gradient(circle at top right, #1a2a44 0%, #0c0d12 40%),
-              radial-gradient(circle at bottom left, #2c1a44 0%, #0c0d12 40%);
   min-height: 100vh;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: url("/logo-cesa.jpg");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+/* Base Components */
 .glass {
   background: var(--bg-card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
-  border-radius: 1.5rem;
+  box-shadow: var(--shadow);
+  @apply rounded-2xl;
+}
+
+.clean-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  @apply rounded-2xl p-6 transition-all duration-300;
+}
+
+.clean-card:hover {
+  @apply -translate-y-1;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
 .gradient-text {
-  @apply bg-clip-text text-transparent bg-gradient-to-br from-[#ffd700] to-[#ff8c00];
+  @apply bg-clip-text text-transparent bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500;
+}
+
+.unison-gradient {
+  background: linear-gradient(135deg, var(--primary) 0%, #1e40af 100%);
 }
 
 @layer components {
-  .btn-primary {
-    @apply bg-[var(--primary)] text-white px-7 py-3 rounded-full font-semibold transition-all duration-300;
-    box-shadow: 0 4px 15px var(--primary-glow);
+  .btn-clean {
+    @apply px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 active:scale-95;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-main);
   }
   
-  .btn-primary:hover {
-    @apply -translate-y-0.5 brightness-110;
-    box-shadow: 0 8px 25px var(--primary-glow);
+  .btn-clean-primary {
+    @apply px-6 py-2.5 rounded-xl font-semibold text-white transition-all duration-300 active:scale-95;
+    background: var(--primary);
+    box-shadow: 0 4px 15px rgba(0, 51, 102, 0.2);
+  }
+  
+  .btn-clean-primary:hover {
+    @apply opacity-90 -translate-y-0.5;
+    box-shadow: 0 8px 25px rgba(0, 51, 102, 0.3);
   }
 }
+
+/* Utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.mask-fade-edges {
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+

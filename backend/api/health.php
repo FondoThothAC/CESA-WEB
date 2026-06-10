@@ -23,7 +23,7 @@ $status['checks']['php'] = [
 // 2. Verificar Conexión MariaDB (Oracle VPS)
 // Simulamos la verificación
 $status['checks']['database'] = [
-    'host' => '144.24.23.61',
+    'host' => '129.146.150.123',
     'status' => 'OK', // En producción sería una conexión real PDO
     'latency_ms' => 45
 ];

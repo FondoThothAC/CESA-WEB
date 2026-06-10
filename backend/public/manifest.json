@@ -1,0 +1,40 @@
+{
+  "name": "CESA UNISON",
+  "short_name": "CESA",
+  "description": "Plataforma oficial del Consejo de Sociedades de Alumnos UNISON.",
+  "start_url": "/index.php",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#0F2C59",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Muro Social",
+      "url": "/index.php#muro",
+      "icons": [{ "src": "/assets/images/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Tutoriales",
+      "url": "/index.php#tutoriales",
+      "icons": [{ "src": "/assets/images/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Bazar CESA",
+      "url": "/index.php#bazar",
+      "icons": [{ "src": "/assets/images/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

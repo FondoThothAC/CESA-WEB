@@ -26,8 +26,8 @@ const LoginPage = () => {
             }
         } else {
             // Signup Logic
-            if (!email.endsWith('@unison.mx')) {
-                setError('Solo se permiten correos @unison.mx');
+            if (!email.endsWith('@unison.mx') && !email.endsWith('@fondothoth.com')) {
+                setError('Solo se permiten correos @unison.mx o @fondothoth.com');
                 return;
             }
             alert('Registro simulado. Ahora puedes iniciar sesión.');

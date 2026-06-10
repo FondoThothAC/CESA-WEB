@@ -7,7 +7,7 @@
 class MailHelper {
     public static function send(string $to, string $subject, string $body, array $attachments = []): bool {
         $host = getenv('SMTP_HOST');
-        $from = getenv('SMTP_FROM') ?: 'no-reply@cesa.unison.mx';
+        $from = getenv('SMTP_FROM') ?: 'no-reply@cesaunison.fondothoth.com';
         $fromName = getenv('SMTP_NAME') ?: 'CESA UNISON';
 
         // En entornos de desarrollo, solo logueamos el correo
@@ -62,7 +62,7 @@ class MailHelper {
                 <strong>Contraseña:</strong> $tempPassword
             </div>
             <p>Puedes iniciar sesión aquí:</p>
-            <a href='https://cesa.unison.mx/login' style='display: inline-block; background: #4f46e5; color: #fff; padding: 12px 25px; text-decoration: none; border-radius: 5px; margin-top: 20px;'>Acceder a la Plataforma</a>
+            <a href='https://cesaunison.fondothoth.com/login' style='display: inline-block; background: #4f46e5; color: #fff; padding: 12px 25px; text-decoration: none; border-radius: 5px; margin-top: 20px;'>Acceder a la Plataforma</a>
             <p style='margin-top: 20px; font-size: 12px; color: #999;'>Por seguridad, se te pedirá cambiar tu contraseña al primer ingreso.</p>
         ";
         return self::send($to, $subject, $body);

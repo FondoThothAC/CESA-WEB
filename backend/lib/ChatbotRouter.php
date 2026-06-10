@@ -88,7 +88,7 @@ class ChatbotRouter {
                "CONTEXTO ACTUAL DEL DIRECTORIO:\n" . $this->directory_context . "\n" .
                "REGLAS:\n" .
                "1. Responde de forma breve (máximo 3 oraciones).\n" .
-               "2. Si no sabes algo, sugiere contactar a admin@cesa.unison.mx.\n" .
+               "2. Si no sabes algo, sugiere contactar a admin@cesaunison.fondothoth.com.\n" .
                "3. Mantén un tono profesional y cercano.";
     }
     
@@ -153,22 +153,77 @@ class ChatbotRouter {
     }
     
     private function callProvider(string $name, array $config, string $prompt): string {
-        if ($name === 'local') return $this->callOllama($config, $prompt);
-        // Placeholder para otros proveedores
-        throw new Exception("Proveedor $name no disponible.");
+        if ($name === 'local' || $name === 'mac_mini') return $this->callOllama($config, $prompt);
+        if ($name === 'groq') return $this->callGroq($config, $prompt);
+        if ($name === 'gemini') return $this->callGemini($config, $prompt);
+        
+        throw new Exception("Proveedor $name no implementado.");
+    }
+
+    private function callGroq(array $config, string $prompt): string {
+        if (empty($config['api_key'])) throw new Exception("Groq API Key missing.");
+        
+        $payload = [
+            'model' => $config['model'] ?? 'llama-3.1-8b-instant',
+            'messages' => [['role' => 'user', 'content' => $prompt]],
+            'temperature' => $config['temperature'] ?? 0.7
+        ];
+        
+        $ch = curl_init('https://api.groq.com/openai/v1/chat/completions');
+        curl_setopt_array($ch, [
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer ' . $config['api_key'],
+                'Content-Type: application/json'
+            ],
+            CURLOPT_POSTFIELDS => json_encode($payload),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $config['timeout'] ?? 10
+        ]);
+        
+        $res = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($code !== 200) throw new Exception("Groq error $code: $res");
+        $data = json_decode($res, true);
+        return $data['choices'][0]['message']['content'] ?? "Error Groq.";
+    }
+
+    private function callGemini(array $config, string $prompt): string {
+        if (empty($config['api_key'])) throw new Exception("Gemini API Key missing.");
+        
+        $url = $config['url'] . '?key=' . $config['api_key'];
+        $payload = [
+            'contents' => [['parts' => [['text' => $prompt]]]]
+        ];
+        
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => json_encode($payload),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $config['timeout'] ?? 10
+        ]);
+        
+        $res = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($code !== 200) throw new Exception("Gemini error $code: $res");
+        $data = json_decode($res, true);
+        return $data['candidates'][0]['content']['parts'][0]['text'] ?? "Error Gemini.";
     }
 
     public function classifySentiment(string $text): array {
         $start_time = microtime(true);
         
-        $prompt = "Analiza el siguiente reporte estudiantil y responde ÚNICAMENTE en formato JSON válido.\n" .
-                  "Texto del reporte: \"$text\"\n\n" .
-                  "JSON Schema:\n" .
+        $prompt = "Actúa como un experto en análisis de datos universitarios de la UNISON. Analiza el sentimiento del siguiente texto y responde únicamente con un objeto JSON válido.\n" .
+                  "Texto a analizar: \"$text\"\n\n" .
+                  "Responde estrictamente con este formato JSON:\n" .
                   "{\n" .
+                  "  \"score\": [UN_ENTERO_DE_0_A_100_DONDE_0_ES_MUY_NEGATIVO_Y_100_MUY_POSITIVO],\n" .
                   "  \"sentimiento\": \"positivo|negativo|neutro\",\n" .
-                  "  \"prioridad\": \"baja|media|alta|urgente\",\n" .
-                  "  \"categoria\": \"infraestructura|docencia|servicios|administracion|salud|seguridad|otro\",\n" .
-                  "  \"razon\": \"breve explicacion\"\n" .
+                  "  \"resumen\": \"breve resumen descriptivo del tono\"\n" .
                   "}";
 
         foreach ($this->providers as $name => $config) {
@@ -177,16 +232,20 @@ class ChatbotRouter {
                 $raw_response = $this->callProvider($name, $config, $prompt);
                 $latency = round((microtime(true) - $start_time) * 1000);
                 
-                // Intentar limpiar el JSON si el LLM agrega texto extra
+                // Limpiar JSON por si el LLM agrega texto extra
                 $json_start = strpos($raw_response, '{');
                 $json_end = strrpos($raw_response, '}') + 1;
-                $clean_json = substr($raw_response, $json_start, $json_end - $json_start);
+                if ($json_start === false || $json_end === false) throw new Exception("Respuesta no JSON");
                 
+                $clean_json = substr($raw_response, $json_start, $json_end - $json_start);
                 $data = json_decode($clean_json, true);
-                if ($data) {
+                
+                if ($data && isset($data['score'])) {
                     return [
                         'success' => true,
-                        'analysis' => $data,
+                        'score' => (int)$data['score'],
+                        'sentimiento' => $data['sentimiento'],
+                        'resumen' => $data['resumen'],
                         'provider' => $name,
                         'latency_ms' => $latency
                     ];
@@ -213,19 +272,28 @@ class ChatbotRouter {
         if ($code !== 200) throw new Exception("Ollama error $code");
         $data = json_decode($res, true);
         return $data['response'] ?? "Error en respuesta.";
+    }
+
     private function logUsage(PDO $pdo, string $provider, ?int $user_id, string $type, int $latency, int $status, ?string $error = null) {
         try {
+            // Actualizar estadísticas rápidas en api_stats para el Dashboard
+            $st_stats = $pdo->prepare("INSERT INTO api_stats (provider, latency_ms, status_code) VALUES (?, ?, ?)");
+            $st_stats->execute([$provider, $latency, $status]);
+
             // Obtener ID de la configuración del proveedor
             $stmt = $pdo->prepare("SELECT id FROM api_configs WHERE provider = ?");
             $stmt->execute([$provider]);
             $cfg_id = $stmt->fetchColumn();
 
             if ($cfg_id) {
+                // Registro detallado opcional
+                /*
                 $ins = $pdo->prepare("INSERT INTO api_usage_logs (config_id, usuario_id, endpoint_called, response_status, latency_ms, error_message) VALUES (?, ?, ?, ?, ?, ?)");
                 $ins->execute([$cfg_id, $user_id, $type, $status, $latency, $error]);
+                */
             }
         } catch (Exception $e) {
-            // Silent fail for logs
+            error_log("Logging failed: " . $e->getMessage());
         }
     }
 }
