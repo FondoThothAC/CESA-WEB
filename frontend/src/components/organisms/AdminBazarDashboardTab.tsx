@@ -29,6 +29,18 @@ interface AdConfig {
   frecuencia_diaria: number;
 }
 
+interface BazarLog {
+  id: number;
+  usuario_id: number;
+  accion: string;
+  descripcion: string;
+  ip_address: string;
+  created_at: string;
+  usuario_nombre: string | null;
+  usuario_email: string | null;
+  matricula: string | null;
+}
+
 export default function AdminBazarDashboardTab() {
   const { token, user } = useAuth();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -60,10 +72,12 @@ export default function AdminBazarDashboardTab() {
   const [filterEstado, setFilterEstado] = useState<'todos' | 'ocupados' | 'libres'>('todos');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Modales de Asignación / Liberación
+  // Modales y Auditoría
   const [allBusinesses, setAllBusinesses] = useState<any[]>([]);
   const [assigningPuestoId, setAssigningPuestoId] = useState<number | null>(null);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string>('');
+  const [bazarLogs, setBazarLogs] = useState<BazarLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // 1. Cargar Configuración de Publicidad
   const fetchAdConfig = async () => {
@@ -151,13 +165,32 @@ export default function AdminBazarDashboardTab() {
     }
   };
 
+  // 5. Cargar Logs de Auditoría
+  const fetchBazarLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      const res = await fetch(`${API_URL}/api/bazar-admin.php?action=logs`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBazarLogs(data.data || []);
+      }
+    } catch (e) {
+      console.error('Error al cargar logs de auditoría:', e);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
   useEffect(() => {
     fetchAdConfig();
     fetchPuestos();
     fetchBusinesses();
+    fetchBazarLogs();
   }, [token]);
 
-  // 5. Asignar puesto
+  // 6. Asignar puesto
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!assigningPuestoId || !selectedBusinessId) return;
@@ -179,6 +212,7 @@ export default function AdminBazarDashboardTab() {
         setSelectedBusinessId('');
         fetchPuestos();
         fetchBusinesses();
+        fetchBazarLogs();
       } else {
         alert(data.error || 'Error al asignar puesto');
       }
@@ -187,7 +221,7 @@ export default function AdminBazarDashboardTab() {
     }
   };
 
-  // 6. Liberar puesto
+  // 7. Liberar puesto
   const handleFreePuesto = async (puestoId: number) => {
     if (!confirm(`¿Estás seguro de liberar el Puesto #${puestoId}?`)) return;
 
@@ -205,6 +239,7 @@ export default function AdminBazarDashboardTab() {
       if (data.success) {
         fetchPuestos();
         fetchBusinesses();
+        fetchBazarLogs();
       } else {
         alert(data.error || 'Error al liberar puesto');
       }
@@ -268,7 +303,7 @@ export default function AdminBazarDashboardTab() {
                 Dashboard de Bazar & Publicidad (Ads)
               </h3>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-                Gestión en tiempo real de los 72 lugares de la Calle de la Cultura y Monetización CESA
+                Gestión en tiempo real de los 72 lugares de la Calle de la Cultura y Auditoría CESA
               </p>
             </div>
           </div>
@@ -622,6 +657,76 @@ export default function AdminBazarDashboardTab() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* SECCIÓN 4: AUDITORÍA DE CAMBIOS (IP, FECHA, HORA Y USUARIOS) */}
+      <div className="bg-slate-900/40 p-8 rounded-[2.5rem] border border-white/10 backdrop-blur-2xl space-y-6">
+        <div className="flex justify-between items-center border-b border-white/5 pb-4">
+          <div>
+            <h4 className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
+              <span>🔒</span> Auditoría de Modificaciones de Puestos
+            </h4>
+            <p className="text-xs text-slate-400">
+              Registro histórico con marca de tiempo, dirección IP y usuario responsable
+            </p>
+          </div>
+          <button
+            onClick={fetchBazarLogs}
+            className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+          >
+            Actualizar Logs
+          </button>
+        </div>
+
+        {loadingLogs ? (
+          <div className="text-center py-10 text-slate-500 text-xs font-bold uppercase tracking-widest">
+            Cargando auditoría...
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/10 text-[9px] uppercase tracking-widest text-slate-400">
+                  <th className="py-3 px-4 font-black">Fecha y Hora</th>
+                  <th className="py-3 px-4 font-black">Usuario Admin</th>
+                  <th className="py-3 px-4 font-black">Acción</th>
+                  <th className="py-3 px-4 font-black">Detalle</th>
+                  <th className="py-3 px-4 font-black font-mono">Dirección IP</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-xs text-slate-300">
+                {bazarLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-slate-500 uppercase text-xs font-bold">
+                      No hay registros de auditoría de puestos recientes
+                    </td>
+                  </tr>
+                ) : (
+                  bazarLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="py-3 px-4 font-mono text-[10px] text-slate-400">
+                        {new Date(log.created_at).toLocaleString('es-MX')}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-white">{log.usuario_nombre || 'Admin'}</div>
+                        <div className="text-[9px] text-slate-500 font-mono">{log.usuario_email || log.matricula || ''}</div>
+                      </td>
+                      <td className="py-3 px-4 font-mono text-[10px] uppercase font-black text-amber-400">
+                        {log.accion}
+                      </td>
+                      <td className="py-3 px-4 text-slate-300 text-xs">
+                        {log.descripcion}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-[10px] text-indigo-400">
+                        {log.ip_address}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* MODAL DE ASIGNACIÓN DE PUESTO */}

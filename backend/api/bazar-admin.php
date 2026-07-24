@@ -1,7 +1,7 @@
 <?php
 /**
- * API: Bazar Administrativo - CESA WEB v4.5
- * Moderación y administración centralizada del Bazar y Puestos (Calle de la Cultura)
+ * API: Bazar Administrativo - CESA WEB v4.6
+ * Moderación, administración centralizada y auditoría del Bazar y Puestos (Calle de la Cultura)
  * Archivo: /backend/api/bazar-admin.php
  */
 declare(strict_types=1);
@@ -163,6 +163,19 @@ try {
                 AdminHelper::logAction($pdo, $user['id'], 'bazar_liberar_puesto', "Puesto ID $puesto_id liberado");
             }
             echo json_encode(['success' => true, 'message' => 'Puesto liberado con éxito.']);
+            break;
+
+        case 'logs':
+            $stmt = $pdo->query("
+                SELECT l.id, l.usuario_id, l.accion, l.descripcion, l.ip_address, l.created_at,
+                       u.nombre_completo as usuario_nombre, u.email as usuario_email, u.matricula
+                FROM admin_logs l
+                LEFT JOIN usuarios u ON l.usuario_id = u.id
+                WHERE l.accion LIKE 'bazar_%'
+                ORDER BY l.created_at DESC
+                LIMIT 50
+            ");
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
             break;
 
         default:
