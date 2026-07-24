@@ -62,7 +62,7 @@ try {
                 $activeStmt = $pdo->prepare("SELECT * FROM bazar_ediciones WHERE id = ? LIMIT 1");
                 $activeStmt->execute([$requestedEdicionId]);
             } else {
-                $activeStmt = $pdo->query("SELECT * FROM bazar_ediciones WHERE estado = 'activa' OR activa = 1 ORDER BY id DESC LIMIT 1");
+                $activeStmt = $pdo->query("SELECT * FROM bazar_ediciones WHERE estado = 'activa' OR activo = 1 ORDER BY id DESC LIMIT 1");
             }
             $edicionActiva = $activeStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -143,10 +143,10 @@ try {
             }
 
             // Desactivar edición previa activa
-            $pdo->query("UPDATE bazar_ediciones SET estado = 'archivada', activa = 0 WHERE estado = 'activa'");
+            $pdo->query("UPDATE bazar_ediciones SET estado = 'archivada', activo = 0 WHERE estado = 'activa'");
 
             $stmt = $pdo->prepare("
-                INSERT INTO bazar_ediciones (nombre, mapa_tipo, fecha_inicio, fecha_fin, estado, activa)
+                INSERT INTO bazar_ediciones (nombre, mapa_tipo, fecha_inicio, fecha_fin, estado, activo)
                 VALUES (?, ?, ?, ?, 'activa', 1)
             ");
             $stmt->execute([$nombre, $mapa_tipo, $fecha_inicio, $fecha_fin]);
@@ -163,7 +163,7 @@ try {
                 exit;
             }
 
-            $stmt = $pdo->prepare("UPDATE bazar_ediciones SET estado = 'archivada', activa = 0 WHERE id = ?");
+            $stmt = $pdo->prepare("UPDATE bazar_ediciones SET estado = 'archivada', activo = 0 WHERE id = ?");
             $stmt->execute([$edicionId]);
 
             AdminHelper::logAction($pdo, $user['id'], 'bazar_archivar_edicion', "Edición ID $edicionId archivada");

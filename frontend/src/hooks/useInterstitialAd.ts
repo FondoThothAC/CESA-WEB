@@ -68,39 +68,49 @@ export function useInterstitialAd() {
     container.style.opacity = '0';
 
     container.innerHTML = `
-      <div class="relative w-[90%] max-w-lg bg-gradient-to-br from-[#12121e] to-[#08080c] border border-white/10 rounded-[2rem] p-8 shadow-2xl animate-in fade-in zoom-in duration-300">
+      <div class="relative w-[90%] max-w-lg bg-gradient-to-br from-[#12121e] to-[#08080c] border border-amber-500/20 rounded-[2.5rem] p-8 shadow-2xl animate-in fade-in zoom-in duration-300">
         <!-- Badge -->
-        <div class="absolute -top-3 left-8 bg-amber-500 text-black text-[9px] font-black tracking-[0.2em] uppercase px-3 py-1 rounded-full border border-amber-400">
-          Anuncio Estudiantil
+        <div class="absolute -top-3 left-8 bg-amber-500 text-black text-[9px] font-black tracking-[0.2em] uppercase px-3.5 py-1 rounded-full border border-amber-400 shadow-lg shadow-amber-500/20">
+          Anuncio Estudiantil CESA
         </div>
 
-        <!-- Close Button -->
-        <button id="cesa-interstitial-close" class="absolute top-4 right-4 text-white/40 hover:text-white transition-all bg-white/5 hover:bg-white/10 w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg">&times;</button>
+        <!-- Close Button (Siempre accesible) -->
+        <button id="cesa-interstitial-close" class="absolute top-5 right-5 text-white/60 hover:text-amber-400 transition-all bg-white/10 hover:bg-amber-500/20 hover:border-amber-500/40 border border-transparent w-9 h-9 rounded-full flex items-center justify-center font-bold text-xl z-10 cursor-pointer">&times;</button>
         
         <!-- Ad Content Area -->
-        <div class="flex flex-col items-center justify-center min-h-[300px] mt-2">
+        <div class="flex flex-col items-center justify-center min-h-[280px] mt-4 relative">
           <!-- Google Ad Container -->
-          <div class="w-full h-full flex items-center justify-center">
-            <ins class="adsbygoogle"
-                 style="display:block; min-width:300px; min-height:250px;"
-                 data-ad-client="${config.publisher_id}"
-                 data-ad-slot="${config.interstitial_slot_id}"
-                 data-ad-format="auto"
-                 data-full-width-responsive="true"></ins>
-          </div>
+          ${config.publisher_id && config.interstitial_slot_id ? `
+            <div class="w-full flex items-center justify-center">
+              <ins class="adsbygoogle"
+                   style="display:block; min-width:300px; min-height:250px;"
+                   data-ad-client="${config.publisher_id}"
+                   data-ad-slot="${config.interstitial_slot_id}"
+                   data-ad-format="auto"
+                   data-full-width-responsive="true"></ins>
+            </div>
+          ` : ''}
           
-          <!-- Fallback Visual Placeholder (if AdBlock blocks the script or ad doesn't load) -->
-          <div id="cesa-ad-placeholder" class="absolute inset-8 flex flex-col items-center justify-center text-center pointer-events-none opacity-20 transition-all">
-            <span class="text-4xl mb-3">🎓</span>
-            <p class="text-white font-black uppercase tracking-[0.15em] text-xs">Cargando Anuncio...</p>
-            <p class="text-white/40 text-[10px] mt-1">Patrocinado por CESA UNISON</p>
+          <!-- Fallback Visual Placeholder CESA -->
+          <div id="cesa-ad-placeholder" class="flex flex-col items-center justify-center text-center p-6 bg-white/[0.02] border border-white/5 rounded-2xl w-full">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-blue-500/20 border border-amber-500/30 flex items-center justify-center mb-4 shadow-inner">
+              <span class="text-3xl">🏛️</span>
+            </div>
+            <h4 class="text-white font-black text-base uppercase tracking-tight">Consejo Estudiantil UNISON</h4>
+            <p class="text-amber-400 text-xs font-bold mt-1">Gestión Institucional 2026 - 2028</p>
+            <p class="text-slate-400 text-xs mt-3 max-w-xs leading-relaxed">
+              Impulsando la representación digital, emprendimientos y actividades de los estudiantes de la Universidad de Sonora.
+            </p>
+            <a href="https://cesaunison.fondothoth.com" target="_blank" rel="noopener noreferrer" class="mt-4 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-xs px-4 py-2 rounded-xl transition-all">
+              Conocer más programas →
+            </a>
           </div>
         </div>
 
         <!-- Bottom details -->
-        <div class="mt-6 flex justify-between items-center text-[9px] font-bold text-white/20 uppercase tracking-widest border-t border-white/5 pt-4">
+        <div class="mt-6 flex justify-between items-center text-[9px] font-mono font-bold text-white/30 uppercase tracking-widest border-t border-white/5 pt-4">
           <span>CESA Digital 2026</span>
-          <span id="cesa-ad-timer">Cerrar en 5s</span>
+          <span id="cesa-ad-timer">Cerrar en 3s</span>
         </div>
       </div>
     `;
@@ -112,26 +122,25 @@ export function useInterstitialAd() {
       container.style.opacity = '1';
     }, 50);
 
-    // Load adsbygoogle
-    try {
-      ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
-      // Hide placeholder if ad loads
-      setTimeout(() => {
-        const ins = container.querySelector('ins.adsbygoogle');
-        if (ins && ins.innerHTML.trim().length > 0) {
-          const ph = container.querySelector('#cesa-ad-placeholder') as HTMLElement;
-          if (ph) ph.style.opacity = '0';
-        }
-      }, 1500);
-    } catch (e) {
-      console.warn("Error running adsbygoogle push:", e);
+    // Load adsbygoogle if configured
+    if (config.publisher_id && config.interstitial_slot_id) {
+      try {
+        ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+        setTimeout(() => {
+          const ins = container.querySelector('ins.adsbygoogle');
+          if (ins && ins.innerHTML.trim().length > 0) {
+            const ph = container.querySelector('#cesa-ad-placeholder') as HTMLElement;
+            if (ph) ph.style.display = 'none';
+          }
+        }, 1200);
+      } catch (e) {
+        console.warn("Error running adsbygoogle push:", e);
+      }
     }
 
-    let countdown = 5;
+    let countdown = 3;
     const timerSpan = container.querySelector('#cesa-ad-timer') as HTMLElement;
     const closeBtn = container.querySelector('#cesa-interstitial-close') as HTMLButtonElement;
-    closeBtn.disabled = true;
-    closeBtn.style.opacity = '0.3';
 
     const interval = setInterval(() => {
       countdown--;
@@ -139,9 +148,7 @@ export function useInterstitialAd() {
         if (countdown > 0) {
           timerSpan.textContent = `Cerrar en ${countdown}s`;
         } else {
-          timerSpan.textContent = 'Listo para cerrar';
-          closeBtn.disabled = false;
-          closeBtn.style.opacity = '1';
+          timerSpan.textContent = 'Clic en (X) para cerrar';
           clearInterval(interval);
         }
       }
@@ -156,19 +163,17 @@ export function useInterstitialAd() {
         }
         incrementCount();
         onClose?.();
-      }, 300);
+      }, 200);
     };
 
     closeBtn.onclick = () => {
-      if (countdown <= 0) {
-        closeAd();
-      }
+      closeAd();
     };
 
-    // Force auto-close after 35s maximum
+    // Force auto-close after 10s maximum
     const autoCloseTimeout = setTimeout(() => {
       closeAd();
-    }, 35000);
+    }, 10000);
 
     return true;
   };

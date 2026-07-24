@@ -75,6 +75,7 @@ export default function AdminBazarDashboardTab() {
   // Estados de Ediciones y Plantillas de Mapa
   const [edicionesList, setEdicionesList] = useState<any[]>([]);
   const [selectedEdicionId, setSelectedEdicionId] = useState<number | null>(null);
+  const [mapTypeOverride, setMapTypeOverride] = useState<'radial_base' | 'doble_pasillo' | 'exterior_perimetral' | null>(null);
   const [showNewEditionModal, setShowNewEditionModal] = useState(false);
   const [newEditionForm, setNewEditionForm] = useState({
     nombre: '',
@@ -590,6 +591,43 @@ export default function AdminBazarDashboardTab() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {/* Conmutador de Plantilla de Mapa en Vivo */}
+            <div className="flex items-center bg-black/60 border border-white/10 rounded-xl p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => setMapTypeOverride('radial_base')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  (mapTypeOverride || edicionActiva?.mapa_tipo || 'radial_base') === 'radial_base'
+                    ? 'bg-amber-500 text-black shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                1. Radial Base
+              </button>
+              <button
+                type="button"
+                onClick={() => setMapTypeOverride('doble_pasillo')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  (mapTypeOverride || edicionActiva?.mapa_tipo) === 'doble_pasillo'
+                    ? 'bg-amber-500 text-black shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                2. Doble Pasillo
+              </button>
+              <button
+                type="button"
+                onClick={() => setMapTypeOverride('exterior_perimetral')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  (mapTypeOverride || edicionActiva?.mapa_tipo) === 'exterior_perimetral'
+                    ? 'bg-amber-500 text-black shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                3. Exterior Perimetral
+              </button>
+            </div>
+
             {/* Selector de Historial de Ediciones */}
             <select
               value={selectedEdicionId || edicionActiva?.id || ''}
@@ -600,10 +638,10 @@ export default function AdminBazarDashboardTab() {
               }}
               className="bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-500 font-bold"
             >
-              <option value="">-- Edición Activa Actual --</option>
+              <option value="">-- Edición 12 de Agosto de 2026 --</option>
               {edicionesList.map((ed) => (
                 <option key={ed.id} value={ed.id}>
-                  {ed.nombre} ({ed.estado === 'archivada' ? 'Archivada' : 'Activa'}) - {ed.mapa_tipo}
+                  {ed.nombre} ({ed.estado === 'archivada' ? 'Archivada' : 'Activa'})
                 </option>
               ))}
             </select>
@@ -643,7 +681,7 @@ export default function AdminBazarDashboardTab() {
           <BazarSchematicMap
             puestos={formattedPuestos}
             locations={occupiedLocations}
-            mapType={edicionActiva?.mapa_tipo || 'radial_base'}
+            mapType={mapTypeOverride || edicionActiva?.mapa_tipo || 'radial_base'}
             isArchived={edicionActiva?.estado === 'archivada'}
             editionTitle={edicionActiva?.nombre}
             onSelectSpot={(puesto) => {

@@ -43,77 +43,102 @@ const BazarSchematicMap: React.FC<BazarSchematicMapProps> = ({
     const dots: { id: number; x: number; y: number; zona: string }[] = [];
     let currentId = 1;
 
-    // Plantilla 1: Radial Base (72 puntos)
+    // Plantilla 1: Radial Base (72 puestos simples en 8 rayos)
     if (mapType === 'radial_base') {
       const lines = 8;
-      const dotsPerLine = 10;
+      const dotsPerLine = 9;
       for (let i = 0; i < lines; i++) {
         const angle = (i * 360) / lines;
-        for (let j = 2; j <= dotsPerLine; j++) {
-          const distance = j * 4.2;
+        for (let j = 1; j <= dotsPerLine; j++) {
+          const distance = 10 + j * 4.2;
           const x = 50 + Math.cos((angle * Math.PI) / 180) * distance;
           const y = 50 + Math.sin((angle * Math.PI) / 180) * distance;
           if (x >= 8 && x <= 92 && y >= 8 && y <= 92) {
-            dots.push({ id: currentId++, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, zona: 'radial' });
+            dots.push({ id: currentId++, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, zona: 'radial_simple' });
           }
         }
       }
       return dots;
     }
 
-    // Plantilla 2: Doble Pasillo (112 puntos a ambos lados del pasillo)
+    // Plantilla 2: Doble Pasillo (Fila DOBLE únicamente en pasillo vertical Norte y Sur; Diagonales y Horizontal son SIMPLES)
     if (mapType === 'doble_pasillo' || mapType === 'exterior_perimetral') {
       const lines = 8;
-      const dotsPerLine = 8;
-      const offsetDistance = 1.8; // Desplazamiento perpendicular a ambos lados del pasillo
+      const dotsPerLine = 9;
+      const offsetDistance = 2.2; // Desplazamiento para la doble fila en pasillo Norte/Sur
 
       for (let i = 0; i < lines; i++) {
-        const angleRad = (i * 360 / lines) * (Math.PI / 180);
-        // Vector perpendicular
-        const perpX = -Math.sin(angleRad) * offsetDistance;
-        const perpY = Math.cos(angleRad) * offsetDistance;
+        const angleDeg = (i * 360) / lines;
+        const angleRad = angleDeg * (Math.PI / 180);
 
-        for (let j = 2; j <= dotsPerLine; j++) {
-          const distance = j * 4.5;
-          const baseX = 50 + Math.cos(angleRad) * distance;
-          const baseY = 50 + Math.sin(angleRad) * distance;
+        // Si es pasillo vertical Norte (90 deg / 270 deg en SVG), hacemos fila doble a la izq y der del pasillo
+        const isVerticalNorteSur = Math.abs(Math.cos(angleRad)) < 0.1; // Ángulo vertical (top/bottom)
 
-          // Lado A (Izquierdo del pasillo)
-          const xA = baseX + perpX;
-          const yA = baseY + perpY;
-          if (xA >= 8 && xA <= 92 && yA >= 8 && yA <= 92) {
-            dots.push({ id: currentId++, x: Math.round(xA * 10) / 10, y: Math.round(yA * 10) / 10, zona: 'doble_pasillo_izq' });
+        if (isVerticalNorteSur) {
+          // Fila Doble
+          for (let j = 1; j <= dotsPerLine; j++) {
+            const distance = 10 + j * 4.2;
+            const baseX = 50 + Math.cos(angleRad) * distance;
+            const baseY = 50 + Math.sin(angleRad) * distance;
+
+            // Izquierda (-X)
+            const xA = baseX - offsetDistance;
+            const yA = baseY;
+            if (yA >= 8 && yA <= 92) {
+              dots.push({ id: currentId++, x: Math.round(xA * 10) / 10, y: Math.round(yA * 10) / 10, zona: 'doble_nortesur_izq' });
+            }
+
+            // Derecha (+X)
+            const xB = baseX + offsetDistance;
+            const yB = baseY;
+            if (yB >= 8 && yB <= 92) {
+              dots.push({ id: currentId++, x: Math.round(xB * 10) / 10, y: Math.round(yB * 10) / 10, zona: 'doble_nortesur_der' });
+            }
           }
-
-          // Lado B (Derecho del pasillo)
-          const xB = baseX - perpX;
-          const yB = baseY - perpY;
-          if (xB >= 8 && xB <= 92 && yB >= 8 && yB <= 92) {
-            dots.push({ id: currentId++, x: Math.round(xB * 10) / 10, y: Math.round(yB * 10) / 10, zona: 'doble_pasillo_der' });
+        } else {
+          // Rayos horizontales y diagonales se quedan SIMPLES
+          for (let j = 1; j <= dotsPerLine; j++) {
+            const distance = 10 + j * 4.2;
+            const x = 50 + Math.cos(angleRad) * distance;
+            const y = 50 + Math.sin(angleRad) * distance;
+            if (x >= 8 && x <= 92 && y >= 8 && y <= 92) {
+              dots.push({ id: currentId++, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, zona: 'simple' });
+            }
           }
         }
       }
     }
 
-    // Plantilla 3: Agregar Circuito Exterior Perimetral (+64 puntos alrededor de los cuadrantes)
+    // Plantilla 3: Exterior Perimetral (Doble Pasillo N/S + Filas en el pasillo exterior)
     if (mapType === 'exterior_perimetral') {
-      const perimeters = [
-        { minX: 8, maxX: 46, minY: 8, maxY: 46 },   // Cuadrante Noroeste
-        { minX: 54, maxX: 92, minY: 8, maxY: 46 },  // Cuadrante Noreste
-        { minX: 8, maxX: 46, minY: 54, maxY: 92 },  // Cuadrante Suroeste
-        { minX: 54, maxX: 92, minY: 54, maxY: 92 }  // Cuadrante Sureste
-      ];
+      const topOuterY = 6;
+      const bottomOuterY = 94;
+      const leftOuterX = 6;
+      const rightOuterX = 94;
 
-      perimeters.forEach((p) => {
-        // 4 lados exteriores por cuadrante
-        const step = (p.maxX - p.minX) / 3;
-        for (let k = 0; k <= 3; k++) {
-          dots.push({ id: currentId++, x: p.minX + k * step, y: p.minY, zona: 'exterior_perimetro' });
-          dots.push({ id: currentId++, x: p.minX + k * step, y: p.maxY, zona: 'exterior_perimetro' });
-          dots.push({ id: currentId++, x: p.minX, y: p.minY + k * step, zona: 'exterior_perimetro' });
-          dots.push({ id: currentId++, x: p.maxX, y: p.minY + k * step, zona: 'exterior_perimetro' });
-        }
-      });
+      // Fila exterior superior (Norte)
+      for (let k = 0; k < 8; k++) {
+        dots.push({ id: currentId++, x: 14 + k * 4.2, y: topOuterY, zona: 'exterior_top' });
+        dots.push({ id: currentId++, x: 58 + k * 4.2, y: topOuterY, zona: 'exterior_top' });
+      }
+
+      // Fila exterior inferior (Sur)
+      for (let k = 0; k < 8; k++) {
+        dots.push({ id: currentId++, x: 14 + k * 4.2, y: bottomOuterY, zona: 'exterior_bottom' });
+        dots.push({ id: currentId++, x: 58 + k * 4.2, y: bottomOuterY, zona: 'exterior_bottom' });
+      }
+
+      // Fila exterior izquierda (Oeste)
+      for (let k = 0; k < 8; k++) {
+        dots.push({ id: currentId++, x: leftOuterX, y: 14 + k * 4.2, zona: 'exterior_left' });
+        dots.push({ id: currentId++, x: leftOuterX, y: 58 + k * 4.2, zona: 'exterior_left' });
+      }
+
+      // Fila exterior derecha (Este)
+      for (let k = 0; k < 8; k++) {
+        dots.push({ id: currentId++, x: rightOuterX, y: 14 + k * 4.2, zona: 'exterior_right' });
+        dots.push({ id: currentId++, x: rightOuterX, y: 58 + k * 4.2, zona: 'exterior_right' });
+      }
     }
 
     return dots;
