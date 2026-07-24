@@ -56,11 +56,29 @@ try {
             break;
 
         case 'puestos_status':
-            // 1. Obtener la edición activa
-            $activeStmt = $pdo->query("SELECT * FROM bazar_ediciones WHERE activo = 1 LIMIT 1");
+            $requestedEdicionId = isset($_GET['edicion_id']) && $_GET['edicion_id'] !== '' ? (int)$_GET['edicion_id'] : null;
+
+            if ($requestedEdicionId) {
+                $activeStmt = $pdo->prepare("SELECT * FROM bazar_ediciones WHERE id = ? LIMIT 1");
+                $activeStmt->execute([$requestedEdicionId]);
+            } else {
+                $activeStmt = $pdo->query("SELECT * FROM bazar_ediciones WHERE estado = 'activa' OR activa = 1 ORDER BY id DESC LIMIT 1");
+            }
             $edicionActiva = $activeStmt->fetch(PDO::FETCH_ASSOC);
 
-            // 2. Obtener la lista completa de los 72 puestos y su ocupación
+            // Fallback si no hay edición
+            if (!$edicionActiva) {
+                $edicionActiva = [
+                    'id' => 1,
+                    'nombre' => 'Edición Otoño 2026',
+                    'mapa_tipo' => 'radial_base',
+                    'estado' => 'activa',
+                    'fecha_inicio' => date('Y-m-d'),
+                    'fecha_fin' => date('Y-m-d', strtotime('+3 days'))
+                ];
+            }
+
+            // 2. Obtener la lista de puestos
             $puestosStmt = $pdo->query("
                 SELECT 
                     cp.id as puesto_id,
@@ -84,7 +102,6 @@ try {
             ");
             $puestos = $puestosStmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // 3. Contadores
             $totalPuestos = count($puestos);
             $ocupados = 0;
             foreach ($puestos as $p) {
@@ -97,6 +114,7 @@ try {
             echo json_encode([
                 'success' => true,
                 'edicion' => $edicionActiva,
+                'mapa_tipo' => $edicionActiva['mapa_tipo'] ?? 'radial_base',
                 'stats' => [
                     'total_puestos' => $totalPuestos,
                     'ocupados' => $ocupados,
@@ -105,6 +123,51 @@ try {
                 ],
                 'puestos' => $puestos
             ]);
+            break;
+
+        case 'ediciones_list':
+            $stmt = $pdo->query("SELECT * FROM bazar_ediciones ORDER BY id DESC");
+            $ediciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'ediciones' => $ediciones]);
+            break;
+
+        case 'crear_edicion':
+            $nombre = trim($_POST['nombre'] ?? '');
+            $mapa_tipo = $_POST['mapa_tipo'] ?? 'radial_base';
+            $fecha_inicio = $_POST['fecha_inicio'] ?? date('Y-m-d');
+            $fecha_fin = $_POST['fecha_fin'] ?? date('Y-m-d', strtotime('+3 days'));
+
+            if (empty($nombre)) {
+                echo json_encode(['success' => false, 'error' => 'El nombre de la edición es requerido']);
+                exit;
+            }
+
+            // Desactivar edición previa activa
+            $pdo->query("UPDATE bazar_ediciones SET estado = 'archivada', activa = 0 WHERE estado = 'activa'");
+
+            $stmt = $pdo->prepare("
+                INSERT INTO bazar_ediciones (nombre, mapa_tipo, fecha_inicio, fecha_fin, estado, activa)
+                VALUES (?, ?, ?, ?, 'activa', 1)
+            ");
+            $stmt->execute([$nombre, $mapa_tipo, $fecha_inicio, $fecha_fin]);
+            $newId = $pdo->lastInsertId();
+
+            AdminHelper::logAction($pdo, $user['id'], 'bazar_crear_edicion', "Nueva edición '$nombre' ($mapa_tipo) creada");
+            echo json_encode(['success' => true, 'id' => $newId, 'message' => 'Edición del Bazar activada con éxito.']);
+            break;
+
+        case 'archivar_edicion':
+            $edicionId = (int)($_POST['edicion_id'] ?? 0);
+            if ($edicionId <= 0) {
+                echo json_encode(['success' => false, 'error' => 'ID de edición inválido']);
+                exit;
+            }
+
+            $stmt = $pdo->prepare("UPDATE bazar_ediciones SET estado = 'archivada', activa = 0 WHERE id = ?");
+            $stmt->execute([$edicionId]);
+
+            AdminHelper::logAction($pdo, $user['id'], 'bazar_archivar_edicion', "Edición ID $edicionId archivada");
+            echo json_encode(['success' => true, 'message' => 'Edición congelada y enviada al historial permanente.']);
             break;
 
         case 'aprobar':

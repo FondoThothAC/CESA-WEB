@@ -108,6 +108,7 @@ scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
     database/migrations/v6.8_activate_publicidad_and_bazar.sql \
     database/migrations/v6.9_student_expediente_credits_and_auditoria.sql \
     database/migrations/v7.0_zeroclaw_swarm.sql \
+    database/migrations/v7.1_bazar_multi_map_and_archiving.sql \
     scripts/setup_telegram_webhook.php \
     scripts/install_zeroclaw.sh \
     $USER@$IP:/tmp/
@@ -279,6 +280,10 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     # Aplicar Swarm de Sub-Agentes v7.0
     echo "   - Aplicando v7.0_zeroclaw_swarm.sql..."
     sudo mysql "$DB_NAME" -f < /tmp/v7.0_zeroclaw_swarm.sql || true
+
+    # Aplicar Multi-Mapas y Archivo Histórico del Bazar v7.1
+    echo "   - Aplicando v7.1_bazar_multi_map_and_archiving.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v7.1_bazar_multi_map_and_archiving.sql || true
     
     # Configurar Webhook oficial de Telegram (@CesaUnisonBot)
     echo "   - Vinculando Webhook de Telegram (@CesaUnisonBot)..."

@@ -72,6 +72,21 @@ export default function AdminBazarDashboardTab() {
   const [filterEstado, setFilterEstado] = useState<'todos' | 'ocupados' | 'libres'>('todos');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Estados de Ediciones y Plantillas de Mapa
+  const [edicionesList, setEdicionesList] = useState<any[]>([]);
+  const [selectedEdicionId, setSelectedEdicionId] = useState<number | null>(null);
+  const [showNewEditionModal, setShowNewEditionModal] = useState(false);
+  const [newEditionForm, setNewEditionForm] = useState({
+    nombre: '',
+    mapa_tipo: 'radial_base',
+    fecha_inicio: dateToYMD(new Date()),
+    fecha_fin: dateToYMD(new Date(Date.now() + 3 * 86400000))
+  });
+
+  function dateToYMD(d: Date) {
+    return d.toISOString().split('T')[0];
+  }
+
   // Modales y Auditoría
   const [allBusinesses, setAllBusinesses] = useState<any[]>([]);
   const [assigningPuestoId, setAssigningPuestoId] = useState<number | null>(null);
@@ -130,11 +145,16 @@ export default function AdminBazarDashboardTab() {
     }
   };
 
-  // 3. Cargar Lugares y Puestos del Bazar
-  const fetchPuestos = async () => {
+  // 3. Cargar Lugares y Puestos del Bazar (por edición activa o seleccionada del historial)
+  const fetchPuestos = async (edId?: number | null) => {
     setLoadingPuestos(true);
     try {
-      const res = await fetch(`${API_URL}/api/bazar-admin.php?action=puestos_status`, {
+      const targetId = edId !== undefined ? edId : selectedEdicionId;
+      const url = targetId 
+        ? `${API_URL}/api/bazar-admin.php?action=puestos_status&edicion_id=${targetId}`
+        : `${API_URL}/api/bazar-admin.php?action=puestos_status`;
+
+      const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const data = await res.json();
@@ -148,6 +168,72 @@ export default function AdminBazarDashboardTab() {
     } finally {
       setLoadingPuestos(false);
     }
+  };
+
+  // 3b. Cargar Lista de Ediciones (Histórico & Activas)
+  const fetchEdiciones = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/bazar-admin.php?action=ediciones_list`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEdicionesList(data.ediciones || []);
+      }
+    } catch (e) {}
+  };
+
+  // Crear Nueva Edición con Plantilla de Mapa elegida
+  const handleCreateEdition = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const fd = new FormData();
+      fd.append('action', 'crear_edicion');
+      fd.append('nombre', newEditionForm.nombre);
+      fd.append('mapa_tipo', newEditionForm.mapa_tipo);
+      fd.append('fecha_inicio', newEditionForm.fecha_inicio);
+      fd.append('fecha_fin', newEditionForm.fecha_fin);
+
+      const res = await fetch(`${API_URL}/api/bazar-admin.php`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('¡Nueva Edición activada correctamente con el mapa elegido!');
+        setShowNewEditionModal(false);
+        setSelectedEdicionId(data.id);
+        fetchEdiciones();
+        fetchPuestos(data.id);
+      } else {
+        alert(data.error || 'Error al activar edición');
+      }
+    } catch (e) {
+      alert('Error de conexión');
+    }
+  };
+
+  // Archivar Edición Activa
+  const handleArchiveEdition = async (edId: number) => {
+    if (!confirm('¿Seguro que deseas cerrar y archivar esta edición? Quedará congelada en el historial permanente y los datos no se perderán.')) return;
+    try {
+      const fd = new FormData();
+      fd.append('action', 'archivar_edicion');
+      fd.append('edicion_id', String(edId));
+
+      const res = await fetch(`${API_URL}/api/bazar-admin.php`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Edición congelada y guardada en el Historial Permanente.');
+        fetchEdiciones();
+        fetchPuestos();
+      }
+    } catch (e) {}
   };
 
   // 4. Cargar Emprendimientos Registrados
@@ -186,6 +272,7 @@ export default function AdminBazarDashboardTab() {
   useEffect(() => {
     fetchAdConfig();
     fetchPuestos();
+    fetchEdiciones();
     fetchBusinesses();
     fetchBazarLogs();
   }, [token]);
@@ -484,22 +571,67 @@ export default function AdminBazarDashboardTab() {
         )}
       </div>
 
-      {/* SECCIÓN 2: MAPA ESQUEMÁTICO RADIAL EN VIVO */}
+      {/* SECCIÓN 2: MAPA ESQUEMÁTICO EN VIVO CON PLANTILLAS Y HISTORIAL */}
       <div className="bg-slate-900/40 p-8 rounded-[2.5rem] border border-white/10 backdrop-blur-2xl space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4">
           <div>
             <h4 className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
               <span>📍</span> Mapa Interactivo de Puestos (Calle de la Cultura)
+              {edicionActiva?.estado === 'archivada' && (
+                <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] px-2.5 py-0.5 rounded-full font-mono font-black">
+                  🔒 ARCHIVADA
+                </span>
+              )}
             </h4>
-            <p className="text-xs text-slate-400">Verifica la ocupación de los 72 puntos radiales en tiempo real</p>
+            <p className="text-xs text-slate-400">
+              Plantilla de Mapa: <strong className="text-blue-400 uppercase font-mono">{edicionActiva?.mapa_tipo || 'radial_base'}</strong>
+              {edicionActiva?.fecha_inicio && ` • Fechas: ${edicionActiva.fecha_inicio} al ${edicionActiva.fecha_fin}`}
+            </p>
           </div>
-          <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
-            <span className="flex items-center gap-1.5 text-emerald-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Libre
-            </span>
-            <span className="flex items-center gap-1.5 text-amber-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b]"></span> Ocupado
-            </span>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Selector de Historial de Ediciones */}
+            <select
+              value={selectedEdicionId || edicionActiva?.id || ''}
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : null;
+                setSelectedEdicionId(val);
+                fetchPuestos(val);
+              }}
+              className="bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-500 font-bold"
+            >
+              <option value="">-- Edición Activa Actual --</option>
+              {edicionesList.map((ed) => (
+                <option key={ed.id} value={ed.id}>
+                  {ed.nombre} ({ed.estado === 'archivada' ? 'Archivada' : 'Activa'}) - {ed.mapa_tipo}
+                </option>
+              ))}
+            </select>
+
+            {/* Acciones de Edición */}
+            {edicionActiva?.estado === 'activa' && (
+              <button
+                onClick={() => handleArchiveEdition(edicionActiva.id)}
+                className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 text-xs font-bold px-3 py-2 rounded-xl border border-amber-600/30 transition-colors"
+              >
+                🔒 Cerrar & Archivar Edición
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setNewEditionForm({
+                  nombre: `Bazar CESA Edición ${new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' })}`,
+                  mapa_tipo: 'radial_base',
+                  fecha_inicio: dateToYMD(new Date()),
+                  fecha_fin: dateToYMD(new Date(Date.now() + 3 * 86400000))
+                });
+                setShowNewEditionModal(true);
+              }}
+              className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-4 py-2 rounded-xl shadow-lg shadow-amber-500/20 transition-all"
+            >
+              + Crear Nueva Edición del Bazar
+            </button>
           </div>
         </div>
 
@@ -511,6 +643,9 @@ export default function AdminBazarDashboardTab() {
           <BazarSchematicMap
             puestos={formattedPuestos}
             locations={occupiedLocations}
+            mapType={edicionActiva?.mapa_tipo || 'radial_base'}
+            isArchived={edicionActiva?.estado === 'archivada'}
+            editionTitle={edicionActiva?.nombre}
             onSelectSpot={(puesto) => {
               const full = puestosData.find((p) => p.puesto_id === puesto.id);
               if (full) setSelectedSpot(full);
@@ -518,6 +653,83 @@ export default function AdminBazarDashboardTab() {
           />
         )}
       </div>
+
+      {/* MODAL CREAR NUEVA EDICIÓN CON PLANTILLA DE MAPA */}
+      {showNewEditionModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <form onSubmit={handleCreateEdition} className="bg-[#111625] border border-amber-500/30 p-6 rounded-3xl w-full max-w-lg space-y-4">
+            <h3 className="text-lg font-black uppercase text-white border-b border-white/10 pb-3">
+              Crear Nueva Edición del Bazar
+            </h3>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Nombre de la Edición</label>
+                <input
+                  required
+                  type="text"
+                  value={newEditionForm.nombre}
+                  onChange={(e) => setNewEditionForm({ ...newEditionForm, nombre: e.target.value })}
+                  placeholder="ej. Edición Día del Estudiante - Septiembre 2026"
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Plantilla de Mapa Geométrico</label>
+                <select
+                  value={newEditionForm.mapa_tipo}
+                  onChange={(e) => setNewEditionForm({ ...newEditionForm, mapa_tipo: e.target.value })}
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none font-bold"
+                >
+                  <option value="radial_base">📍 Mapa 1: Base Radial (72 puestos en cruz/diagonal)</option>
+                  <option value="doble_pasillo">📍 Mapa 2: Doble Pasillo Ancho (112 puestos a ambos lados)</option>
+                  <option value="exterior_perimetral">📍 Mapa 3: Exterior Perimetral (176 puestos con pasillo exterior)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] text-slate-400 font-bold uppercase">Fecha Inicio</label>
+                  <input
+                    required
+                    type="date"
+                    value={newEditionForm.fecha_inicio}
+                    onChange={(e) => setNewEditionForm({ ...newEditionForm, fecha_inicio: e.target.value })}
+                    className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 font-bold uppercase">Fecha Cierre / Fin</label>
+                  <input
+                    required
+                    type="date"
+                    value={newEditionForm.fecha_fin}
+                    onChange={(e) => setNewEditionForm({ ...newEditionForm, fecha_fin: e.target.value })}
+                    className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setShowNewEditionModal(false)}
+                className="bg-slate-800 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-5 py-2 rounded-xl shadow-lg shadow-amber-500/20"
+              >
+                Activar Edición & Mapa
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* SECCIÓN 3: TABLA DETALLADA DE LUGARES & PUESTOS */}
       <div className="bg-slate-900/40 p-8 rounded-[2.5rem] border border-white/10 backdrop-blur-2xl space-y-6">
