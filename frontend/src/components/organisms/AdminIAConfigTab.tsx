@@ -117,6 +117,7 @@ export default function AdminIAConfigTab() {
         <div className="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-white/10">
           {[
             { id: 'dashboard', label: '📊 Dashboard' },
+            { id: 'pixel_office', label: '🎮 Pixel Office' },
             { id: 'skills', label: '🤖 Agente & Skills' },
             { id: 'jobs', label: '⏰ Scheduled Jobs' },
             { id: 'llm_config', label: '⚙️ Configuración LLM' }
@@ -270,6 +271,56 @@ export default function AdminIAConfigTab() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: PIXEL OFFICE (VIRTUAL HQ) */}
+      {activeSubTab === 'pixel_office' as any && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="flex justify-between items-end border-b border-white/10 pb-3">
+            <div>
+              <h3 className="text-lg font-black uppercase text-white flex items-center gap-2">
+                🎮 Sede Virtual: Pixel Office
+                <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[9px] font-black px-2 py-0.5 rounded-full">EN VIVO</span>
+              </h3>
+              <p className="text-xs text-slate-400">Interactúa con Bob y gestiona integraciones desde el entorno 2D.</p>
+            </div>
+            <div className="flex gap-2">
+               <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/10 transition-colors">
+                  🔗 Conectar Google Workspace
+               </button>
+               <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/10 transition-colors">
+                  🔗 Conectar Canva
+               </button>
+               <button className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg shadow-blue-500/20 transition-colors">
+                  [ ] Modo Pantalla Completa
+               </button>
+            </div>
+          </div>
+
+          <div className="relative w-full h-[600px] bg-[#000] rounded-3xl border-2 border-slate-800 overflow-hidden shadow-2xl group">
+             {/* Fallback/Loader before iframe loads or if it fails */}
+             <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#090d16] z-0">
+                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-slate-400 font-mono text-sm tracking-widest uppercase">Cargando Motor ZeroClaw (Puerto 42617)...</p>
+             </div>
+             
+             {/* Iframe pointing to the deployed Pixel Office */}
+             <iframe 
+                src="https://cesaunison.fondothoth.com/pixel-office/" 
+                className="relative z-10 w-full h-full border-0"
+                title="ZeroClaw Pixel Office"
+                sandbox="allow-scripts allow-same-origin allow-popups"
+             ></iframe>
+
+             {/* Overlay HUD */}
+             <div className="absolute top-4 left-4 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="bg-black/60 backdrop-blur-md border border-white/10 p-3 rounded-xl">
+                   <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Conexión WebSocket Establecida</p>
+                   <p className="text-[9px] font-mono text-slate-400 mt-1">wss://cesaunison.fondothoth.com/zeroclaw-ws</p>
+                </div>
+             </div>
           </div>
         </div>
       )}
