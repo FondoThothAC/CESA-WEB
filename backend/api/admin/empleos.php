@@ -12,9 +12,9 @@ require_once __DIR__ . '/../../lib/Auth.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $auth = new Auth();
-if (!$auth->hasRole('admin') && !$auth->hasRole('mesa_directiva') && !$auth->hasRole('coordinador_impulso')) {
+if (!$auth->hasPermission('bolsa_trabajo')) {
     http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'No autorizado']);
+    echo json_encode(['success' => false, 'error' => 'Acceso denegado. Se requieren permisos de Bolsa de Trabajo.']);
     exit;
 }
 

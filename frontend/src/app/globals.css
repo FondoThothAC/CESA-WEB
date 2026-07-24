@@ -3,35 +3,43 @@
 @tailwind utilities;
 
 :root {
-  /* Design Tokens - Institutional Colors (The Owl) */
-  --primary: #002147; /* Deep Navy Blue from Logo */
-  --accent: #C5A059;  /* Institutional Gold from Logo */
-  --accent-glow: rgba(197, 160, 89, 0.2);
+  /* Design Tokens - New CESA Identity Theme (Navy, Gold & Cream) */
+  --primary: #d4a343;         /* Brand Gold (Ochre) */
+  --accent: #f6f2eb;          /* Brand Cream */
+  --accent-glow: rgba(212, 163, 67, 0.15);
+  --unison-red: #c4161c;
   
-  --bg-primary: #fdfdfd;
-  --bg-secondary: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.8);
-  --border: rgba(0, 33, 71, 0.12); /* Navy tinted border - Increased opacity for better definition */
+  --bg-primary: #091324;      /* Deep brand Navy */
+  --bg-secondary: #0d1e3d;    /* Brand Navy */
+  --bg-card: rgba(13, 30, 61, 0.85); /* Semitransparent brand Navy */
+  --border: rgba(246, 242, 235, 0.08); /* Faint Cream border */
   
-  --text-main: #002147; /* Use Navy for text in light mode */
-  --text-muted: #64748b;
+  --text-main: #f6f2eb;       /* Cream text */
+  --text-muted: #8e9db0;      /* Muted blue-grey text */
   
-  --shadow: 0 10px 30px -5px rgba(0, 33, 71, 0.08); /* More elegant shadow */
+  --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(212, 163, 67, 0.1);
 }
 
 .dark {
   /* Design Tokens - Dark Theme */
-  --primary: #60a5fa; /* Lighter blue for dark mode contrast */
-  --bg-primary: #060913;
-  --bg-secondary: #0c101b;
-  --bg-card: rgba(12, 16, 28, 0.85);
-  --border: rgba(197, 160, 89, 0.25); /* Gold tinted border - Increased visibility */
+  --primary: #d4a343; 
+  --accent: #f6f2eb;
+  --accent-glow: rgba(212, 163, 67, 0.15);
+  --unison-red: #e53935;
+
+  --bg-primary: #091324;
+  --bg-secondary: #0d1e3d;
+  --bg-card: rgba(13, 30, 61, 0.85);
+  --border: rgba(246, 242, 235, 0.08); 
   
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
+  --text-main: #f6f2eb;
+  --text-muted: #8e9db0;
   
-  --shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.8);
+  --shadow-soft: 0 20px 50px -12px rgba(0, 0, 0, 0.8);
+  --shadow-glow: 0 0 20px rgba(212, 163, 67, 0.1);
 }
+
 
 * {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
@@ -59,57 +67,84 @@ body::before {
   background-image: url("/logo-cesa.jpg");
   background-size: cover;
   background-position: center;
-  opacity: 0.05;
+  opacity: 0.03;
   pointer-events: none;
 }
 
-/* Base Components */
+/* Glassmorphism & Card Utilities */
 .glass {
   background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-soft);
   @apply rounded-2xl;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: var(--shadow-soft);
+  @apply rounded-3xl;
+}
+
+.dark .glass-panel {
+  background: rgba(12, 16, 28, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .clean-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-soft);
   @apply rounded-2xl p-6 transition-all duration-300;
 }
 
 .clean-card:hover {
   @apply -translate-y-1;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
 }
 
 .gradient-text {
-  @apply bg-clip-text text-transparent bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500;
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-navy to-navy-light;
+}
+
+.dark .gradient-text {
+  @apply bg-gradient-to-r from-blue-400 to-indigo-400;
 }
 
 .unison-gradient {
-  background: linear-gradient(135deg, var(--primary) 0%, #1e40af 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, #003366 100%);
+}
+
+.unison-red-gradient {
+  background: linear-gradient(135deg, var(--unison-red) 0%, #e53935 100%);
 }
 
 @layer components {
   .btn-clean {
-    @apply px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 active:scale-95;
+    @apply px-6 py-2.5 rounded-xl font-medium transition-all duration-300 active:scale-95;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     color: var(--text-main);
   }
   
+  .btn-clean:hover {
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-soft);
+  }
+  
   .btn-clean-primary {
-    @apply px-6 py-2.5 rounded-xl font-semibold text-white transition-all duration-300 active:scale-95;
+    @apply px-6 py-2.5 rounded-xl font-medium text-white transition-all duration-300 active:scale-95;
     background: var(--primary);
-    box-shadow: 0 4px 15px rgba(0, 51, 102, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 33, 71, 0.15);
   }
   
   .btn-clean-primary:hover {
     @apply opacity-90 -translate-y-0.5;
-    box-shadow: 0 8px 25px rgba(0, 51, 102, 0.3);
+    box-shadow: 0 8px 25px rgba(0, 33, 71, 0.25);
   }
 }
 

@@ -283,10 +283,65 @@ switch ($action) {
         }
         break;
 
+    // === CONSULTAR CATÁLOGO DE PRODUCTOS / MARKETPLACE DEL EMPRENDIMIENTO ===
+    case 'productos':
+        $emprendimiento_id = (int)($_GET['emprendimiento_id'] ?? $_POST['emprendimiento_id'] ?? 0);
+        if ($emprendimiento_id <= 0) {
+            echo json_encode(['success' => true, 'data' => []]);
+            exit;
+        }
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM bazar_productos WHERE emprendimiento_id = ? AND disponible = 1 ORDER BY id DESC");
+            $stmt->execute([$emprendimiento_id]);
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al obtener productos']);
+        }
+        break;
+
+    // === AGREGAR PRODUCTO AL MARKETPLACE DE BAZAR ===
+    case 'agregar_producto':
+        if (!$isLoggedIn) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Inicia sesión para subir productos a tu catálogo']);
+            exit;
+        }
+        $emprendimiento_id = (int)($_POST['emprendimiento_id'] ?? 0);
+        $nombre = htmlspecialchars(trim($_POST['nombre'] ?? ''));
+        $descripcion = htmlspecialchars(trim($_POST['descripcion'] ?? ''));
+        $precio = (float)($_POST['precio'] ?? 0.0);
+        $imagen_url = htmlspecialchars(trim($_POST['imagen_url'] ?? ''));
+
+        if ($emprendimiento_id <= 0 || empty($nombre)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Datos incompletos del producto']);
+            exit;
+        }
+
+        try {
+            // Verificar pertenencia del emprendimiento
+            $checkOwner = $pdo->prepare("SELECT id FROM emprendimientos WHERE id = ? AND (usuario_id = ? OR ? IN ('admin', 'mesa_directiva'))");
+            $checkOwner->execute([$emprendimiento_id, $user['id'], $user['rol']]);
+            if (!$checkOwner->fetch()) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'No tienes permisos sobre este negocio']);
+                exit;
+            }
+
+            $stmt = $pdo->prepare("INSERT INTO bazar_productos (emprendimiento_id, nombre, descripcion, precio, imagen_url) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$emprendimiento_id, $nombre, $descripcion, $precio, $imagen_url]);
+
+            echo json_encode(['success' => true, 'message' => 'Producto publicado en el marketplace']);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al agregar producto']);
+        }
+        break;
+
     default:
-        // By default act as GET config if no action is explicitly stated but params exist
         if ($method === 'GET') {
-            // Already handled above
+            // Already handled
         } else {
             http_response_code(404);
             echo json_encode(['success' => false, 'error' => 'Acción no encontrada']);

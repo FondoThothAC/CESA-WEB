@@ -12,7 +12,7 @@ set -e
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 IP="129.146.150.123"
-DOMAIN="cesa.unison.mx"
+DOMAIN="cesaunison.fondothoth.com"
 USER="ubuntu"
 SSH_KEY="/Users/robertoeduardocelisrobles/Documents/FT Apps/Web/CESA-WEB/unison keys/ssh-key-2026-05-12.key"
 REMOTE_PATH="/var/www/cesa-web"
@@ -73,6 +73,14 @@ scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
     database/schema.sql \
     database/migrations/05_skills.sql \
     database/migrations/06_push.sql \
+    database/migrations/v3.6_admin_governance.sql \
+    database/migrations/v3.6_skills_and_credits.sql \
+    database/migrations/v3.7_karma_system.sql \
+    database/migrations/v3.8_karma_expansion.sql \
+    database/migrations/v3.9_tutorias_module.sql \
+    database/migrations/v4.1_inbox_system.sql \
+    database/migrations/v4.1_skills_vacantes.sql \
+    database/migrations/v4.2_bazar_expansion.sql \
     database/migrations/v4.3_bazar_schematic.sql \
     database/migrations/v4.4_delegation_and_social.sql \
     database/migrations/v4.5_bazar_spots_and_editions.sql \
@@ -83,7 +91,25 @@ scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
     database/migrations/v5.0_seed_chinese_questions.sql \
     database/migrations/v5.1_seed_all_remaining_questions.sql \
     database/migrations/v5.2_seed_gestion_y_otros.sql \
+    database/migrations/v5.3_admin_granular_roles_and_ia_metadata.sql \
+    database/migrations/v5.4_votaciones_noticias.sql \
+    database/migrations/v5.5_refinamiento_electoral.sql \
+    database/migrations/v5.6_matrix_permissions.sql \
+    database/migrations/v5.7_admin_seeds.sql \
+    database/migrations/v5.8_extended_permissions.sql \
+    database/migrations/v6.0_dynamic_providers.sql \
+    database/migrations/v6.1_job_applications.sql \
+    database/migrations/v6.2_sociedades_anuncios_y_elecciones.sql \
+    database/migrations/v6.3_test_seed_votaciones.sql \
+    database/migrations/v6.4_update_candidates_photos.sql \
+    database/migrations/v6.5_add_external_fields_to_vacantes.sql \
+    database/migrations/v6.6_rag_bazar_marketplace_auth.sql \
+    database/migrations/v6.7_ollama_pool_and_chat_sessions.sql \
+    database/migrations/v6.8_ocean_psychometric_sentiment.sql \
+    database/migrations/v6.8_activate_publicidad_and_bazar.sql \
     $USER@$IP:/tmp/
+
+
 
 # Ejecutar migraciones usando las credenciales del servidor
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
@@ -113,6 +139,31 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     sudo mysql "$DB_NAME" < /tmp/05_skills.sql
     echo "   - Aplicando 06_push.sql..."
     sudo mysql "$DB_NAME" < /tmp/06_push.sql
+
+    # Aplicar migraciones v3.6 a v3.9
+    echo "   - Aplicando v3.6_admin_governance.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v3.6_admin_governance.sql || true
+    echo "   - Aplicando v3.6_skills_and_credits.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v3.6_skills_and_credits.sql || true
+    echo "   - Aplicando v3.7_karma_system.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v3.7_karma_system.sql || true
+    echo "   - Aplicando v3.8_karma_expansion.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v3.8_karma_expansion.sql || true
+    echo "   - Aplicando v3.9_tutorias_module.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v3.9_tutorias_module.sql || true
+    
+    # Aplicar inbox system v4.1
+    echo "   - Aplicando v4.1_inbox_system.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v4.1_inbox_system.sql || true
+    
+    # Aplicar skills vacantes v4.1
+    echo "   - Aplicando v4.1_skills_vacantes.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v4.1_skills_vacantes.sql || true
+
+    # Aplicar bazar expansion v4.2
+    echo "   - Aplicando v4.2_bazar_expansion.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v4.2_bazar_expansion.sql || true
+
     
     # Manejar duplicados en v4.3 sin romper
     echo "   - Aplicando v4.3_bazar_schematic.sql..."
@@ -153,8 +204,74 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     # Aplicar sembrado de preguntas faltantes en gestión de proyectos y otros v5.2
     echo "   - Aplicando v5.2_seed_gestion_y_otros.sql..."
     sudo mysql "$DB_NAME" -f < /tmp/v5.2_seed_gestion_y_otros.sql || true
+
+    # Aplicar permisos granulares de administrador y metadatos de IA v5.3
+    echo "   - Aplicando v5.3_admin_granular_roles_and_ia_metadata.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v5.3_admin_granular_roles_and_ia_metadata.sql || true
+
+    # Aplicar votaciones y noticias v5.4
+    echo "   - Aplicando v5.4_votaciones_noticias.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v5.4_votaciones_noticias.sql || true
+
+    # Aplicar refinamiento electoral v5.5
+    echo "   - Aplicando v5.5_refinamiento_electoral.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v5.5_refinamiento_electoral.sql || true
+
+    # Aplicar matriz de permisos v5.6
+    echo "   - Aplicando v5.6_matrix_permissions.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v5.6_matrix_permissions.sql || true
     
-    rm -f /tmp/schema.sql /tmp/05_skills.sql /tmp/06_push.sql /tmp/v4.3_bazar_schematic.sql /tmp/v4.4_delegation_and_social.sql /tmp/v4.5_bazar_spots_and_editions.sql /tmp/v4.6_psychometric_tests.sql /tmp/v4.7_seed_psychometric_tests.sql /tmp/v4.8_publicidad_and_godmode.sql /tmp/v4.9_seed_more_skills_questions.sql /tmp/v5.0_seed_chinese_questions.sql /tmp/v5.1_seed_all_remaining_questions.sql /tmp/v5.2_seed_gestion_y_otros.sql
+    # Aplicar seeds de administrador v5.7
+    echo "   - Aplicando v5.7_admin_seeds.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v5.7_admin_seeds.sql || true
+
+    # Aplicar matriz extendida v5.8
+    echo "   - Aplicando v5.8_extended_permissions.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v5.8_extended_permissions.sql || true
+
+    # Aplicar proveedores dinámicos v6.0
+    echo "   - Aplicando v6.0_dynamic_providers.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v6.0_dynamic_providers.sql || true
+
+    # Aplicar reportes de prácticas y vacantes v6.1
+    echo "   - Aplicando v6.1_job_applications.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v6.1_job_applications.sql || true
+    
+    # Aplicar carrera destino y elecciones v6.2
+    echo "   - Aplicando v6.2_sociedades_anuncios_y_elecciones.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v6.2_sociedades_anuncios_y_elecciones.sql || true
+
+    # Aplicar sembrado de votaciones de prueba v6.3
+    echo "   - Aplicando v6.3_test_seed_votaciones.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v6.3_test_seed_votaciones.sql || true
+
+    # Aplicar fotos de candidatos v6.4
+    echo "   - Aplicando v6.4_update_candidates_photos.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v6.4_update_candidates_photos.sql || true
+    
+    # Aplicar campos de bolsa externa v6.5
+    echo "   - Aplicando v6.5_add_external_fields_to_vacantes.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v6.5_add_external_fields_to_vacantes.sql || true
+
+    # Aplicar RAG, Bazar Marketplace, Auth Unificada y Edición Agosto v6.6
+    echo "   - Aplicando v6.6_rag_bazar_marketplace_auth.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v6.6_rag_bazar_marketplace_auth.sql || true
+
+    # Aplicar Ollama Pool & Persistencia de Sesiones v6.7
+    echo "   - Aplicando v6.7_ollama_pool_and_chat_sessions.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v6.7_ollama_pool_and_chat_sessions.sql || true
+
+    # Aplicar Modelo OCEAN y 7 Emociones Basales v6.8
+    echo "   - Aplicando v6.8_ocean_psychometric_sentiment.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v6.8_ocean_psychometric_sentiment.sql || true
+
+    # Aplicar Activación de Publicidad y Dashboard Bazar v6.8
+    echo "   - Aplicando v6.8_activate_publicidad_and_bazar.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v6.8_activate_publicidad_and_bazar.sql || true
+    
+    rm -f /tmp/schema.sql /tmp/05_skills.sql /tmp/06_push.sql /tmp/v3.6_admin_governance.sql /tmp/v3.6_skills_and_credits.sql /tmp/v3.7_karma_system.sql /tmp/v3.8_karma_expansion.sql /tmp/v3.9_tutorias_module.sql /tmp/v4.1_inbox_system.sql /tmp/v4.1_skills_vacantes.sql /tmp/v4.2_bazar_expansion.sql /tmp/v4.3_bazar_schematic.sql /tmp/v4.4_delegation_and_social.sql /tmp/v4.5_bazar_spots_and_editions.sql /tmp/v4.6_psychometric_tests.sql /tmp/v4.7_seed_psychometric_tests.sql /tmp/v4.8_publicidad_and_godmode.sql /tmp/v4.9_seed_more_skills_questions.sql /tmp/v5.0_seed_chinese_questions.sql /tmp/v5.1_seed_all_remaining_questions.sql /tmp/v5.2_seed_gestion_y_otros.sql /tmp/v5.3_admin_granular_roles_and_ia_metadata.sql /tmp/v5.4_votaciones_noticias.sql /tmp/v5.5_refinamiento_electoral.sql /tmp/v5.6_matrix_permissions.sql /tmp/v5.7_admin_seeds.sql /tmp/v5.8_extended_permissions.sql /tmp/v6.0_dynamic_providers.sql /tmp/v6.1_job_applications.sql /tmp/v6.2_sociedades_anuncios_y_elecciones.sql /tmp/v6.3_test_seed_votaciones.sql /tmp/v6.4_update_candidates_photos.sql /tmp/v6.5_add_external_fields_to_vacantes.sql /tmp/v6.8_activate_publicidad_and_bazar.sql
+
+
 EOF
 
 # 4. Configurar .env y Nginx

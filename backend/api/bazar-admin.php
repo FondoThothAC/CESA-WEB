@@ -1,7 +1,8 @@
 <?php
 /**
- * API: Bazar Administrativo - CESA WEB v3.9
- * Moderación centralizada de emprendimientos
+ * API: Bazar Administrativo - CESA WEB v4.5
+ * Moderación y administración centralizada del Bazar y Puestos (Calle de la Cultura)
+ * Archivo: /backend/api/bazar-admin.php
  */
 declare(strict_types=1);
 
@@ -51,7 +52,59 @@ try {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             
-            echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            break;
+
+        case 'puestos_status':
+            // 1. Obtener la edición activa
+            $activeStmt = $pdo->query("SELECT * FROM bazar_ediciones WHERE activo = 1 LIMIT 1");
+            $edicionActiva = $activeStmt->fetch(PDO::FETCH_ASSOC);
+
+            // 2. Obtener la lista completa de los 72 puestos y su ocupación
+            $puestosStmt = $pdo->query("
+                SELECT 
+                    cp.id as puesto_id,
+                    cp.zona,
+                    cp.coord_x,
+                    cp.coord_y,
+                    cp.disponible,
+                    cp.activo,
+                    e.id as emprendimiento_id,
+                    e.nombre_negocio,
+                    e.categoria,
+                    e.descripcion,
+                    e.instagram,
+                    e.whatsapp,
+                    u.nombre_completo as responsable,
+                    u.matricula
+                FROM cat_puestos cp
+                LEFT JOIN emprendimientos e ON cp.id = e.puesto_id AND e.activo = 1 AND e.verificado = 1
+                LEFT JOIN usuarios u ON e.usuario_id = u.id
+                ORDER BY cp.id ASC
+            ");
+            $puestos = $puestosStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 3. Contadores
+            $totalPuestos = count($puestos);
+            $ocupados = 0;
+            foreach ($puestos as $p) {
+                if ($p['emprendimiento_id']) {
+                    $ocupados++;
+                }
+            }
+            $libres = $totalPuestos - $ocupados;
+
+            echo json_encode([
+                'success' => true,
+                'edicion' => $edicionActiva,
+                'stats' => [
+                    'total_puestos' => $totalPuestos,
+                    'ocupados' => $ocupados,
+                    'libres' => $libres,
+                    'porcentaje_ocupacion' => $totalPuestos > 0 ? round(($ocupados / $totalPuestos) * 100, 1) : 0
+                ],
+                'puestos' => $puestos
+            ]);
             break;
 
         case 'aprobar':
@@ -83,6 +136,33 @@ try {
             
             AdminHelper::logAction($pdo, $user['id'], 'bazar_destacar', "Negocio ID $id estado destacado: $featured");
             echo json_encode(['success' => true]);
+            break;
+
+        case 'asignar_puesto':
+            $id = (int)($_POST['id'] ?? 0);
+            $puesto_id = isset($_POST['puesto_id']) && $_POST['puesto_id'] !== '' ? (int)$_POST['puesto_id'] : null;
+
+            // Limpiar si el puesto ya estaba asignado a otro negocio
+            if ($puesto_id) {
+                $cleanStmt = $pdo->prepare("UPDATE emprendimientos SET puesto_id = NULL WHERE puesto_id = ? AND id != ?");
+                $cleanStmt->execute([$puesto_id, $id]);
+            }
+
+            $stmt = $pdo->prepare("UPDATE emprendimientos SET puesto_id = ? WHERE id = ?");
+            $stmt->execute([$puesto_id, $id]);
+
+            AdminHelper::logAction($pdo, $user['id'], 'bazar_asignar_puesto', "Negocio ID $id puesto reubicado a: " . ($puesto_id ?? 'Sin Puesto'));
+            echo json_encode(['success' => true, 'message' => 'Ubicación de puesto actualizada correctamente.']);
+            break;
+
+        case 'liberar_puesto':
+            $puesto_id = (int)($_POST['puesto_id'] ?? 0);
+            if ($puesto_id > 0) {
+                $stmt = $pdo->prepare("UPDATE emprendimientos SET puesto_id = NULL WHERE puesto_id = ?");
+                $stmt->execute([$puesto_id]);
+                AdminHelper::logAction($pdo, $user['id'], 'bazar_liberar_puesto', "Puesto ID $puesto_id liberado");
+            }
+            echo json_encode(['success' => true, 'message' => 'Puesto liberado con éxito.']);
             break;
 
         default:

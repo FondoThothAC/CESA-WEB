@@ -19,7 +19,7 @@ const ReportForm = () => {
         setStatus('loading');
 
         try {
-            const res = await fetch(`${API_URL}/api/reportes.php`, {
+            const res = await fetch(`${API_URL}/reportes.php`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',

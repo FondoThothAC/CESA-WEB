@@ -100,8 +100,11 @@ const BazarSchematicMap: React.FC<BazarSchematicMapProps> = ({
         <circle cx="50" cy="50" r="10" fill="#f4eae1" />
         <circle cx="50" cy="50" r="6" fill="#e28f83" stroke="#002147" strokeWidth="0.6" />
         
-        {/* Emoji de Búho en el centro de la rotonda */}
-        <text x="50" y="52" textAnchor="middle" fontSize="6.2" dominantBaseline="middle">🦉</text>
+        {/* Logo oficial de CESA en el centro de la rotonda */}
+        <clipPath id="logoClip">
+          <circle cx="50" cy="50" r="6" />
+        </clipPath>
+        <image href="/logo-cesa.jpg" x="44" y="44" width="12" height="12" clipPath="url(#logoClip)" />
 
         {/* 5. Nodos Disponibles (Círculos Verdes del plano original) */}
         {availablePuestos.map(p => {

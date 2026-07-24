@@ -135,14 +135,14 @@ class CesaApiClient {
   // MÉTODOS DE AUTENTICACIÓN
   // ============================================
 
-  async login(email: string, pass: string): Promise<ApiResponse<{
-    user: User;
+  async login(identifier: string, pass?: string, curp?: string, telefono?: string): Promise<ApiResponse<{
+    user?: any;
     token?: string;
     redirect_url?: string;
   }>> {
     const res: any = await this.request('auth.php?action=login', {
       method: 'POST',
-      body: { email, password: pass },
+      body: { identifier, email: identifier, password: pass, curp, telefono },
       requiresAuth: false
     });
     
@@ -151,6 +151,25 @@ class CesaApiClient {
         return { success: true, data: { user: res.user, token: res.token, redirect_url: res.redirect_url } };
     }
     return res;
+  }
+
+  /**
+   * Registro de usuario real con asignación de rol/perfil e Identidad Unificada
+   */
+  async signup(data: {
+    email: string;
+    password?: string;
+    nombre_completo: string;
+    matricula?: string;
+    telefono?: string;
+    curp?: string;
+    rol?: string;
+  }): Promise<ApiResponse<{ message?: string }>> {
+    return this.request('auth.php?action=signup', {
+      method: 'POST',
+      body: data,
+      requiresAuth: false
+    });
   }
 
   /**
@@ -203,10 +222,18 @@ export interface User {
   nombre?: string;
   email: string;
   carrera: string;
-  rol: 'estudiante' | 'admin' | 'mesa_directiva' | 'coordinador_impulso' | 'sociedad';
+  rol: 'estudiante' | 'admin' | 'mesa_directiva' | 'coordinador_impulso' | 'sociedad' | 'empresa';
   avatar_url?: string;
   verificado?: boolean;
   created_at?: string;
+  publicar_anuncios?: boolean | number;
+  bazar_y_reservaciones?: boolean | number;
+  bolsa_trabajo?: boolean | number;
+  roles_social?: boolean | number;
+  ver_denuncias?: boolean | number;
+  rol_comunicacion?: boolean | number;
+  consejo_elecciones?: boolean | number;
+  permiso_ia?: boolean | number;
 }
 
 export interface Negocio {
@@ -237,4 +264,4 @@ export interface Vacante {
 export const api = new CesaApiClient();
 
 // Named exports para uso directo
-export const { login, logout, getPerfil, updatePerfil, checkSession } = api;
+export const { login, signup, logout, getPerfil, updatePerfil, checkSession } = api;

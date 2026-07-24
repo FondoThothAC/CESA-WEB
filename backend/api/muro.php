@@ -133,11 +133,13 @@ try {
             
             if (empty($contenido)) throw new Exception("El contenido no puede estar vacío");
 
-            // Consultar expediente y alias de la base de datos ya que no vienen en el JWT
-            $stmtU = $pdo->prepare("SELECT expediente, alias FROM usuarios WHERE id = ?");
+            // Consultar matrícula y datos del usuario de la base de datos
+            $stmtU = $pdo->prepare("SELECT matricula, nombre_completo FROM usuarios WHERE id = ?");
             $stmtU->execute([$user['id']]);
-            $dbUser = $stmtU->fetch();
-            $alias = $dbUser['alias'] ?? ('CesaUser_' . substr($dbUser['expediente'] ?? '000', -3));
+            $dbUser = $stmtU->fetch(PDO::FETCH_ASSOC);
+            
+            $matStr = !empty($dbUser['matricula']) ? substr((string)$dbUser['matricula'], -4) : (string)$user['id'];
+            $alias = 'CesaUser_' . $matStr;
 
             $stmt = $pdo->prepare("
                 INSERT INTO publicaciones_muro 

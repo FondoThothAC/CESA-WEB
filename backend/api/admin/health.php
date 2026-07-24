@@ -10,7 +10,7 @@ require_once __DIR__ . '/../../lib/Auth.php';
 header('Content-Type: application/json');
 
 $auth = new Auth();
-if (!$auth->isAdmin()) {
+if (!$auth->hasRole('admin')) {
     http_response_code(403);
     exit;
 }

@@ -39,6 +39,7 @@ const CATEGORIAS = [
   { id: 'todas', label: 'Todos', icon: '🛍️' },
   { id: 'comida', label: 'Comida', icon: '🍕' },
   { id: 'productos', label: 'Productos', icon: '📦' },
+  { id: 'accesorios', label: 'Accesorios', icon: '💍' },
   { id: 'servicios', label: 'Servicios', icon: '🛠️' },
   { id: 'asesorias', label: 'Asesorías', icon: '🎓' },
   { id: 'tecnologia', label: 'Tech', icon: '💻' },
@@ -248,9 +249,23 @@ const BazarGrid = () => {
                     : 'Este espacio de la Calle de la Cultura está listo para tu emprendimiento. Haz clic en Reservar para ocuparlo en esta edición del bazar.'}
                 </p>
                 {selectedSpotDetails.business && (
-                  <p className="text-[9px] uppercase font-black tracking-widest text-[#C5A059] flex items-center gap-2">
-                    <i className="fas fa-user"></i> Coordinador/Dueño: {selectedSpotDetails.business.dueno}
-                  </p>
+                  <div className="space-y-3 pt-2">
+                    <p className="text-[9px] uppercase font-black tracking-widest text-[#C5A059] flex items-center gap-2">
+                      <i className="fas fa-user"></i> Emprendedor / Contacto: {selectedSpotDetails.business.dueno} • Categoría: {selectedSpotDetails.business.categoria}
+                    </p>
+                    {/* Mini Tienda / Marketplace del Puesto */}
+                    <div className="mt-4 bg-black/40 border border-white/10 p-4 rounded-2xl space-y-3">
+                      <h5 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                        <span>🛒 Catálogo Marketplace del Puesto</span>
+                      </h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div className="bg-slate-900/80 p-3 rounded-xl border border-white/5">
+                          <p className="text-white font-bold">Reserva tu producto en línea</p>
+                          <p className="text-white/50 text-[10px]">Contacta vía WhatsApp para entrega en el estand de la Calle de la Cultura.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
               
@@ -263,7 +278,7 @@ const BazarGrid = () => {
                       rel="noopener noreferrer"
                       className="bg-[#25D366] hover:bg-[#1ebd59] text-white px-6 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-500/10"
                     >
-                      <i className="fab fa-whatsapp text-sm"></i> WhatsApp
+                      <i className="fab fa-whatsapp text-sm"></i> Contactar WhatsApp
                     </a>
                     {selectedSpotDetails.business.instagram && (
                       <a 

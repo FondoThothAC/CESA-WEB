@@ -20,16 +20,21 @@ const config: Config = {
         border: "var(--border)",
         "text-main": "var(--text-main)",
         "text-muted": "var(--text-muted)",
-        // Owl Identity - Navy & Gold
+        // Owl Identity - Institutional Colors
         navy: {
-          DEFAULT: '#003366', // Azul institucional UNISON
-          light: '#0055a5',   // Azul para hover
-          dark: '#0F172A',    // Fondo profundo para modo oscuro
+          DEFAULT: '#002147', // Azul institucional UNISON (Primary)
+          light: '#003366',   
+          dark: '#00122B',    
         },
         gold: {
-          DEFAULT: '#c4161c', // Rojo Institucional UNISON usado como acento principal
-          light: '#e53935',
-          dark: '#b71c1c',
+          DEFAULT: '#C5A059', // Dorado institucional
+          light: '#D4B57A',
+          dark: '#B08845',
+        },
+        unison: {
+          red: '#c4161c', // Rojo Institucional UNISON
+          redLight: '#e53935',
+          redDark: '#b71c1c',
         },
         cesa: {
           bg: '#F8FAFC',      // Fondo modo claro
@@ -48,13 +53,17 @@ const config: Config = {
         }
       },
       animation: {
-        'fade-in-up': 'fade-in-up 0.3s ease-out',
+        'fade-in-up': 'fade-in-up 0.3s ease-out forwards',
         'pulse-slow': 'pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic": "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
       },
+      boxShadow: {
+        'soft': '0 4px 20px -2px rgba(0, 33, 71, 0.05)',
+        'glow': '0 0 20px rgba(197, 160, 89, 0.3)',
+      }
     },
   },
   plugins: [],

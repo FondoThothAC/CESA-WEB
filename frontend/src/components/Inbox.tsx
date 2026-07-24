@@ -39,7 +39,7 @@ const Inbox = () => {
   const { user, token } = useAuth();
   const [activeChat, setActiveChat] = useState<ChatThread | null>({
     id: 'ai',
-    nombre: 'Asistente IA CESA',
+    nombre: 'Asistente IA CESA (Bob)',
     lastMessage: '¿En qué puedo ayudarte hoy?',
     time: 'Ahora',
     isOnline: true,
@@ -48,9 +48,7 @@ const Inbox = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [threads, setThreads] = useState<ChatThread[]>([
-    { id: 'ai', nombre: 'Asistente IA CESA', lastMessage: 'Hola Potro, ¿cómo va tu semestre?', time: 'Ahora', isOnline: true, is_ai: true },
-    { id: 2, nombre: 'Coordinación Integral', lastMessage: 'Tu reporte ha sido recibido.', time: '14:20', isOnline: true },
-    { id: 3, nombre: 'Bolsa de Trabajo', lastMessage: 'Hay nuevas vacantes para ti.', time: 'Ayer' },
+    { id: 'ai', nombre: 'Asistente IA CESA (Bob)', lastMessage: '¿En qué puedo ayudarte hoy?', time: 'Ahora', isOnline: true, is_ai: true }
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -60,33 +58,155 @@ const Inbox = () => {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if (token) {
+      fetchThreads();
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (token && activeChat) {
+      if (activeChat.is_ai) {
+        fetchAiHistory();
+      } else {
+        fetchChatHistory(activeChat.id);
+      }
+    }
+  }, [activeChat, token]);
+
+  const fetchAiHistory = async () => {
+    try {
+      const res = await fetch(`${API_URL}/chat.php?action=history`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.messages && data.messages.length > 0) {
+        setMessages(data.messages.map((m: any, i: number) => ({
+          id: i + 1,
+          emisor_id: m.emisor === 'usuario' ? (user?.id || 1) : 0,
+          receptor_id: m.emisor === 'usuario' ? 0 : (user?.id || 1),
+          contenido: m.contenido,
+          created_at: m.created_at,
+          is_ai: m.emisor === 'asistente'
+        })));
+      } else {
+        setMessages([
+          {
+            id: 1,
+            emisor_id: 0,
+            receptor_id: user?.id || 0,
+            contenido: '¡Hola! Soy Bob, tu asistente de IA del CESA. Puedes pedirme que calcule tu semestre real por créditos, que envíe un mensaje a un alumno o empresa, o que delege una tarea a una coordinación.',
+            created_at: new Date().toISOString(),
+            is_ai: true
+          }
+        ]);
+      }
+    } catch (e) {
+      console.error("Error loading AI history", e);
+    }
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const fetchThreads = async () => {
+    try {
+      const res = await fetch(`${API_URL}/mensajes.php?action=threads`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const iaThread: ChatThread = {
+          id: 'ai',
+          nombre: 'Asistente IA CESA (Bob)',
+          lastMessage: '¿En qué puedo ayudarte hoy?',
+          time: 'Ahora',
+          isOnline: true,
+          is_ai: true
+        };
+        const p2pThreads = data.data.map((t: any) => ({
+          id: parseInt(t.id),
+          nombre: t.nombre,
+          lastMessage: t.lastMessage || 'Sin mensajes aún',
+          time: t.last_time ? new Date(t.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          unread: parseInt(t.unread) || 0,
+          isOnline: t.rol === 'mesa_directiva' || t.rol === 'admin'
+        }));
+        setThreads([iaThread, ...p2pThreads]);
+      }
+    } catch (e) {
+      console.error("Error fetching threads", e);
+    }
+  };
+
+  const fetchChatHistory = async (contactId: number | 'ai') => {
+    if (contactId === 'ai') return;
+    try {
+      const res = await fetch(`${API_URL}/mensajes.php?action=chat&contact_id=${contactId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setMessages(data.data.map((m: any) => ({
+          id: parseInt(m.id),
+          emisor_id: parseInt(m.emisor_id),
+          receptor_id: parseInt(m.receptor_id),
+          contenido: m.contenido,
+          created_at: m.created_at
+        })));
+      }
+    } catch (e) {
+      console.error("Error loading chat history", e);
+    }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
-    const userMsg: Message = {
-      id: Date.now(),
-      emisor_id: user?.id || 0,
-      receptor_id: typeof activeChat?.id === 'number' ? activeChat.id : 0,
-      contenido: newMessage,
-      created_at: new Date().toISOString(),
-      is_ai: false
-    };
+    let lat: number | null = null;
+    let lon: number | null = null;
 
-    setMessages([...messages, userMsg]);
+    if (navigator.geolocation) {
+      await new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            lat = pos.coords.latitude;
+            lon = pos.coords.longitude;
+            resolve();
+          },
+          () => {
+            resolve();
+          },
+          { timeout: 1000 }
+        );
+      });
+    }
+
+    const receptorId = typeof activeChat?.id === 'number' ? activeChat.id : 0;
+    const msgText = newMessage;
     setNewMessage('');
 
     if (activeChat?.is_ai) {
-      // Lógica de IA
+      const userMsg: Message = {
+        id: Date.now(),
+        emisor_id: user?.id || 0,
+        receptor_id: 0,
+        contenido: msgText,
+        created_at: new Date().toISOString(),
+        is_ai: false
+      };
+      setMessages(prev => [...prev, userMsg]);
+
       try {
         const res = await fetch(`${API_URL}/chat.php`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: newMessage })
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify({ message: msgText, lat, lon })
         });
         const data = await res.json();
         if (data.success) {
@@ -98,13 +218,45 @@ const Inbox = () => {
             created_at: new Date().toISOString(),
             is_ai: true
           }]);
+          if (data.action === 'enviar_mensaje') {
+            fetchThreads();
+          }
         }
       } catch (e) {
         console.error("Error IA", e);
       }
     } else {
-      // Lógica P2P (Implementar backend en paso siguiente)
-      console.log("Enviando a humano:", activeChat?.id);
+      const userMsg: Message = {
+        id: Date.now(),
+        emisor_id: user?.id || 0,
+        receptor_id: receptorId,
+        contenido: msgText,
+        created_at: new Date().toISOString(),
+        is_ai: false
+      };
+      setMessages(prev => [...prev, userMsg]);
+
+      try {
+        const res = await fetch(`${API_URL}/mensajes.php`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify({ 
+            receptor_id: receptorId,
+            contenido: msgText,
+            lat,
+            lon
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchThreads();
+        }
+      } catch (e) {
+        console.error("Error P2P", e);
+      }
     }
   };
 
@@ -183,7 +335,7 @@ const Inbox = () => {
                 <div className="w-16 h-16 bg-bg-secondary rounded-full flex items-center justify-center">
                   <Mail size={32} />
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em]">Inicia una conversación industrial</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em]">Inicia una conversación</p>
               </div>
             )}
             {messages.map((msg, i) => (

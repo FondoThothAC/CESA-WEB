@@ -33,6 +33,10 @@ class Auth {
 
             $decoded = JWTHelper::verify($token);
             if ($decoded) {
+                // Forzar rol admin si es correo Master o Admin especial
+                if (($decoded['email'] ?? '') === 'software@fondothoth.com' || ($decoded['email'] ?? '') === 'a213203453@unison.mx') {
+                    $decoded['rol'] = 'admin';
+                }
                 $this->currentUser = $decoded;
                 // Sincronizar con sesión PHP por si se usa en otros scripts
                 $_SESSION['user_id'] = $decoded['id'];
@@ -57,6 +61,11 @@ class Auth {
     public function hasRole(string $role): bool {
         if (!$this->isLoggedIn()) return false;
         
+        // El master admin de fondothoth y el admin principal unison siempre se consideran admin
+        if (($this->currentUser['email'] ?? '') === 'software@fondothoth.com' || ($this->currentUser['email'] ?? '') === 'a213203453@unison.mx') {
+            return true;
+        }
+        
         // Roles por jerarquía o exactos
         if ($this->currentUser['rol'] === 'admin') return true; // Admin puede todo
         
@@ -64,6 +73,41 @@ class Auth {
         if ($role === 'sociedad' && ($this->currentUser['rol'] === 'sociedad' || $this->currentUser['rol'] === 'mesa_directiva')) return true;
         
         return $this->currentUser['rol'] === $role;
+    }
+
+    /**
+     * Verifica permisos granulares de administrador.
+     * El correo software@fondothoth.com siempre tiene acceso completo (Modo Dios).
+     */
+    public function hasPermission(string $permission): bool {
+        if (!$this->isLoggedIn()) return false;
+        
+        // El master admin de fondothoth y el admin principal unison siempre tienen todos los permisos
+        if (($this->currentUser['email'] ?? '') === 'software@fondothoth.com' || ($this->currentUser['email'] ?? '') === 'a213203453@unison.mx') {
+            return true;
+        }
+        
+        // Si no es admin ni mesa_directiva, no tiene ningún permiso administrativo
+        if ($this->currentUser['rol'] !== 'admin' && $this->currentUser['rol'] !== 'mesa_directiva') {
+            return false;
+        }
+
+        try {
+            $pdo = getDBConnection();
+            $stmt = $pdo->prepare("SELECT * FROM admin_permisos WHERE usuario_id = ?");
+            $stmt->execute([$this->currentUser['id']]);
+            $perms = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$perms) {
+                // Por defecto, si no hay registro específico de permisos granulares,
+                // asumimos privilegios mínimos (false) para administradores estándar.
+                return false;
+            }
+            
+            return isset($perms[$permission]) && (bool)$perms[$permission];
+        } catch (Exception $e) {
+            return false;
+        }
     }
 
     /**
@@ -96,3 +140,4 @@ class Auth {
         ]);
     }
 }
+

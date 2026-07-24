@@ -17,6 +17,8 @@ interface Vacante {
   ya_postulado: number | null;
   match_score?: number;
   created_at: string;
+  enlace_externo?: string;
+  contacto?: string;
 }
 
 const MODALIDAD_COLORS: Record<string, string> = {
@@ -46,6 +48,11 @@ const JobsBoard = () => {
     modalidad: 'presencial', tipo: 'tiempo_completo',
     sueldo_rango: '', carreras_target: 'todas', skill_id: ''
   });
+  const [expandedJobs, setExpandedJobs] = useState<Record<number, boolean>>({});
+
+  const toggleExpandJob = (id: number) => {
+    setExpandedJobs(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const { user, token } = useAuth();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -148,6 +155,39 @@ const JobsBoard = () => {
         </div>
       </div>
 
+      {/* Banner Banco de Talento Sonorense 2026 */}
+      <div className="bg-gradient-to-r from-amber-500/10 to-indigo-500/10 border border-amber-500/20 backdrop-blur-xl p-8 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="space-y-2 text-center md:text-left">
+          <span className="bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+            Convocatoria Estatal 2026
+          </span>
+          <h2 className="text-white text-2xl font-black uppercase tracking-tighter">
+            Banco de Talento Sonorense
+          </h2>
+          <p className="text-white/50 text-xs max-w-xl">
+            Sube tu currículum al banco oficial del estado de Sonora y vincúlate con las mejores empresas de la región. Consulta la guía oficial de registro elaborada por la DAE.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+          <a
+            href="https://dae.unison.mx/CONVOCATORIAS/Gui%CC%81a_Completa_de_Registro_Banco_de_Talento_Sonorense_2026.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-center transition-all"
+          >
+            <i className="fas fa-file-pdf mr-2 text-red-500"></i> Descargar Guía PDF
+          </a>
+          <a
+            href="https://dae.unison.mx/bolsadetrabajo.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-8 py-4 rounded-2xl bg-amber-500 hover:bg-white hover:text-black text-white text-[9px] font-black uppercase tracking-widest text-center shadow-lg shadow-amber-500/20 transition-all"
+          >
+            Registrarme Ahora
+          </a>
+        </div>
+      </div>
+
       {/* Vacantes Counter */}
       <div className="flex justify-between items-center px-2">
         <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">
@@ -212,7 +252,22 @@ const JobsBoard = () => {
                   </div>
 
                   {/* Description */}
-                  <p className="text-white/50 text-xs leading-relaxed mb-6 line-clamp-3">{job.descripcion}</p>
+                  <div className="text-white/50 text-xs leading-relaxed mb-6 space-y-4">
+                    <p className={expandedJobs[job.id] ? "whitespace-pre-line" : "line-clamp-3"}>
+                      {job.descripcion}
+                    </p>
+                    {job.contacto && expandedJobs[job.id] && (
+                      <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl text-amber-400 font-mono text-[10px] uppercase tracking-wide">
+                        <i className="fas fa-info-circle mr-2"></i>Contacto: {job.contacto}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => toggleExpandJob(job.id)}
+                      className="text-indigo-400 hover:text-white font-bold text-[9px] uppercase tracking-widest block transition-colors mt-2"
+                    >
+                      {expandedJobs[job.id] ? "Ver menos" : "Leer descripción completa y contacto"}
+                    </button>
+                  </div>
 
                   {/* Tags */}
                   <div className="flex flex-wrap gap-2">
@@ -245,7 +300,16 @@ const JobsBoard = () => {
                       </p>
                     )}
                   </div>
-                  {!job.ya_postulado ? (
+                  {job.enlace_externo ? (
+                    <a
+                      href={job.enlace_externo}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full bg-amber-500 hover:bg-white hover:text-black text-white px-8 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center shadow-lg shadow-amber-500/20 transition-all"
+                    >
+                      Ver Oferta Original
+                    </a>
+                  ) : !job.ya_postulado ? (
                     <button
                       onClick={() => setShowApplyModal(job)}
                       className="w-full bg-indigo-600 hover:bg-white hover:text-black text-white px-8 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all"
@@ -379,5 +443,6 @@ const JobsBoard = () => {
     </div>
   );
 };
+
 
 export default JobsBoard;

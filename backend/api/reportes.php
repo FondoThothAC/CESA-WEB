@@ -30,10 +30,11 @@ try {
         $action = $_GET['action'] ?? '';
         
         if ($action === 'moderacion' || $modo === 'admin') {
-            // Seguridad: Solo mesa directiva y admin
-            if (!in_array($user['rol'], ['admin', 'mesa_directiva'])) {
+            // Seguridad Granular: Requiere permiso ver_denuncias
+            $authObj = new Auth();
+            if (!$authObj->hasPermission('ver_denuncias')) {
                 http_response_code(403);
-                echo json_encode(['success' => false, 'error' => 'Permisos insuficientes']);
+                echo json_encode(['success' => false, 'error' => 'Permisos de Denuncias insuficientes.']);
                 exit;
             }
             // Retorna todos los reportes
@@ -129,10 +130,29 @@ try {
             exit;
         }
 
-        // ACCIÓN: REPORTAR (Existente)
-        if ($action === 'crear') {
-            $stmt = $pdo->prepare("INSERT INTO reportes (usuario_id, asunto, descripcion, anonimo, coordinacion_asignada) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$usuario_id, $data['asunto'], $data['descripcion'], $data['anonimo'], $data['coordinacion']]);
+        // ACCIÓN: REPORTAR / CREAR
+        if ($action === 'crear' || isset($data['contenido']) || isset($data['descripcion'])) {
+            $asunto = $data['asunto'] ?? ('Reporte de ' . ucfirst($data['tipo'] ?? 'incidencia'));
+            $descripcion = trim($data['descripcion'] ?? $data['contenido'] ?? '');
+            $anonimo = !empty($data['anonimo']) ? 1 : 0;
+            $coordinacion = $data['coordinacion'] ?? 'mesa_directiva';
+            $categoria = $data['tipo'] ?? $data['categoria'] ?? 'otro';
+
+            if (empty($descripcion)) throw new Exception("La descripción no puede estar vacía.");
+
+            $stmt = $pdo->prepare("
+                INSERT INTO reportes 
+                (usuario_id, tipo, categoria, coordinacion_asignada, asunto, descripcion, anonimo) 
+                VALUES (?, 'queja', ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $usuario_id,
+                $categoria,
+                $coordinacion,
+                $asunto,
+                $descripcion,
+                $anonimo
+            ]);
             echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
             exit;
         }

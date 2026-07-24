@@ -4,14 +4,16 @@ const axios = require('axios');
 const requestCounts = {
   mistral: 0,
   groq: 0,
-  gemini: 0
+  gemini: 0,
+  ollama_cloud: 0
 };
 
 // Configuración de límites para APIs gratuitas (redujimos los límites para ahorrar memoria)
 const RATE_LIMITS = {
   mistral: { limit: 3, period: 60 },  // 3 requests/min
   groq: { limit: 20, period: 60 },    // 20 requests/min
-  gemini: { limit: 15, period: 60 }   // 15 requests/min (Free Tier)
+  gemini: { limit: 15, period: 60 },   // 15 requests/min (Free Tier)
+  ollama_cloud: { limit: 15, period: 60 } // 15 requests/min
 };
 
 // Reset automático de los contadores
@@ -19,6 +21,7 @@ setInterval(() => {
   requestCounts.mistral = 0;
   requestCounts.groq = 0;
   requestCounts.gemini = 0;
+  requestCounts.ollama_cloud = 0;
 }, 60000);
 
 class AIRouter {
@@ -26,8 +29,20 @@ class AIRouter {
     this.providers = [];
     this.macMiniEnabled = process.env.MAC_MINI_ENABLED === 'true';
     
-    // Solo agregar proveedores si hay API keys definidas
-    // Mantenemos a Groq como prioridad por su velocidad
+    // Priorizamos Ollama Cloud registrando el pool de claves configuradas
+    const rawOllamaKeys = process.env.OLLAMA_API_KEYS || process.env.OLLAMA_API_KEY;
+    if (rawOllamaKeys) {
+      const keys = rawOllamaKeys.split(',').map(k => k.trim()).filter(Boolean);
+      keys.forEach((key, idx) => {
+        this.providers.push({
+          type: 'ollama_cloud',
+          name: `Ollama Key #${idx + 1}`,
+          apiKey: key,
+          endpoint: process.env.OLLAMA_ENDPOINT || 'https://ollama.com/api/chat'
+        });
+      });
+    }
+
     if (process.env.GROQ_API_KEY) {
       this.providers.push({ 
         type: 'groq', 
@@ -117,6 +132,25 @@ class AIRouter {
         }
       );
       return response.data.candidates[0].content.parts[0].text;
+    }
+
+    if (provider.type === 'ollama_cloud') {
+      const response = await axios.post(
+        provider.endpoint,
+        {
+          model: 'nemotron-3-super',
+          messages: [{ role: 'user', content: prompt }],
+          stream: false
+        },
+        {
+          headers: { 
+            'Authorization': `Bearer ${provider.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 20000
+        }
+      );
+      return response.data.message.content;
     }
 
     const model = provider.type === 'mistral' ? 'mistral-tiny' : 'llama-3.1-8b-instant';

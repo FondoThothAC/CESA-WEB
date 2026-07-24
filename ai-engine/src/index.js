@@ -39,7 +39,7 @@ app.post('/api/ia/chat', verifyCesaToken, async (req, res) => {
       ? `El usuario logueado es: ${user.name || 'Estudiante'} (ID: ${user.id}). Rol: ${user.role}.` 
       : 'El usuario es un visitante anónimo del portal público.';
 
-    const fullPrompt = `Contexto del sistema: ${contextStr}\n\nPregunta del usuario: ${message}`;
+    const fullPrompt = `Contexto del sistema: ${contextStr}\n\nEres Bob, el Asistente Virtual de CESA. Tienes una personalidad de nerd coqueto, muy amable y sumamente comprensivo con los estudiantes. Usa un tono inteligente pero juguetón y siempre busca ayudar.\n\nPregunta del usuario: ${message}`;
     
     // Rutear la petición al proveedor óptimo (Groq, Mistral o Mac Mini)
     const reply = await aiRouter.routeRequest(fullPrompt, { heavyProcessing });
@@ -48,6 +48,48 @@ app.post('/api/ia/chat', verifyCesaToken, async (req, res) => {
   } catch (error) {
     console.error('Error procesando chat:', error.message);
     res.status(500).json({ error: 'No se pudo procesar tu solicitud en este momento.' });
+  }
+});
+
+// Generación de exámenes de idiomas dinámicos por IA
+app.post('/api/ia/generate-exam', verifyCesaToken, async (req, res) => {
+  try {
+    const { language, level = 'Básico' } = req.body;
+    if (!language) {
+      return res.status(400).json({ error: 'Idioma requerido' });
+    }
+
+    const prompt = `Actúa como un profesor de idiomas certificado en la UNISON. Genera un examen de práctica de opción múltiple para el idioma ${language} en nivel ${level}. 
+Genera exactamente 10 preguntas de opción múltiple.
+Cada pregunta debe tener exactamente 3 opciones y explicar por qué la respuesta es correcta de manera clara y didáctica.
+Responde estrictamente con un JSON con el siguiente formato, sin bloques de código markdown ni texto adicional:
+{
+  "preguntas": [
+    {
+      "id": 1,
+      "pregunta": "...",
+      "opciones": ["opción A", "opción B", "opción C"],
+      "respuesta_correcta": "...",
+      "explicacion": "..."
+    }
+  ]
+}`;
+
+    const reply = await aiRouter.routeRequest(prompt, { heavyProcessing: true });
+    
+    // Extraer JSON limpio de la respuesta
+    const jsonStart = reply.indexOf('{');
+    const jsonEnd = reply.lastIndexOf('}') + 1;
+    if (jsonStart === -1 || jsonEnd === -1) {
+      throw new Error('La IA no devolvió un formato JSON válido');
+    }
+    const cleanJson = reply.substring(jsonStart, jsonEnd);
+    const data = JSON.parse(cleanJson);
+    
+    res.json({ success: true, ...data });
+  } catch (error) {
+    console.error('Error generando examen de idioma:', error.message);
+    res.status(500).json({ error: 'No se pudo generar el examen en este momento.' });
   }
 });
 

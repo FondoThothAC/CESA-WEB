@@ -12,7 +12,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (matricula: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (identifier: string, password?: string, curp?: string, telefono?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   hasRole: (role: User['rol'] | User['rol'][]) => boolean;
@@ -61,9 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /**
    * Login - conecta con api/auth/login.php
    */
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (identifier: string, password?: string, curp?: string, telefono?: string) => {
     try {
-      const response = await api.login(email, password);
+      const response = await api.login(identifier, password, curp, telefono);
       
       if (response.success && response.data && response.data.user) {
         setUser(response.data.user);

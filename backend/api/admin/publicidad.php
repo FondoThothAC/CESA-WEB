@@ -1,7 +1,7 @@
 <?php
 /**
  * API Publicidad / AdMob Config - CESA WEB v4.0
- * Acceso: Solo God Mode (software@fondothoth.com)
+ * Acceso: Solo God Mode (software@fondothoth.com) o administrador autorizado (publicar_anuncios)
  * Archivo: /backend/api/admin/publicidad.php
  */
 
@@ -14,18 +14,25 @@ require_once __DIR__ . '/../../config/database.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $auth = new Auth();
-$userAdmin = $auth->getUser();
+$method = $_SERVER['REQUEST_METHOD'];
 
-// Seguridad Estricta: Solo el correo software@fondothoth.com en modo dios
-if (!$userAdmin || $userAdmin['email'] !== 'software@fondothoth.com') {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Acceso denegado. Se requiere credencial de modo Dios.']);
-    exit;
+// For GET requests, we allow public access so the frontend can load ads config.
+// For mutating methods (POST, PUT, DELETE, etc.) we require authentication and specific permission.
+if ($method !== 'GET') {
+    if (!$auth->isLoggedIn()) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'No autenticado']);
+        exit;
+    }
+    if (!$auth->hasPermission('publicar_anuncios')) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Acceso denegado. Se requieren permisos de publicidad.']);
+        exit;
+    }
 }
 
 try {
     $pdo = getDBConnection();
-    $method = $_SERVER['REQUEST_METHOD'];
 
     // 1. GET: Obtener configuración
     if ($method === 'GET') {
@@ -81,6 +88,11 @@ try {
         echo json_encode(['success' => true, 'message' => 'Configuración de publicidad actualizada con éxito.']);
         exit;
     }
+
+    // If method is not GET or POST, return 405
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Método no permitido']);
+    exit;
 
 } catch (Exception $e) {
     http_response_code(400);

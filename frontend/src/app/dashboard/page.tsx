@@ -10,12 +10,24 @@ import ReportForm from '@/components/ReportForm';
 import ReportList from '@/components/ReportList';
 import NotificationCenter from '@/components/NotificationCenter';
 import ThemeToggle from '@/components/ThemeToggle';
+import StudentJobsDashboard from '@/components/organisms/StudentJobsDashboard';
+import CompanyJobsDashboard from '@/components/organisms/CompanyJobsDashboard';
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function UnifiedDashboard() {
   const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
 
   if (isLoading) return <div className="p-20 text-center text-text-main">Cargando plataforma...</div>;
-  if (!user) return <div className="p-20 text-center text-text-main">Inicia sesión para acceder</div>;
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-main p-6 transition-colors duration-300">
@@ -123,15 +135,26 @@ export default function UnifiedDashboard() {
                 <BazarGrid />
               </section>
 
-              <section id="empleos">
-                <h2 className="text-2xl font-bold mb-6">Bolsa de Trabajo</h2>
-                <JobsBoard />
+              <section id="empleos" className="space-y-8">
+                <div>
+                  <h2 className="text-2xl font-bold mb-6">Bolsa de Trabajo</h2>
+                  <JobsBoard />
+                </div>
+                <div>
+                  <StudentJobsDashboard />
+                </div>
               </section>
             </div>
 
             <div className="space-y-6">
               <h2 className="text-xl font-bold px-2">🦉 CESA Bot 24/7</h2>
             </div>
+          </div>
+        )}
+
+        {user.rol === 'empresa' && (
+          <div className="space-y-10">
+            <CompanyJobsDashboard />
           </div>
         )}
       </div>

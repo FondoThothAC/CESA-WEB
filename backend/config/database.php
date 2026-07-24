@@ -21,7 +21,7 @@ if (!getenv('DB_HOST')) {
 function getDBConnection(): PDO {
     static $pdo = null;
     if ($pdo === null) {
-        $host = getenv('DB_HOST') ?: 'localhost';
+        $host = getenv('DB_HOST') ?: '127.0.0.1';
         $db   = getenv('DB_NAME') ?: 'cesa_web';
         $user = getenv('DB_USER') ?: 'cesa_admin';
         $pass = getenv('DB_PASS') ?: '';

@@ -3,32 +3,30 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/useAuth';
 import AdminInvitations from './AdminInvitations';
-
-interface StatsData {
-  sentiment: {
-    positivo: number; neutro: number; negativo: number; urgentes_detectados: number; mood_score: number;
-  };
-  bolsa_trabajo: { vacantes_activas: number; postulaciones_totales: number; empresas_aliadas: number; };
-  bazar_emprendedor: { negocios_activos: number; categorias_top: string[]; clic_contacto_total: number; };
-  comunidad: { usuarios_registrados: number; actividad_muro: number; carreras_activas: number; };
-  ia_monitoring: {
-    avg_latency_ms: number;
-    recent_activity: Array<{ nombre: string; accion_tipo: string; created_at: string; metadata: any }>;
-  };
-}
+import VotingConfig from './organisms/VotingConfig';
+import AdminIAConfigTab from './organisms/AdminIAConfigTab';
+import AdminSocialTab from './organisms/AdminSocialTab';
+import AdminRagKnowledgeTab from './organisms/AdminRagKnowledgeTab';
+import AdminSentimentDashboardTab from './organisms/AdminSentimentDashboardTab';
+import AdminBazarDashboardTab from './organisms/AdminBazarDashboardTab';
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'kpis' | 'moderacion' | 'directorio' | 'vacantes' | 'ia_config' | 'invitaciones' | 'acceso' | 'social' | 'modo_dios'>('kpis');
-  const [stats, setStats] = useState<StatsData | null>(null);
-  const [accessResult, setAccessResult] = useState<any>(null);
-  const [accessLoading, setAccessLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'kpis' | 'bazar_ads' | 'moderacion' | 'directorio' | 'ia_config' | 'social' | 'invitaciones' | 'acceso' | 'modo_dios' | 'vacantes' | 'padron' | 'votaciones' | 'auditoria' | 'rag_knowledge' | 'sentimiento'>('kpis');
+  const [stats, setStats] = useState<any>(null);
   const [health, setHealth] = useState<any>(null);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [accessResult, setAccessResult] = useState<any>(null);
   const [pendingBazar, setPendingBazar] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [directory, setDirectory] = useState<any[]>([]);
   const [pendingVacancies, setPendingVacancies] = useState<any[]>([]);
   const [iaConfigs, setIaConfigs] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Perfil Holístico
+  const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const { token, user } = useAuth();
   
   const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -64,6 +62,45 @@ const AdminDashboard = () => {
   });
   const [adLoading, setAdLoading] = useState(false);
 
+  // Estados de Asignación Granular de Permisos (para software@fondothoth.com)
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [isPermModalOpen, setIsPermModalOpen] = useState(false);
+  const [permFormData, setPermFormData] = useState({
+    rol: '',
+    publicar_anuncios: false,
+    bazar_y_reservaciones: false,
+    bolsa_trabajo: false,
+    roles_social: false,
+    ver_denuncias: false,
+    rol_comunicacion: false,
+    consejo_elecciones: false,
+    permiso_ia: false,
+    permiso_wifi: false
+  });
+  
+  // Subida de Padrón CSV
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [uploadingPadron, setUploadingPadron] = useState(false);
+
+  // Estados de Auditoría
+  const [chatHistory, setChatHistory] = useState<any[]>([]);
+  const [chatTotal, setChatTotal] = useState(0);
+  const [chatPage, setChatPage] = useState(0);
+  const [chatSearch, setChatSearch] = useState('');
+  const [chatStartDate, setChatStartDate] = useState('');
+  const [chatEndDate, setChatEndDate] = useState('');
+
+  const [mensajesHistory, setMensajesHistory] = useState<any[]>([]);
+  const [mensajesTotal, setMensajesTotal] = useState(0);
+  const [mensajesPage, setMensajesPage] = useState(0);
+  const [mensajesSearch, setMensajesSearch] = useState('');
+  const [mensajesStartDate, setMensajesStartDate] = useState('');
+  const [mensajesEndDate, setMensajesEndDate] = useState('');
+
+  const [auditLoading, setAuditLoading] = useState(false);
+  const chatLimit = 10;
+  const mensajesLimit = 10;
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -87,20 +124,23 @@ const AdminDashboard = () => {
          fetchStats();
          fetchHealth();
       } else if (activeTab === 'moderacion') {
-        fetchModerationData();
+         fetchModerationData();
       } else if (activeTab === 'directorio') {
-        fetchDirectory();
+         fetchDirectory();
       } else if (activeTab === 'vacantes') {
-        fetchVacancies();
+         fetchVacancies();
       } else if (activeTab === 'ia_config') {
-        fetchIaConfig();
+         fetchIaConfig();
       } else if (activeTab === 'social') {
-        fetchSocialConfig();
+         fetchSocialConfig();
       } else if (activeTab === 'modo_dios') {
-        fetchAdConfig();
+         fetchAdConfig();
+      } else if (activeTab === 'auditoria') {
+         fetchChatHistory();
+         fetchMensajesHistory();
       }
     }
-  }, [token, activeTab, searchQuery]);
+  }, [token, activeTab, searchQuery, chatPage, mensajesPage]);
 
   const fetchAdConfig = async () => {
     setAdLoading(true);
@@ -253,6 +293,235 @@ const AdminDashboard = () => {
     } catch (e) { console.error("Error health", e); }
   };
 
+  const fetchChatHistory = async () => {
+    setAuditLoading(true);
+    try {
+      const offset = chatPage * chatLimit;
+      const params = new URLSearchParams({
+        limit: chatLimit.toString(),
+        offset: offset.toString(),
+        search: chatSearch,
+        start_date: chatStartDate,
+        end_date: chatEndDate
+      });
+      const res = await fetch(`${API_URL}/api/admin/chat-history.php?${params.toString()}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setChatHistory(data.data || []);
+        setChatTotal(data.totalCount || 0);
+      }
+    } catch (e) {
+      console.error("Error fetching chat history", e);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const fetchMensajesHistory = async () => {
+    setAuditLoading(true);
+    try {
+      const offset = mensajesPage * mensajesLimit;
+      const params = new URLSearchParams({
+        limit: mensajesLimit.toString(),
+        offset: offset.toString(),
+        search: mensajesSearch,
+        start_date: mensajesStartDate,
+        end_date: mensajesEndDate
+      });
+      const res = await fetch(`${API_URL}/api/admin/mensajes-history.php?${params.toString()}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMensajesHistory(data.data || []);
+        setMensajesTotal(data.totalCount || 0);
+      }
+    } catch (e) {
+      console.error("Error fetching messages history", e);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const exportChatCSV = () => {
+    const params = new URLSearchParams({
+      limit: '5000',
+      offset: '0',
+      search: chatSearch,
+      start_date: chatStartDate,
+      end_date: chatEndDate
+    });
+    fetch(`${API_URL}/api/admin/chat-history.php?${params.toString()}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.data) {
+          const headers = ['ID', 'Fecha', 'Usuario ID', 'Nombre Usuario', 'Mensaje', 'Respuesta', 'Proveedor', 'Latencia (ms)', 'Accion Detectada', 'IP', 'Dispositivo', 'Ciudad', 'Pais'];
+          const rows = data.data.map((r: any) => [
+            r.id,
+            r.created_at,
+            r.usuario_id || 'Anon',
+            r.usuario_nombre || 'Anon',
+            `"${(r.mensaje || '').replace(/"/g, '""')}"`,
+            `"${(r.respuesta || '').replace(/"/g, '""')}"`,
+            r.provider,
+            r.latency_ms,
+            r.accion_detectada,
+            r.ip_address,
+            `"${(r.user_agent || '').replace(/"/g, '""')}"`,
+            r.geoloc_city || '',
+            r.geoloc_country || ''
+          ]);
+          
+          const csvContent = "\uFEFF" + [headers.join(','), ...rows.map((e: any) => e.join(','))].join('\n');
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.setAttribute("href", url);
+          link.setAttribute("download", `auditoria_chatbot_${new Date().toISOString().slice(0,10)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      });
+  };
+
+  const exportDirectorioCSV = () => {
+    if (!directory || directory.length === 0) {
+      alert("No hay usuarios para exportar");
+      return;
+    }
+    const headers = ['ID', 'Expediente', 'Nombre', 'Email', 'Rol', 'Carrera', 'Semestre', 'Turno'];
+    const rows = directory.map((u: any) => [
+      u.id,
+      u.expediente || '',
+      `"${(u.nombre_completo || '').replace(/"/g, '""')}"`,
+      u.email || '',
+      u.rol || '',
+      u.carrera || '',
+      u.semestre || '',
+      u.turno || ''
+    ]);
+    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `directorio_usuarios_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportMensajesCSV = () => {
+    const params = new URLSearchParams({
+      limit: '5000',
+      offset: '0',
+      search: mensajesSearch,
+      start_date: mensajesStartDate,
+      end_date: mensajesEndDate
+    });
+    fetch(`${API_URL}/api/admin/mensajes-history.php?${params.toString()}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.data) {
+          const headers = ['ID', 'Fecha', 'Emisor ID', 'Nombre Emisor', 'Receptor ID', 'Nombre Receptor', 'Contenido', 'Leido', 'IP', 'Dispositivo', 'Ciudad', 'Pais'];
+          const rows = data.data.map((r: any) => [
+            r.id,
+            r.created_at,
+            r.emisor_id,
+            r.emisor_nombre || '',
+            r.receptor_id,
+            r.receptor_nombre || '',
+            `"${(r.contenido || '').replace(/"/g, '""')}"`,
+            r.leido == 1 ? 'Si' : 'No',
+            r.ip_address,
+            `"${(r.user_agent || '').replace(/"/g, '""')}"`,
+            r.geoloc_city || '',
+            r.geoloc_country || ''
+          ]);
+          
+          const csvContent = "\uFEFF" + [headers.join(','), ...rows.map((e: any) => e.join(','))].join('\n');
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.setAttribute("href", url);
+          link.setAttribute("download", `auditoria_mensajes_${new Date().toISOString().slice(0,10)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      });
+  };
+
+  const exportTelemetriaCSV = () => {
+    setAuditLoading(true);
+    fetch(`${API_URL}/api/admin/telemetria.php`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.data) {
+          const headers = [
+            'Tipo Examen',
+            'Intento ID',
+            'Usuario ID',
+            'Nombre Completo',
+            'Email',
+            'Expediente_Matricula',
+            'Carrera',
+            'Examen_Skill',
+            'Fecha Inicio',
+            'Fecha Fin',
+            'Puntaje',
+            'Estado',
+            'Direccion IP',
+            'Dispositivo_User_Agent'
+          ];
+          const rows = data.data.map((r: any) => [
+            `"${(r.tipo_examen || '').replace(/"/g, '""')}"`,
+            r.intento_id,
+            r.usuario_id,
+            `"${(r.nombre_completo || '').replace(/"/g, '""')}"`,
+            `"${(r.email || '').replace(/"/g, '""')}"`,
+            `"${(r.matricula || '').replace(/"/g, '""')}"`,
+            `"${(r.carrera || '').replace(/"/g, '""')}"`,
+            `"${(r.examen_nombre || '').replace(/"/g, '""')}"`,
+            r.fecha_inicio || '',
+            r.fecha_fin || '',
+            r.puntaje !== null ? r.puntaje : '',
+            `"${(r.estado || '').replace(/"/g, '""')}"`,
+            `"${(r.ip_address || '').replace(/"/g, '""')}"`,
+            `"${(r.user_agent || '').replace(/"/g, '""')}"`
+          ]);
+          
+          const csvContent = "\uFEFF" + [headers.join(','), ...rows.map((e: any) => e.join(','))].join('\n');
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.setAttribute("href", url);
+          link.setAttribute("download", `telemetria_examenes_${new Date().toISOString().slice(0,10)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          alert(data.error || "No se pudieron obtener los datos de telemetría.");
+        }
+      })
+      .catch(e => {
+        console.error("Error exporting telemetry", e);
+        alert("Error de red al exportar telemetría.");
+      })
+      .finally(() => {
+        setAuditLoading(false);
+      });
+  };
+
   const fetchModerationData = async () => {
      try {
         const resB = await fetch(`${API_URL}/api/admin/bazar.php?action=listar`, {
@@ -267,6 +536,51 @@ const AdminDashboard = () => {
         const dataR = await resR.json();
         if (dataR.success) setReports(dataR.data.filter((r: any) => r.estado === 'nuevo' || r.estado === 'asignado'));
      } catch (e) { console.error("Error moderation fetch", e); }
+  };
+
+  const handleTogglePermission = async (userObj: any, permKey: string, currentValue: boolean) => {
+    const permissionsKeys = [
+      'publicar_anuncios',
+      'bazar_y_reservaciones',
+      'bolsa_trabajo',
+      'roles_social',
+      'ver_denuncias',
+      'rol_comunicacion',
+      'consejo_elecciones',
+      'permiso_ia',
+      'permiso_wifi'
+    ];
+    
+    const extra: any = {};
+    permissionsKeys.forEach(k => {
+      let val = userObj[k];
+      if (k === permKey) {
+        val = currentValue ? '0' : '1';
+      } else {
+        val = val == 1 ? '1' : '0';
+      }
+      extra[k] = val;
+    });
+
+    setDirectory(prev => prev.map(u => {
+      if (u.id === userObj.id) {
+        return { ...u, [permKey]: currentValue ? 0 : 1 };
+      }
+      return u;
+    }));
+
+    await handleModeration('user', userObj.id, 'update_permissions', extra);
+  };
+
+  const handleChangeRole = async (userId: number, newRole: string) => {
+    setDirectory(prev => prev.map(u => {
+      if (u.id === userId) {
+        return { ...u, rol: newRole };
+      }
+      return u;
+    }));
+
+    await handleModeration('user', userId, 'update_role', { rol: newRole });
   };
 
   const fetchDirectory = async () => {
@@ -287,6 +601,52 @@ const AdminDashboard = () => {
         const data = await res.json();
         if (data.success) setPendingVacancies(data.data.filter((v: any) => !v.verificada));
      } catch (e) {}
+  };
+
+  const fetchProfile = async (id: number) => {
+    setSelectedProfileId(id);
+    setProfileLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/perfil_holistico.php?id=${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) setProfileData(data.perfil);
+      else { alert('Error al cargar perfil'); setSelectedProfileId(null); }
+    } catch(e) {
+      alert('Error de red al cargar perfil');
+      setSelectedProfileId(null);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleUploadPadron = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!csvFile) return alert("Selecciona un archivo CSV.");
+    setUploadingPadron(true);
+    const formData = new FormData();
+    formData.append('action', 'upload_padron');
+    formData.append('csv_file', csvFile);
+
+    try {
+      const res = await fetch(`${API_URL}/api/admin/usuarios.php`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        setCsvFile(null);
+      } else {
+        alert(data.error);
+      }
+    } catch(e) {
+      alert("Error al subir el CSV");
+    } finally {
+      setUploadingPadron(false);
+    }
   };
 
   const fetchIaConfig = async () => {
@@ -360,6 +720,33 @@ const AdminDashboard = () => {
     } catch (e) { alert("Error al guardar IA Config"); }
   };
 
+  const handleSavePermissions = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+    
+    // 1. Actualizar Rol
+    await handleModeration('user', selectedUser.id, 'update_role', { rol: permFormData.rol });
+    
+    // 2. Actualizar Permisos Granulares (si aplica)
+    if (permFormData.rol === 'admin' || permFormData.rol === 'mesa_directiva') {
+      await handleModeration('user', selectedUser.id, 'update_permissions', {
+        publicar_anuncios: permFormData.publicar_anuncios ? '1' : '0',
+        bazar_y_reservaciones: permFormData.bazar_y_reservaciones ? '1' : '0',
+        bolsa_trabajo: permFormData.bolsa_trabajo ? '1' : '0',
+        roles_social: permFormData.roles_social ? '1' : '0',
+        ver_denuncias: permFormData.ver_denuncias ? '1' : '0',
+        rol_comunicacion: permFormData.rol_comunicacion ? '1' : '0',
+        consejo_elecciones: permFormData.consejo_elecciones ? '1' : '0',
+        permiso_ia: permFormData.permiso_ia ? '1' : '0',
+        permiso_wifi: permFormData.permiso_wifi ? '1' : '0'
+      });
+    }
+    
+    alert('Rol y Permisos actualizados correctamente.');
+    setIsPermModalOpen(false);
+    fetchDirectory();
+  };
+
   if (!stats) return <div className="text-center py-20 text-white/20 uppercase tracking-widest font-black">Sincronizando Gobernanza...</div>;
 
   return (
@@ -369,13 +756,21 @@ const AdminDashboard = () => {
       <div className="flex flex-wrap gap-2 border-b border-white/5 pb-6">
          {[
             { id: 'kpis', label: 'Analytics', color: 'bg-indigo-600' },
+            { id: 'bazar_ads', label: '🏪 Bazar & Anuncios', color: 'bg-amber-600' },
             { id: 'moderacion', label: `Moderación (${reports.length + pendingBazar.length})`, color: 'bg-red-600' },
             { id: 'vacantes', label: `Bolsa (${pendingVacancies.length})`, color: 'bg-green-600' },
             { id: 'directorio', label: 'Usuarios', color: 'bg-slate-700' },
-            { id: 'ia_config', label: 'Motor IA (Setup)', color: 'bg-purple-600' },
-            { id: 'social', label: 'Panel Social', color: 'bg-pink-600' },
+            { id: 'ia_config', label: 'Agente BOB', color: 'bg-emerald-600' },
+            { id: 'rag_knowledge', label: '📚 Conocimiento RAG (.md)', color: 'bg-emerald-600' },
+            { id: 'social', label: 'Ecosistema Social', color: 'bg-pink-600' },
+            { id: 'votaciones', label: 'Elecciones', color: 'bg-indigo-600' },
             { id: 'invitaciones', label: 'Onboarding (CSV)', color: 'bg-indigo-600 border border-indigo-500' },
-            { id: 'acceso', label: 'Control de Acceso (QR)', color: 'bg-emerald-600' }
+            { id: 'padron', label: 'Padrón Electoral', color: 'bg-teal-600' },
+            { id: 'acceso', label: 'Control de Acceso (QR)', color: 'bg-emerald-600' },
+            ...(user?.email === 'software@fondothoth.com' || user?.email === 'a213203453@unison.mx' || user?.permiso_ia ? [
+              { id: 'sentimiento', label: '🧠 Sentimiento Estudiantil', color: 'bg-purple-600' },
+              { id: 'auditoria', label: '🔒 Auditoría & Chat Logs', color: 'bg-yellow-600' }
+            ] : [])
          ].map((t) => (
             <button 
                key={t.id}
@@ -522,7 +917,7 @@ const AdminDashboard = () => {
                         {reports.length === 0 && (
                            <tr><td colSpan={4} className="px-8 py-10 text-center text-white/20 text-[9px] uppercase font-black tracking-widest">No hay reportes nuevos</td></tr>
                         )}
-                     </tbody>
+                      </tbody>
                   </table>
                </div>
             </div>
@@ -547,36 +942,36 @@ const AdminDashboard = () => {
                               </td>
                               <td className="px-8 py-6">
                                  <div className="flex items-center gap-4">
-                                    <div className="text-center">
-                                       <p className="text-[10px] font-black text-indigo-400">{prod.karma_score || 0}</p>
-                                       <p className="text-[7px] uppercase font-black text-slate-600 tracking-widest">Karma</p>
-                                    </div>
-                                    <div className="w-px h-6 bg-white/5"></div>
-                                    <div className="text-center">
-                                       <p className={`text-[10px] font-black ${prod.reputation_score >= 70 ? 'text-green-500' : 'text-amber-500'}`}>{prod.reputation_score || '--'}%</p>
-                                       <p className="text-[7px] uppercase font-black text-slate-600 tracking-widest">IA Repo</p>
-                                    </div>
+                                     <div className="text-center">
+                                         <p className="text-[10px] font-black text-indigo-400">{prod.karma_score || 0}</p>
+                                         <p className="text-[7px] uppercase font-black text-slate-600 tracking-widest">Karma</p>
+                                     </div>
+                                     <div className="w-px h-6 bg-white/5"></div>
+                                     <div className="text-center">
+                                         <p className={`text-[10px] font-black ${prod.reputation_score >= 70 ? 'text-green-500' : 'text-amber-500'}`}>{prod.reputation_score || '--'}%</p>
+                                         <p className="text-[7px] uppercase font-black text-slate-600 tracking-widest">IA Repo</p>
+                                     </div>
                                  </div>
                               </td>
                               <td className="px-8 py-6 text-right">
                                  <div className="flex gap-2 justify-end">
-                                    {!prod.verificado ? (
-                                       <button 
-                                          onClick={() => handleModeration('bazar', prod.id, 'verificar_negocio')}
-                                          className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase"
-                                       >
-                                          Verificar
-                                       </button>
-                                    ) : (
-                                       <span className="text-emerald-500 text-[8px] font-black uppercase border border-emerald-500/20 px-3 py-1 rounded-lg">Live</span>
-                                    ) }
-                                    <button 
-                                       onClick={() => handleModeration('bazar', prod.id, 'rechazar_negocio')}
-                                       className="bg-red-600/10 text-red-500 px-4 py-2 rounded-xl text-[9px] font-black uppercase border border-red-500/20"
-                                    >
-                                       Ocultar
-                                    </button>
-                                 </div>
+                                     {!prod.verificado ? (
+                                         <button 
+                                            onClick={() => handleModeration('bazar', prod.id, 'verificar_negocio')}
+                                            className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase"
+                                         >
+                                            Verificar
+                                         </button>
+                                      ) : (
+                                         <span className="text-emerald-500 text-[8px] font-black uppercase border border-emerald-500/20 px-3 py-1 rounded-lg">Live</span>
+                                      ) }
+                                      <button 
+                                         onClick={() => handleModeration('bazar', prod.id, 'rechazar_negocio')}
+                                         className="bg-red-600/10 text-red-500 px-4 py-2 rounded-xl text-[9px] font-black uppercase border border-red-500/20"
+                                      >
+                                         Ocultar
+                                      </button>
+                                   </div>
                               </td>
                            </tr>
                         ))}
@@ -588,107 +983,199 @@ const AdminDashboard = () => {
                </div>
             </div>
          </div>
-      )}
+       )}
 
       {activeTab === 'ia_config' && (
-        <div className="space-y-8 animate-in slide-in-from-right-10 duration-500">
-           <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Misión Control: Motor de IA Híbrido</h3>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {['mac_mini', 'groq', 'gemini'].map(provider => {
-                const config = iaConfigs.find(c => c.provider === provider) || { provider, endpoint_url: '', model_name: '', is_active: 1 };
-                return (
-                  <div key={provider} className="bg-slate-900/60 p-10 rounded-[2.5rem] border border-white/10 space-y-6">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-white font-black text-xl uppercase tracking-tighter">{provider.replace('_', ' ')}</h4>
-                      <div className={`w-3 h-3 rounded-full ${config.is_active ? 'bg-green-500' : 'bg-slate-700'}`}></div>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">Endpoint URL</label>
-                        <input 
-                          type="text" 
-                          defaultValue={config.endpoint_url}
-                          placeholder="https://..."
-                          onBlur={(e) => saveIaConfig({...config, endpoint_url: e.target.value})}
-                          className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-indigo-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">Model Name</label>
-                        <input 
-                          type="text" 
-                          defaultValue={config.model_name}
-                          placeholder="llama3-8b-8192"
-                          onBlur={(e) => saveIaConfig({...config, model_name: e.target.value})}
-                          className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-indigo-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">API KEY (Cifrada en tránsito)</label>
-                        <input 
-                          type="password" 
-                          placeholder="••••••••••••••••"
-                          onBlur={(e) => e.target.value && saveIaConfig({...config, api_key: e.target.value})}
-                          className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-indigo-500 outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-           </div>
-        </div>
+        <AdminIAConfigTab />
       )}
 
       {activeTab === 'directorio' && (
-         <div className="space-y-8 animate-in slide-in-from-right-10 duration-500">
+         <div className="space-y-8 animate-in slide-in-from-right-10 duration-500 w-full overflow-x-auto">
             <div className="flex flex-col md:flex-row justify-between items-end gap-6">
-               <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Directorio Institucional</h3>
-               <input 
-                  type="text" 
-                  placeholder="Buscar alumno o correo..."
-                  className="bg-slate-950 border border-slate-800 rounded-2xl px-6 py-4 text-sm text-white focus:border-indigo-500 outline-none w-full md:w-96 transition-all"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-               />
+               <div>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Directorio & Gobernanza</h3>
+                  <p className="text-xs text-indigo-400 font-bold uppercase tracking-wide mt-1">Matriz de Permisos Administrativos</p>
+               </div>
+               <div className="flex gap-4 w-full md:w-auto">
+                  <button onClick={exportDirectorioCSV} className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-lg shadow-indigo-500/20 whitespace-nowrap">
+                    📥 Exportar CSV
+                  </button>
+                  <input 
+                     type="text" 
+                     placeholder="Buscar alumno o correo..."
+                     className="bg-slate-950 border border-slate-800 rounded-2xl px-6 py-4 text-sm text-white focus:border-indigo-500 outline-none w-full md:w-full transition-all"
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+               </div>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] overflow-hidden">
-               <table className="w-full text-left">
+            {/* Indicador de deslizamiento horizontal para celular */}
+            <div className="md:hidden text-center text-[10px] font-black uppercase tracking-widest text-indigo-400/80 animate-pulse py-3 px-4 bg-indigo-950/20 border border-indigo-900/30 rounded-2xl">
+               ← Desliza horizontalmente para ver todos los permisos →
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] overflow-x-auto shadow-2xl">
+               <table className="w-full text-left min-w-[1200px]">
                   <thead>
-                     <tr className="bg-slate-950 border-b border-white/5">
-                        <th className="px-8 py-6 text-[9px] uppercase text-slate-500 font-black">Identidad</th>
-                        <th className="px-8 py-6 text-[9px] uppercase text-slate-500 font-black">Correo</th>
-                        <th className="px-8 py-6 text-[9px] uppercase text-slate-500 font-black">Rol</th>
-                        <th className="px-8 py-6 text-[9px] uppercase text-slate-500 font-black text-right">Control</th>
+                     <tr className="bg-slate-950 border-b border-white/5 text-[9px] uppercase text-slate-500 font-black">
+                        <th className="px-6 py-6">Usuario / Sociedad</th>
+                        <th className="px-4 py-6">Rol Base</th>
+                        <th className="px-4 py-6 text-center">IA (BOB)</th>
+                        <th className="px-4 py-6 text-center">Votaciones</th>
+                        <th className="px-4 py-6 text-center">WiFi (IPs)</th>
+                        <th className="px-4 py-6 text-center">Noticias</th>
+                        <th className="px-4 py-6 text-center">Bazar</th>
+                        <th className="px-4 py-6 text-center">Bolsa</th>
+                        <th className="px-4 py-6 text-center">Denuncias</th>
+                        <th className="px-4 py-6 text-center">Social</th>
+                        <th className="px-6 py-6 text-right">Acciones</th>
                      </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                     {directory.map((u) => (
-                        <tr key={u.id} className={`hover:bg-white/[0.02] ${!u.active ? 'opacity-30' : ''}`}>
-                           <td className="px-8 py-6">
-                              <span className="text-white font-black text-sm block">{u.nombre_completo}</span>
-                              <span className="text-indigo-400 text-[8px] font-black uppercase tracking-tighter">{u.carrera}</span>
-                           </td>
-                           <td className="px-8 py-6 text-slate-400 text-xs font-mono">{u.email}</td>
-                           <td className="px-8 py-6">
-                              <span className="px-2 py-1 rounded-lg text-[9px] font-black uppercase border border-slate-700 text-slate-500">
-                                 {u.rol}
-                              </span>
-                           </td>
-                           <td className="px-8 py-6 text-right">
-                              <div className="flex gap-2 justify-end">
-                                 <button onClick={() => {
-                                    const nr = prompt("Nuevo rol:", u.rol);
-                                    if(nr) handleModeration('user', u.id, 'update_role', { rol: nr });
-                                 }} className="p-2 bg-slate-800 rounded-xl text-white">⚙️</button>
-                                 <button onClick={() => handleModeration('user', u.id, 'toggle_active', { active: u.active ? 0 : 1 })} className="p-2 bg-red-600/10 text-red-500 rounded-xl">
-                                    {u.active ? 'BAN' : 'ACT'}
-                                 </button>
-                              </div>
-                           </td>
-                        </tr>
-                     ))}
+                     {directory.map((u) => {
+                        const isMaster = u.email === 'software@fondothoth.com';
+                        const isEditingDisabled = user?.email !== 'software@fondothoth.com' || isMaster;
+                        
+                        return (
+                           <tr key={u.id} className={`hover:bg-white/[0.01] transition-all ${u.activo == 0 ? 'opacity-30' : ''}`}>
+                              <td className="px-6 py-4">
+                                 <span className="text-white font-black text-xs block">{u.nombre_completo}</span>
+                                 <span className="text-slate-400 text-[9px] font-mono block">{u.email}</span>
+                                 <span className="text-indigo-400 text-[8px] font-black uppercase tracking-tighter block mt-0.5">{u.carrera || 'Estudiante General'}</span>
+                              </td>
+                              <td className="px-4 py-4">
+                                 <select
+                                    value={u.rol}
+                                    disabled={isEditingDisabled}
+                                    onChange={(e) => handleChangeRole(u.id, e.target.value)}
+                                    className="bg-black/40 border border-white/5 rounded-xl px-2.5 py-2 text-[10px] font-black uppercase tracking-wider text-white focus:border-indigo-500 outline-none disabled:opacity-75 disabled:cursor-not-allowed"
+                                 >
+                                    <option value="estudiante">Estudiante</option>
+                                    <option value="empresa">Empresa</option>
+                                    <option value="sociedad">Sociedad</option>
+                                    <option value="mesa_directiva">Mesa Directiva</option>
+                                    <option value="admin">Administrador</option>
+                                 </select>
+                              </td>
+                              
+                              {/* IA Toggle */}
+                              <td className="px-4 py-4 text-center">
+                                 <input
+                                    type="checkbox"
+                                    checked={u.permiso_ia == 1}
+                                    disabled={isEditingDisabled}
+                                    onChange={() => handleTogglePermission(u, 'permiso_ia', u.permiso_ia == 1)}
+                                    className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-600 accent-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                 />
+                              </td>
+                              
+                              {/* Votaciones Toggle */}
+                              <td className="px-4 py-4 text-center">
+                                 <input
+                                    type="checkbox"
+                                    checked={u.consejo_elecciones == 1}
+                                    disabled={isEditingDisabled}
+                                    onChange={() => handleTogglePermission(u, 'consejo_elecciones', u.consejo_elecciones == 1)}
+                                    className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-600 accent-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                 />
+                              </td>
+                              
+                              {/* WiFi Toggle */}
+                              <td className="px-4 py-4 text-center">
+                                 <input
+                                    type="checkbox"
+                                    checked={u.permiso_wifi == 1}
+                                    disabled={isEditingDisabled}
+                                    onChange={() => handleTogglePermission(u, 'permiso_wifi', u.permiso_wifi == 1)}
+                                    className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-600 accent-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                 />
+                              </td>
+                              
+                              {/* Noticias Toggle */}
+                              <td className="px-4 py-4 text-center">
+                                 <input
+                                    type="checkbox"
+                                    checked={u.rol_comunicacion == 1}
+                                    disabled={isEditingDisabled}
+                                    onChange={() => {
+                                       handleTogglePermission(u, 'rol_comunicacion', u.rol_comunicacion == 1);
+                                    }}
+                                    className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-600 accent-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                 />
+                              </td>
+                              
+                              {/* Bazar Toggle */}
+                              <td className="px-4 py-4 text-center">
+                                 <input
+                                    type="checkbox"
+                                    checked={u.bazar_y_reservaciones == 1}
+                                    disabled={isEditingDisabled}
+                                    onChange={() => handleTogglePermission(u, 'bazar_y_reservaciones', u.bazar_y_reservaciones == 1)}
+                                    className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-600 accent-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                 />
+                              </td>
+                              
+                              {/* Bolsa Toggle */}
+                              <td className="px-4 py-4 text-center">
+                                 <input
+                                    type="checkbox"
+                                    checked={u.bolsa_trabajo == 1}
+                                    disabled={isEditingDisabled}
+                                    onChange={() => handleTogglePermission(u, 'bolsa_trabajo', u.bolsa_trabajo == 1)}
+                                    className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-600 accent-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                 />
+                              </td>
+                              
+                              {/* Denuncias Toggle */}
+                              <td className="px-4 py-4 text-center">
+                                 <input
+                                    type="checkbox"
+                                    checked={u.ver_denuncias == 1}
+                                    disabled={isEditingDisabled}
+                                    onChange={() => handleTogglePermission(u, 'ver_denuncias', u.ver_denuncias == 1)}
+                                    className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-600 accent-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                 />
+                              </td>
+                              
+                              {/* Social Toggle */}
+                              <td className="px-4 py-4 text-center">
+                                 <input
+                                    type="checkbox"
+                                    checked={u.roles_social == 1}
+                                    disabled={isEditingDisabled}
+                                    onChange={() => handleTogglePermission(u, 'roles_social', u.roles_social == 1)}
+                                    className="w-4 h-4 rounded border-white/10 bg-black/40 text-indigo-600 accent-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                 />
+                              </td>
+                              
+                              <td className="px-6 py-4 text-right">
+                                 <div className="flex gap-2 justify-end items-center">
+                                    <button 
+                                       onClick={() => fetchProfile(u.id)} 
+                                       className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                    >
+                                       👁️ Ver
+                                    </button>
+                                    
+                                    {!isMaster && (
+                                      <button 
+                                         onClick={() => handleModeration('user', u.id, 'toggle_active', { active: u.activo == 1 ? 0 : 1 })} 
+                                         className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                                            u.activo == 1 
+                                              ? 'bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white' 
+                                              : 'bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white'
+                                         }`}
+                                         disabled={user?.email !== 'software@fondothoth.com'}
+                                      >
+                                         {u.activo == 1 ? 'BAN' : 'ACT'}
+                                      </button>
+                                    )}
+                                 </div>
+                              </td>
+                           </tr>
+                        );
+                     })}
                   </tbody>
                </table>
             </div>
@@ -755,170 +1242,19 @@ const AdminDashboard = () => {
       )}
 
       {activeTab === 'social' && (
-        <div className="space-y-8 animate-in slide-in-from-right-10 duration-500">
-          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Control de Ecosistema Social</h3>
+        <AdminSocialTab />
+      )}
 
-          {socialLoading ? (
-            <div className="text-center py-20 text-white/20 uppercase tracking-widest font-black">Cargando Ajustes de Redes Sociales...</div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-slate-900/60 p-10 rounded-[2.5rem] border border-pink-500/10 space-y-6 flex flex-col justify-between shadow-2xl animate-in fade-in duration-500">
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-white font-black text-xl uppercase tracking-tighter flex items-center gap-2">
-                      📷 Instagram Business
-                    </h4>
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${socialConfig?.instagram?.connected ? 'bg-green-500/25 border border-green-500 text-green-500' : 'bg-red-500/25 border border-red-500 text-red-500'}`}>
-                      {socialConfig?.instagram?.connected ? 'Conectado' : 'Desconectado'}
-                    </span>
-                  </div>
+      {activeTab === 'rag_knowledge' && (
+        <AdminRagKnowledgeTab />
+      )}
 
-                  <form onSubmit={(e) => { e.preventDefault(); handleSaveSocial('instagram', igFormData); }} className="space-y-4">
-                    <div>
-                      <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">Facebook App ID</label>
-                      <input 
-                        type="text" 
-                        value={igFormData.client_id}
-                        onChange={(e) => setIgFormData({...igFormData, client_id: e.target.value})}
-                        placeholder="Ingresa App ID"
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-pink-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">Facebook App Secret</label>
-                      <input 
-                        type="password" 
-                        value={igFormData.client_secret}
-                        onChange={(e) => setIgFormData({...igFormData, client_secret: e.target.value})}
-                        placeholder={socialConfig?.instagram?.has_secret ? '••••••••••••••••' : 'Ingresa App Secret'}
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-pink-500 outline-none"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">Facebook Page ID</label>
-                        <input 
-                          type="text" 
-                          value={igFormData.page_id}
-                          onChange={(e) => setIgFormData({...igFormData, page_id: e.target.value})}
-                          placeholder="Page ID"
-                          className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-pink-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">IG Business Account ID</label>
-                        <input 
-                          type="text" 
-                          value={igFormData.instagram_business_id}
-                          onChange={(e) => setIgFormData({...igFormData, instagram_business_id: e.target.value})}
-                          placeholder="Auto-detectado al conectar"
-                          className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-pink-500 outline-none"
-                        />
-                      </div>
-                    </div>
-                    <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">
-                      Guardar Credenciales
-                    </button>
-                  </form>
-                </div>
+      {activeTab === 'votaciones' && (
+        <VotingConfig />
+      )}
 
-                <div className="border-t border-white/5 pt-6 space-y-4">
-                  <a 
-                    href="/api/social/instagram/login" 
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-center block py-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all shadow-lg shadow-pink-500/10"
-                  >
-                    🚀 Conectar con Meta / Instagram
-                  </a>
-
-                  {socialConfig?.instagram?.connected && (
-                    <form onSubmit={handleTestPublish} className="bg-black/20 p-4 rounded-2xl border border-white/5 space-y-3">
-                      <p className="text-[8px] uppercase font-black text-indigo-400 tracking-widest">Publicación de Prueba</p>
-                      <input 
-                        type="url" 
-                        placeholder="URL de la imagen (debe ser pública)" 
-                        value={testPostData.image_url}
-                        onChange={(e) => setTestPostData({...testPostData, image_url: e.target.value})}
-                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white outline-none"
-                      />
-                      <input 
-                        type="text" 
-                        placeholder="Pie de foto..." 
-                        value={testPostData.caption}
-                        onChange={(e) => setTestPostData({...testPostData, caption: e.target.value})}
-                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white outline-none"
-                      />
-                      <button 
-                        type="submit" 
-                        disabled={testPublishing}
-                        className="w-full bg-pink-600 hover:bg-pink-500 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
-                      >
-                        {testPublishing ? 'Publicando...' : 'Publicar a Instagram'}
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-slate-900/60 p-10 rounded-[2.5rem] border border-emerald-500/10 space-y-6 flex flex-col justify-between shadow-2xl animate-in fade-in duration-500">
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-white font-black text-xl uppercase tracking-tighter flex items-center gap-2">
-                      💬 WhatsApp Cloud API
-                    </h4>
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${socialConfig?.whatsapp?.has_token ? 'bg-green-500/25 border border-green-500 text-green-500' : 'bg-red-500/25 border border-red-500 text-red-500'}`}>
-                      {socialConfig?.whatsapp?.has_token ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </div>
-
-                  <form onSubmit={(e) => { e.preventDefault(); handleSaveSocial('whatsapp', waFormData); }} className="space-y-4">
-                    <div>
-                      <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">Phone Number ID</label>
-                      <input 
-                        type="text" 
-                        value={waFormData.phone_number_id}
-                        onChange={(e) => setWaFormData({...waFormData, phone_number_id: e.target.value})}
-                        placeholder="Phone Number ID"
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-emerald-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">WhatsApp Business Account ID (WABA ID)</label>
-                      <input 
-                        type="text" 
-                        value={waFormData.waba_id}
-                        onChange={(e) => setWaFormData({...waFormData, waba_id: e.target.value})}
-                        placeholder="WABA ID"
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-emerald-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">Webhook Verify Token</label>
-                      <input 
-                        type="text" 
-                        value={waFormData.verify_token}
-                        onChange={(e) => setWaFormData({...waFormData, verify_token: e.target.value})}
-                        placeholder="cesa_unison_2026"
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-emerald-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-2">Permanent Access Token (System User)</label>
-                      <textarea 
-                        value={waFormData.access_token}
-                        onChange={(e) => setWaFormData({...waFormData, access_token: e.target.value})}
-                        placeholder={socialConfig?.whatsapp?.has_token ? '••••••••••••••••••••••••••••••••' : 'Ingresa token permanente de Meta'}
-                        className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-xs text-white h-24 focus:border-emerald-500 outline-none font-mono"
-                      ></textarea>
-                    </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest text-white transition-all">
-                      Guardar Configuración WhatsApp
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+      {activeTab === 'bazar_ads' && (
+        <AdminBazarDashboardTab />
       )}
 
       {activeTab === 'modo_dios' && user?.email === 'software@fondothoth.com' && (
@@ -1035,6 +1371,463 @@ const AdminDashboard = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Modal de Permisos y Rol */}
+      {isPermModalOpen && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-white/10 rounded-[2rem] p-10 max-w-md w-full space-y-6 shadow-2xl animate-in zoom-in-95 duration-300 text-white">
+             <div className="flex justify-between items-start">
+               <div>
+                 <h4 className="text-white font-black text-lg uppercase tracking-tight">{selectedUser.nombre_completo}</h4>
+                 <p className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">{selectedUser.email}</p>
+               </div>
+               <button 
+                 onClick={() => setIsPermModalOpen(false)}
+                 className="text-slate-400 hover:text-white text-[9px] font-black uppercase tracking-widest border border-white/10 rounded-xl px-3 py-1.5 bg-white/5"
+               >
+                 Cerrar
+               </button>
+             </div>
+             
+             <form onSubmit={handleSavePermissions} className="space-y-6">
+                <div>
+                  <label className="text-[8px] uppercase font-black text-slate-400 tracking-widest block mb-2">Rol Base</label>
+                  <select 
+                    value={permFormData.rol}
+                    onChange={(e) => setPermFormData({...permFormData, rol: e.target.value})}
+                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-indigo-500 outline-none"
+                  >
+                    <option value="estudiante">Estudiante</option>
+                    <option value="empresa">Empresa</option>
+                    <option value="sociedad">Sociedad</option>
+                    <option value="mesa_directiva">Mesa Directiva</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+                
+                {(permFormData.rol === 'admin' || permFormData.rol === 'mesa_directiva') && (
+                  <div className="space-y-3 border-t border-white/5 pt-4">
+                     <p className="text-[8px] uppercase font-black text-indigo-400 tracking-widest mb-2">Permisos Granulares</p>
+                     
+                     {[
+                       { key: 'publicar_anuncios', label: 'Publicar Anuncios (Ads)' },
+                       { key: 'bazar_y_reservaciones', label: 'Bazar y Reservaciones' },
+                       { key: 'bolsa_trabajo', label: 'Bolsa de Trabajo' },
+                       { key: 'roles_social', label: 'Ecosistema Social' },
+                       { key: 'ver_denuncias', label: 'Ver e Investigar Denuncias' },
+                       { key: 'rol_comunicacion', label: 'Comunicación y Noticias' },
+                       { key: 'consejo_elecciones', label: 'Auditoría y Configuración de Elecciones' },
+                       { key: 'permiso_ia', label: 'Permisos de Asistente de IA (BOB)' },
+                       { key: 'permiso_wifi', label: 'Configuración de IPs WiFi' },
+                       { key: 'tutorias_asesorias', label: 'Tutorías y Asuntos Estudiantiles' },
+                       { key: 'evaluaciones_psicometricas', label: 'Evaluaciones Psicométricas' },
+                       { key: 'skills_cursos', label: 'Gestión de Cursos y Skills' }
+                     ].map((item) => (
+                       <label key={item.key} className="flex items-center justify-between p-3 bg-black/20 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-all select-none">
+                         <span className="text-[9px] text-slate-300 font-bold uppercase tracking-wider">{item.label}</span>
+                         <input 
+                           type="checkbox"
+                           checked={(permFormData as any)[item.key]}
+                           onChange={(e) => setPermFormData({
+                             ...permFormData,
+                             [item.key]: e.target.checked
+                           })}
+                           className="w-4 h-4 accent-indigo-500 rounded border-white/10 bg-black/40"
+                         />
+                       </label>
+                     ))}
+                  </div>
+                )}
+                
+                <button 
+                  type="submit"
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                >
+                  Guardar Cambios
+                </button>
+             </form>
+           </div>
+        </div>
+      )}
+
+      {/* Modal del Perfil Holístico */}
+      {selectedProfileId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-white/10 rounded-[2rem] p-10 max-w-2xl w-full max-h-[85vh] overflow-y-auto space-y-6 shadow-2xl animate-in zoom-in-95 duration-300 text-white">
+             {profileLoading ? (
+                <div className="text-center py-10 font-black tracking-widest uppercase text-slate-500">Cargando Perfil...</div>
+             ) : profileData ? (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-start border-b border-white/10 pb-4">
+                    <div>
+                      <h4 className="text-white font-black text-xl uppercase tracking-tight">{profileData.nombre_completo}</h4>
+                      <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{profileData.matricula || 'Sin Expediente'} • {profileData.rol}</p>
+                    </div>
+                    <button onClick={() => setSelectedProfileId(null)} className="text-slate-400 hover:text-white text-[9px] font-black uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">Cerrar</button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                     <div className="bg-black/30 p-4 rounded-2xl border border-white/5 text-center">
+                        <p className="text-2xl font-black text-indigo-400">{profileData.estadisticas_sociales?.reportes_creados || 0}</p>
+                        <p className="text-[8px] uppercase tracking-widest text-slate-500 font-black mt-1">Reportes</p>
+                     </div>
+                     <div className="bg-black/30 p-4 rounded-2xl border border-white/5 text-center">
+                        <p className="text-2xl font-black text-pink-400">{profileData.estadisticas_sociales?.publicaciones_muro || 0}</p>
+                        <p className="text-[8px] uppercase tracking-widest text-slate-500 font-black mt-1">Posts (Muro)</p>
+                     </div>
+                     <div className="bg-black/30 p-4 rounded-2xl border border-white/5 text-center">
+                        <p className="text-2xl font-black text-emerald-400">{profileData.certificados?.length || 0}</p>
+                        <p className="text-[8px] uppercase tracking-widest text-slate-500 font-black mt-1">Certificados</p>
+                     </div>
+                  </div>
+
+                  <div className="space-y-4">
+                     <h5 className="text-[10px] uppercase font-black text-indigo-400 tracking-widest">Exámenes y Certificaciones</h5>
+                     {profileData.evaluaciones?.length > 0 ? (
+                       <div className="space-y-2">
+                          {profileData.evaluaciones.map((e: any) => (
+                            <div key={e.id} className="bg-black/40 p-3 rounded-xl border border-white/5 flex justify-between items-center">
+                               <div>
+                                  <p className="text-[10px] font-black uppercase text-white">{e.habilidad_nombre}</p>
+                                  <p className="text-[8px] text-slate-500">{new Date(e.tiempo_inicio).toLocaleDateString()}</p>
+                               </div>
+                               <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${e.estado === 'completada' && e.porcentaje >= 70 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                                 {e.porcentaje}% - {e.estado}
+                               </span>
+                            </div>
+                          ))}
+                       </div>
+                     ) : <p className="text-xs text-slate-500 italic">No hay historial de exámenes.</p>}
+                  </div>
+
+                  <div className="space-y-4">
+                     <h5 className="text-[10px] uppercase font-black text-pink-400 tracking-widest">Historial de Interacción con IA (BOB)</h5>
+                     {profileData.historial_ia?.length > 0 ? (
+                       <div className="space-y-2">
+                          {profileData.historial_ia.map((chat: any, i: number) => (
+                            <div key={i} className="bg-black/40 p-3 rounded-xl border border-white/5">
+                               <p className="text-[10px] font-bold text-white mb-1"><span className="text-indigo-400">Usuario:</span> {chat.mensaje}</p>
+                               <p className="text-[9px] text-slate-400"><span className="text-emerald-400">BOB:</span> {chat.respuesta.substring(0, 100)}...</p>
+                            </div>
+                          ))}
+                       </div>
+                     ) : <p className="text-xs text-slate-500 italic">No ha interactuado con la IA.</p>}
+                  </div>
+
+                </div>
+              ) : null}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'padron' && (
+        <div className="space-y-8 animate-in slide-in-from-right-10 duration-500">
+           <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Padrón Electoral Activo</h3>
+           <div className="bg-slate-900/60 p-10 rounded-[2.5rem] border border-teal-500/20 shadow-2xl space-y-6">
+              <div className="space-y-2">
+                 <h4 className="text-white font-bold text-lg">Actualizar Padrón (Semestral)</h4>
+                 <p className="text-slate-500 text-xs">Carga un archivo CSV con las columnas: <b>Expediente, Carrera, Semestre</b>. Esto limpiará el padrón anterior y cargará los alumnos válidos para el Sistema de Votación.</p>
+              </div>
+              
+              <form onSubmit={handleUploadPadron} className="space-y-6 bg-black/30 p-6 rounded-2xl border border-white/5">
+                 <input 
+                    type="file" 
+                    accept=".csv"
+                    onChange={(e) => setCsvFile(e.target.files ? e.target.files[0] : null)}
+                    className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-black file:bg-teal-600 file:text-white hover:file:bg-teal-500"
+                 />
+                 <button 
+                    type="submit" 
+                    disabled={uploadingPadron || !csvFile}
+                    className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    {uploadingPadron ? 'Procesando Padron...' : 'Subir e Indexar CSV'}
+                 </button>
+              </form>
+
+              <div className="bg-teal-500/10 p-5 rounded-2xl border border-teal-500/20">
+                 <p className="text-[10px] uppercase font-black text-teal-400 tracking-widest mb-2">Importancia de Seguridad</p>
+                  <p className="text-[10px] text-slate-400">El Sistema de Votaciones usa esta tabla para validar que el alumno sea regular y pertenezca a la carrera objetivo, bloqueando el acceso a ex-alumnos u otros departamentos.</p>
+              </div>
+           </div>
+        </div>
+      )}
+      {activeTab === 'sentimiento' && (
+        <AdminSentimentDashboardTab />
+      )}
+      {activeTab === 'auditoria' && (
+        <>
+          {user?.email === 'software@fondothoth.com' || ['admin','mesa_directiva'].includes(user?.rol ?? '') ? (
+            <div className="space-y-8 animate-in slide-in-from-right-10 duration-500 text-white w-full">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tighter">📊 Auditoría de Seguridad e IA</h3>
+                  <p className="text-xs text-indigo-400 font-bold uppercase tracking-wide mt-1">Supervisión e historial de interacciones en tiempo real</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                  <button 
+                    onClick={exportTelemetriaCSV}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20"
+                  >
+                    📥 Exportar Telemetría / Exámenes
+                  </button>
+                  {auditLoading && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 animate-pulse bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl">
+                      Sincronizando logs...
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {/* Panel Chatbot Historial */}
+                <div className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/10 space-y-6 shadow-2xl flex flex-col justify-between">
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-white font-black text-lg uppercase tracking-wider flex items-center gap-2">
+                        🤖 Chatbot Historial (BOB)
+                      </h4>
+                      <button 
+                        onClick={exportChatCSV}
+                        className="bg-amber-500 hover:bg-white text-black px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/15"
+                      >
+                        Exportar CSV
+                      </button>
+                    </div>
+
+                    {/* Filtros */}
+                    <div className="bg-black/30 p-4 rounded-2xl border border-white/5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-1">Buscar</label>
+                        <input 
+                          type="text" 
+                          placeholder="Mensaje, IP, Usuario..."
+                          value={chatSearch}
+                          onChange={(e) => setChatSearch(e.target.value)}
+                          className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-1">Inicio</label>
+                        <input 
+                          type="date" 
+                          value={chatStartDate}
+                          onChange={(e) => setChatStartDate(e.target.value)}
+                          className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-1">Fin</label>
+                        <input 
+                          type="date" 
+                          value={chatEndDate}
+                          onChange={(e) => setChatEndDate(e.target.value)}
+                          className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => { setChatPage(0); fetchChatHistory(); }}
+                      className="w-full bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+                    >
+                      Buscar / Filtrar Chatbot
+                    </button>
+
+                    {/* Tabla */}
+                    <div className="overflow-x-auto border border-white/5 rounded-2xl">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-black/45 border-b border-white/5 text-[8px] uppercase text-slate-500 font-black">
+                            <th className="p-3">Fecha</th>
+                            <th className="p-3">Usuario</th>
+                            <th className="p-3">Mensaje / Respuesta</th>
+                            <th className="p-3">Proveedor / Lat</th>
+                            <th className="p-3">Origen</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-[10px]">
+                          {chatHistory.map((h) => (
+                            <tr key={h.id} className="hover:bg-white/[0.01]">
+                              <td className="p-3 whitespace-nowrap text-slate-400">
+                                {new Date(h.created_at).toLocaleDateString()}
+                                <span className="block text-[8px] text-slate-500 mt-0.5">{new Date(h.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              </td>
+                              <td className="p-3">
+                                <span className="font-bold text-white block">{h.usuario_nombre || 'Invitado/Anon'}</span>
+                                <span className="text-slate-500 text-[8px] block font-mono">{h.usuario_email || 'Anon'}</span>
+                              </td>
+                              <td className="p-3 max-w-[200px]">
+                                <p className="text-slate-200 line-clamp-2"><span className="text-indigo-400 font-bold">U:</span> {h.mensaje}</p>
+                                <p className="text-slate-400 line-clamp-2 mt-1"><span className="text-emerald-400 font-bold">B:</span> {h.respuesta}</p>
+                              </td>
+                              <td className="p-3 whitespace-nowrap">
+                                <span className="bg-indigo-950/40 border border-indigo-900/40 text-indigo-400 font-bold uppercase text-[7px] px-1.5 py-0.5 rounded-md block w-max">{h.provider}</span>
+                                <span className="text-slate-500 text-[8px] block mt-1 font-mono">{h.latency_ms}ms</span>
+                              </td>
+                              <td className="p-3 whitespace-nowrap text-slate-400 text-[9px]">
+                                <span className="font-mono block">{h.ip_address}</span>
+                                <span className="text-indigo-300 block text-[8px] mt-0.5">{h.geoloc_city || 'Desconocido'}, {h.geoloc_country || ''}</span>
+                              </td>
+                            </tr>
+                          ))}
+                          {chatHistory.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="p-8 text-center text-slate-500 uppercase tracking-widest font-black text-[9px]">No hay logs de chatbot.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Paginación */}
+                  <div className="flex justify-between items-center border-t border-white/5 pt-4 mt-4 text-[9px] uppercase font-black tracking-widest text-slate-500">
+                    <button 
+                      disabled={chatPage === 0 || auditLoading}
+                      onClick={() => setChatPage(chatPage - 1)}
+                      className="hover:text-white disabled:opacity-30 transition-all"
+                    >
+                      ← Anterior
+                    </button>
+                    <span>Página {chatPage + 1} de {Math.max(1, Math.ceil(chatTotal / chatLimit))}</span>
+                    <button 
+                      disabled={(chatPage + 1) * chatLimit >= chatTotal || auditLoading}
+                      onClick={() => setChatPage(chatPage + 1)}
+                      className="hover:text-white disabled:opacity-30 transition-all"
+                    >
+                      Siguiente →
+                    </button>
+                  </div>
+                </div>
+
+                {/* Panel Mensajes Privados */}
+                <div className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/10 space-y-6 shadow-2xl flex flex-col justify-between">
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-white font-black text-lg uppercase tracking-wider flex items-center gap-2">
+                        📨 Mensajería Privada
+                      </h4>
+                      <button 
+                        onClick={exportMensajesCSV}
+                        className="bg-amber-500 hover:bg-white text-black px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/15"
+                      >
+                        Exportar CSV
+                      </button>
+                    </div>
+
+                    {/* Filtros */}
+                    <div className="bg-black/30 p-4 rounded-2xl border border-white/5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-1">Buscar</label>
+                        <input 
+                          type="text" 
+                          placeholder="Mensaje, IP, Usuario..."
+                          value={mensajesSearch}
+                          onChange={(e) => setMensajesSearch(e.target.value)}
+                          className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-1">Inicio</label>
+                        <input 
+                          type="date" 
+                          value={mensajesStartDate}
+                          onChange={(e) => setMensajesStartDate(e.target.value)}
+                          className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] uppercase font-black text-slate-500 tracking-widest block mb-1">Fin</label>
+                        <input 
+                          type="date" 
+                          value={mensajesEndDate}
+                          onChange={(e) => setMensajesEndDate(e.target.value)}
+                          className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => { setMensajesPage(0); fetchMensajesHistory(); }}
+                      className="w-full bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+                    >
+                      Buscar / Filtrar Mensajes
+                    </button>
+
+                    {/* Tabla */}
+                    <div className="overflow-x-auto border border-white/5 rounded-2xl">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-black/45 border-b border-white/5 text-[8px] uppercase text-slate-500 font-black">
+                            <th className="p-3">Fecha</th>
+                            <th className="p-3">Emisor → Receptor</th>
+                            <th className="p-3">Contenido</th>
+                            <th className="p-3">Estado</th>
+                            <th className="p-3">Origen</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-[10px]">
+                          {mensajesHistory.map((m) => (
+                            <tr key={m.id} className="hover:bg-white/[0.01]">
+                              <td className="p-3 whitespace-nowrap text-slate-400">
+                                {new Date(m.created_at).toLocaleDateString()}
+                                <span className="block text-[8px] text-slate-500 mt-0.5">{new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              </td>
+                              <td className="p-3">
+                                <span className="font-bold text-white block">De: {m.emisor_nombre}</span>
+                                <span className="text-slate-400 block mt-0.5">A: {m.receptor_nombre}</span>
+                              </td>
+                              <td className="p-3 max-w-[200px]">
+                                <p className="text-slate-300 line-clamp-3">{m.contenido}</p>
+                              </td>
+                              <td className="p-3 whitespace-nowrap">
+                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${m.leido == 1 ? 'bg-green-500/20 text-green-500' : 'bg-amber-500/20 text-amber-500'}`}>
+                                  {m.leido == 1 ? 'Leído' : 'Pendiente'}
+                                </span>
+                              </td>
+                              <td className="p-3 whitespace-nowrap text-slate-400 text-[9px]">
+                                <span className="font-mono block">{m.ip_address || '127.0.0.1'}</span>
+                                <span className="text-indigo-300 block text-[8px] mt-0.5">{m.geoloc_city || 'Desconocido'}, {m.geoloc_country || ''}</span>
+                              </td>
+                            </tr>
+                          ))}
+                          {mensajesHistory.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="p-8 text-center text-slate-500 uppercase tracking-widest font-black text-[9px]">No hay mensajes privados.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Paginación */}
+                  <div className="flex justify-between items-center border-t border-white/5 pt-4 mt-4 text-[9px] uppercase font-black tracking-widest text-slate-500">
+                    <button 
+                      disabled={mensajesPage === 0 || auditLoading}
+                      onClick={() => setMensajesPage(mensajesPage - 1)}
+                      className="hover:text-white disabled:opacity-30 transition-all"
+                    >
+                      ← Anterior
+                    </button>
+                    <span>Página {mensajesPage + 1} de {Math.max(1, Math.ceil(mensajesTotal / mensajesLimit))}</span>
+                    <button 
+                      disabled={(mensajesPage + 1) * mensajesLimit >= mensajesTotal || auditLoading}
+                      onClick={() => setMensajesPage(mensajesPage + 1)}
+                      className="hover:text-white disabled:opacity-30 transition-all"
+                    >
+                      Siguiente →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-8 animate-in slide-in-from-right-10 duration-500">
+              <p className="text-sm text-slate-400">Acceso denegado. Se requiere rol de admin o Mesa Directiva.</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

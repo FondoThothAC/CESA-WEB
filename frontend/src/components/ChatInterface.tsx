@@ -14,7 +14,7 @@ export default function ChatInterface() {
 
   const welcomeMessage = {
     role: 'bot',
-    text: `¡Hola, ${user?.nombre || user?.nombre_completo?.split(' ')[0] || 'Estudiante'}! Soy CESA Bot. 🦉\n\nPuedo ayudarte a calcular tu semestre real por créditos, encontrar negocios en el mapa o ver la bolsa de trabajo. ¿Qué necesitas hoy?`,
+    text: `¡Hola, ${user?.nombre || user?.nombre_completo?.split(' ')[0] || 'Estudiante'}! Soy Bob. 🦉\n\nPuedo ayudarte a calcular tu semestre real por créditos, encontrar negocios en el mapa o ver la bolsa de trabajo. También puedo enviar mensajes privados o delegar tareas por ti. ¿Qué necesitas hoy?`,
     timestamp: new Date().toLocaleTimeString()
   };
 
@@ -38,6 +38,25 @@ export default function ChatInterface() {
     setInput('');
     setIsTyping(true);
 
+    let lat: number | null = null;
+    let lon: number | null = null;
+
+    if (navigator.geolocation) {
+      await new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            lat = pos.coords.latitude;
+            lon = pos.coords.longitude;
+            resolve();
+          },
+          () => {
+            resolve();
+          },
+          { timeout: 1000 }
+        );
+      });
+    }
+
     try {
       const res = await fetch(`${API_URL}/chat.php`, {
         method: 'POST',
@@ -45,7 +64,7 @@ export default function ChatInterface() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json' 
         },
-        body: JSON.stringify({ message: messageText })
+        body: JSON.stringify({ message: messageText, lat, lon })
       });
       const data = await res.json();
       
@@ -85,7 +104,7 @@ export default function ChatInterface() {
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-2xl shadow-lg shadow-indigo-600/30">🦉</div>
           <div>
-            <h3 className="font-black text-white uppercase tracking-tighter">Asistente CESA</h3>
+            <h3 className="font-black text-white uppercase tracking-tighter">Asistente CESA (Bob)</h3>
             <p className="text-[9px] text-green-400 font-black tracking-widest uppercase flex items-center gap-1.5">
                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                En línea

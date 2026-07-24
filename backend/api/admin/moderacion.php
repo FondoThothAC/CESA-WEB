@@ -16,15 +16,42 @@ header('Content-Type: application/json; charset=utf-8');
 $auth = new Auth();
 $user = $auth->getUser();
 
-if (!$user || !in_array($user['rol'], ['admin', 'mesa_directiva'])) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Acceso denegado']);
+if (!$user) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'No autorizado']);
     exit;
 }
 
 try {
     $pdo = getDBConnection();
     $action = $_POST['action'] ?? '';
+
+    // Validar permisos granulares según la acción
+    if (in_array($action, ['verificar_negocio', 'destacar_negocio', 'rechazar_negocio'])) {
+        if (!$auth->hasPermission('bazar_y_reservaciones')) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Permisos de Bazar y Reservaciones insuficientes.']);
+            exit;
+        }
+    } elseif ($action === 'resolver_reporte') {
+        if (!$auth->hasPermission('ver_denuncias')) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Permisos de Denuncias insuficientes.']);
+            exit;
+        }
+    } elseif (in_array($action, ['verificar_vacante', 'rechazar_vacante'])) {
+        if (!$auth->hasPermission('bolsa_trabajo')) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Permisos de Bolsa de Trabajo insuficientes.']);
+            exit;
+        }
+    } else {
+        if ($user['rol'] !== 'admin' && $user['rol'] !== 'mesa_directiva') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Acceso denegado.']);
+            exit;
+        }
+    }
 
     switch ($action) {
         // --- MODERACIÓN BAZAR ---

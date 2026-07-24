@@ -11,7 +11,7 @@ interface Message {
 export default function CesaAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: '¡Hola! Soy el Asistente CESA. ¿En qué te puedo ayudar hoy con el Directorio y Vinculación Estudiantil?' }
+    { role: 'assistant', content: '¡Hola! Soy Bob, el Asistente CESA. ¿En qué te puedo ayudar hoy con el Directorio y Vinculación Estudiantil?' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -27,12 +27,27 @@ export default function CesaAssistant() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // Si abrimos por primera vez, asegurar el scroll
   useEffect(() => {
     if (isOpen) {
+      fetchHistory();
       setTimeout(() => scrollToBottom(), 100);
     }
   }, [isOpen]);
+
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch('/api/chat.php?action=history');
+      const data = await res.json();
+      if (data.success && data.messages && data.messages.length > 0) {
+        setMessages(data.messages.map((m: any) => ({
+          role: m.emisor === 'usuario' ? 'user' : 'assistant',
+          content: m.contenido
+        })));
+      }
+    } catch (e) {
+      console.error("Error fetching floating chat history", e);
+    }
+  };
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +89,7 @@ export default function CesaAssistant() {
           <div className="bg-navy p-4 flex justify-between items-center text-white">
             <div className="flex items-center gap-2">
               <Bot size={20} className="text-gold" />
-              <span className="font-semibold font-sans">Asistente CESA</span>
+              <span className="font-semibold font-sans">Bob - Asistente CESA</span>
             </div>
             <button onClick={() => setIsOpen(false)} className="hover:text-gold transition-colors">
               <X size={20} />

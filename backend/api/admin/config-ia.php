@@ -7,28 +7,19 @@
 require_once __DIR__ . '/../../lib/cors.php';
 require_once __DIR__ . '/../../lib/JWTHelper.php';
 require_once __DIR__ . '/../../lib/SecureConfig.php';
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../lib/Auth.php';
 
-// Solo POST para guardar, GET para listar
-$method = $_SERVER['REQUEST_METHOD'];
-$headers = getallheaders();
-$authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+$auth = new Auth();
 
-if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'error' => 'No autorizado']);
-    exit;
-}
-
-$token = substr($authHeader, 7);
-$payload = JWTHelper::verify($token);
-
-if (!$payload || $payload['rol'] !== 'admin') {
+if (!$auth->isLoggedIn() || !$auth->hasPermission('permiso_ia')) {
     http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Permisos insuficientes']);
+    echo json_encode(['success' => false, 'error' => 'Permisos de IA insuficientes']);
     exit;
 }
 
-$pdo = new PDO("mysql:host=".getenv('DB_HOST').";dbname=".getenv('DB_NAME'), getenv('DB_USER'), getenv('DB_PASS'));
+$pdo = getDBConnection();
+$method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
     $stmt = $pdo->query("SELECT id, provider, endpoint_url, model_name, is_active, priority, rate_limit_per_min, timeout_seconds FROM api_configs ORDER BY priority ASC");

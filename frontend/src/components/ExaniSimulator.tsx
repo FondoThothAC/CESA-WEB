@@ -23,6 +23,7 @@ import {
   Settings,
   ChevronDown
 } from 'lucide-react';
+import InterstitialAd from '@/components/InterstitialAd';
 
 interface ShuffledQuestion {
   id: number;
@@ -97,12 +98,10 @@ export default function ExaniSimulator({ onClose }: { onClose: () => void }) {
   const [reviewIdx, setReviewIdx] = useState(0);
 
   // Interstitial Ad states
-  const [showAd, setShowAd] = useState(false);
-  const [adTimer, setAdTimer] = useState(5);
-  const [pendingNextIdx, setPendingNextIdx] = useState<number | null>(null);
-  const [activeAd, setActiveAd] = useState(0);
+  const [showInterstitialAd, setShowInterstitialAd] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastAdQuestionIdxRef = useRef(-1);
 
   // Shuffling utility (Fisher-Yates)
   const shuffleArray = <T,>(array: T[]): T[] => {
@@ -151,18 +150,6 @@ export default function ExaniSimulator({ onClose }: { onClose: () => void }) {
     return () => clearTimeout(timeoutId);
   }, [currentIdx, step, isReviewMode, reviewIdx, answers, confirmedAnswers]);
 
-  // Ad countdown effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (showAd && adTimer > 0) {
-      interval = setInterval(() => {
-        setAdTimer(prev => prev - 1);
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [showAd, adTimer]);
 
   // Start exam
   const startExam = (selectedMode: 'simulacion' | 'estudio', size: number) => {
@@ -285,6 +272,13 @@ export default function ExaniSimulator({ onClose }: { onClose: () => void }) {
       ...prev,
       [currentIdx]: optIdx
     }));
+
+    // Check if we have just answered a question that is a multiple of 10 (10th, 20th, ...)
+    if ((currentIdx + 1) % 10 === 0 && currentIdx > lastAdQuestionIdxRef.current) {
+      setShowInterstitialAd(true);
+      lastAdQuestionIdxRef.current = currentIdx;
+    }
+
   };
 
   // Handle confirmation in Study Mode
@@ -305,18 +299,8 @@ export default function ExaniSimulator({ onClose }: { onClose: () => void }) {
 
   // Navigate with interstitial ads interception
   const navigateToQuestion = (nextIdx: number) => {
-    if (nextIdx > currentIdx) {
-      // Trigger ad every 10 questions (moving from 9->10, 19->20, 29->30, etc.)
-      if (Math.floor(nextIdx / 10) > Math.floor(currentIdx / 10)) {
-        setPendingNextIdx(nextIdx);
-        setActiveAd(Math.floor(Math.random() * SPONSORED_ADS.length));
-        setAdTimer(5);
-        setShowAd(true);
-        return;
-      }
-    }
     setCurrentIdx(nextIdx);
-  };
+  }
 
   // Get score calculation
   const getResultsMetrics = () => {
@@ -1060,67 +1044,7 @@ export default function ExaniSimulator({ onClose }: { onClose: () => void }) {
       {/* ========================================== */}
       {/* AD OVERLAY (INTERSTITIAL) */}
       {/* ========================================== */}
-      {showAd && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
-          <div className={`max-w-2xl w-full bg-gradient-to-br ${SPONSORED_ADS[activeAd].bgClass} border rounded-[32px] p-8 md:p-12 shadow-2xl relative overflow-hidden flex flex-col justify-between min-h-[500px]`}>
-            {/* Header info */}
-            <div>
-              <div className="flex justify-between items-center mb-8">
-                <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-xl border ${SPONSORED_ADS[activeAd].badgeColor}`}>
-                  Anuncio Patrocinado
-                </span>
-                <span className="text-xs text-white/50 font-bold">
-                  CESA Conecta-T
-                </span>
-              </div>
-
-              {/* Ad Brand / Logo */}
-              <div className="mb-6">
-                <h2 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-2">
-                  {SPONSORED_ADS[activeAd].brand}
-                </h2>
-                <p className={`text-lg md:text-xl font-bold bg-gradient-to-r ${SPONSORED_ADS[activeAd].gradientText} bg-clip-text text-transparent`}>
-                  {SPONSORED_ADS[activeAd].tagline}
-                </p>
-              </div>
-
-              {/* Description */}
-              <p className="text-sm md:text-base text-gray-300 leading-relaxed font-medium mb-8">
-                {SPONSORED_ADS[activeAd].description}
-              </p>
-            </div>
-
-            {/* Actions & Skip button */}
-            <div className="space-y-4">
-              <a
-                href={SPONSORED_ADS[activeAd].actionUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-100 transition-all text-center block shadow-lg"
-              >
-                {SPONSORED_ADS[activeAd].cta}
-              </a>
-
-              <button
-                disabled={adTimer > 0}
-                onClick={() => {
-                  setShowAd(false);
-                  if (pendingNextIdx !== null) {
-                    setCurrentIdx(pendingNextIdx);
-                  }
-                }}
-                className={`w-full py-3 rounded-2xl font-black uppercase tracking-widest border transition-all text-xs ${
-                  adTimer > 0
-                    ? "bg-white/5 border-white/10 text-white/40 cursor-not-allowed"
-                    : "bg-white/10 border-white/20 text-white hover:bg-white/25"
-                }`}
-              >
-                {adTimer > 0 ? `Continuar en ${adTimer}s` : "Saltar Anuncio y Continuar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <InterstitialAd show={showInterstitialAd} onClose={() => setShowInterstitialAd(false)} />
 
     </div>
   );

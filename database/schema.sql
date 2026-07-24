@@ -183,15 +183,16 @@ CREATE TABLE bolsa_vacantes (
     FOREIGN KEY (empresa_id) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- IA CONFIGURATION
 CREATE TABLE api_configs (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    provider ENUM('mac_mini', 'groq', 'gemini', 'mistral', 'ollama_cloud', 'huggingface') NOT NULL UNIQUE,
+    provider ENUM('mac_mini', 'groq', 'gemini', 'mistral', 'ollama_cloud', 'huggingface', 'openrouter') NOT NULL UNIQUE,
     api_key_encrypted VARCHAR(512) NULL,
     endpoint_url VARCHAR(255) NOT NULL,
     model_name VARCHAR(100),
     is_active BOOLEAN DEFAULT TRUE,
     priority TINYINT UNSIGNED DEFAULT 5,
+    rate_limit_per_min INT DEFAULT 60,
+    timeout_seconds INT DEFAULT 15,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;

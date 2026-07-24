@@ -211,27 +211,38 @@ const SocialWall = () => {
       <div className="lg:col-span-2 space-y-8">
         
         {/* Formulario de Publicación Reddit-Style */}
-        <div className="clean-card p-4 flex gap-4 items-center group focus-within:border-primary transition-all">
-          <div className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center text-primary">
+        <form onSubmit={handlePost} className="clean-card p-4 flex gap-4 items-center group focus-within:border-primary transition-all">
+          <div className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center text-primary font-bold">
             <User size={20} />
           </div>
           <input 
             type="text" 
-            onClick={() => setContent(content || ' ')} // Simular apertura si estuviera colapsado
-            placeholder="Crear una publicación..." 
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (content.trim()) handlePost(e);
+              }
+            }}
+            placeholder="Escribe en CESA Social... (Presiona Enter para enviar 🚀)" 
             className="flex-1 bg-bg-secondary border border-border rounded-xl px-4 py-2 text-xs text-text-main focus:outline-none focus:border-accent"
           />
-          <button className="p-2 text-text-muted hover:text-primary transition-all">
-            <Share2 size={18} />
+          <button 
+            type="submit"
+            disabled={isLoading || !content.trim()}
+            className="btn-clean-primary px-5 py-2 text-[10px] font-bold flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <span>{isLoading ? 'Guardando...' : 'Enviar'}</span> 🚀
           </button>
-        </div>
+        </form>
 
         {content.trim() !== '' && (
           <div className="glass p-8 animate-in slide-in-from-top-4 duration-300 relative z-10 border-primary/30">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xs font-black uppercase tracking-widest text-text-main">Nueva Discusión 🏛️</h3>
               <label className="flex items-center gap-3 cursor-pointer group">
-                <span className="text-[8px] font-black uppercase text-text-muted group-hover:text-primary transition-all">Anónimo</span>
+                <span className="text-[8px] font-black uppercase text-text-muted group-hover:text-primary transition-all">Publicar como Anónimo</span>
                 <div className={`w-8 h-4 rounded-full p-0.5 transition-all ${useAlias ? 'bg-primary' : 'bg-bg-secondary'}`} onClick={() => setUseAlias(!useAlias)}>
                   <div className={`w-3 h-3 bg-white rounded-full transition-all ${useAlias ? 'translate-x-4' : 'translate-x-0'}`}></div>
                 </div>
@@ -242,7 +253,13 @@ const SocialWall = () => {
               <textarea 
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="¿De qué quieres hablar con la comunidad?"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    handlePost(e);
+                  }
+                }}
+                placeholder="¿De qué quieres hablar con la comunidad? (Usa Ctrl+Enter o presiona Publicar)"
                 className="w-full bg-bg-primary border border-border rounded-2xl p-6 text-text-main text-sm focus:outline-none focus:border-primary min-h-[150px] transition-all resize-none"
               />
               
@@ -259,7 +276,9 @@ const SocialWall = () => {
 
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setContent('')} className="px-6 py-2 text-[10px] font-black uppercase text-text-muted hover:text-red-500 transition-all">Cancelar</button>
-                  <button type="submit" disabled={isLoading} className="btn-clean-primary px-8 py-2 text-[10px]">{isLoading ? 'Subiendo...' : 'Publicar'}</button>
+                  <button type="submit" disabled={isLoading} className="btn-clean-primary px-8 py-2 text-[10px] flex items-center gap-1">
+                    <span>{isLoading ? 'Subiendo...' : 'Publicar'}</span> 🚀
+                  </button>
                 </div>
               </div>
             </form>
