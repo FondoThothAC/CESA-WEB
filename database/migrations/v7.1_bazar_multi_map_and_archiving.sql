@@ -12,7 +12,7 @@ ALTER TABLE `bazar_ediciones` ADD COLUMN `estado` ENUM('borrador', 'activa', 'ar
 ALTER TABLE `cat_puestos` ADD COLUMN `edicion_id` INT NOT NULL DEFAULT 1;
 
 -- 3. Crear índice para consultas de puestos por edición
-ALTER TABLE `cat_puestos` ADD INDEX `idx_edicion_puesto` (`edicion_id`, `numero_puesto`);
+ALTER TABLE `cat_puestos` ADD INDEX `idx_edicion_puesto` (`edicion_id`, `id`);
 
 -- 4. Sembrado / Actualización de ediciones
 INSERT INTO `bazar_ediciones` (`id`, `nombre`, `mapa_tipo`, `fecha_inicio`, `fecha_fin`, `estado`, `activo`) VALUES
