@@ -5,25 +5,22 @@
 
 USE cesa_web;
 
--- 1. Agregar campos estructurados a la tabla usuarios si no existen
-ALTER TABLE `usuarios`
-ADD COLUMN `expediente` VARCHAR(50) NULL AFTER `matricula`,
-ADD COLUMN `cp` VARCHAR(10) NULL AFTER `expediente`,
-ADD COLUMN `celular` VARCHAR(20) NULL AFTER `cp`,
-ADD COLUMN `curp` VARCHAR(20) NULL AFTER `celular`,
-ADD COLUMN `creditos_acumulados` INT UNSIGNED DEFAULT 0 AFTER `curp`,
-ADD COLUMN `creditos_totales_carrera` INT UNSIGNED DEFAULT 400 AFTER `creditos_acumulados`,
-ADD COLUMN `semestre_calculado` INT UNSIGNED DEFAULT 1 AFTER `creditos_totales_carrera`;
+-- 1. Agregar campos de forma individual para tolerancia a fallos
+ALTER TABLE `usuarios` ADD COLUMN `expediente` VARCHAR(50) NULL AFTER `matricula`;
+ALTER TABLE `usuarios` ADD COLUMN `cp` VARCHAR(10) NULL AFTER `expediente`;
+ALTER TABLE `usuarios` ADD COLUMN `celular` VARCHAR(20) NULL AFTER `cp`;
+ALTER TABLE `usuarios` ADD COLUMN `creditos_acumulados` INT UNSIGNED DEFAULT 0 AFTER `celular`;
+ALTER TABLE `usuarios` ADD COLUMN `creditos_totales_carrera` INT UNSIGNED DEFAULT 400 AFTER `creditos_acumulados`;
+ALTER TABLE `usuarios` ADD COLUMN `semestre_calculado` INT UNSIGNED DEFAULT 1 AFTER `creditos_totales_carrera`;
 
--- Agregar índices para optimizar consultas de avisos y segmentación
-ALTER TABLE `usuarios`
-ADD INDEX `idx_expediente` (`expediente`),
-ADD INDEX `idx_curp` (`curp`),
-ADD INDEX `idx_creditos` (`creditos_acumulados`);
+-- 2. Asegurar la columna CURP
+ALTER TABLE `usuarios` ADD COLUMN `curp` VARCHAR(20) NULL AFTER `celular`;
 
--- 2. Actualización sembrada de créditos para prueba de cálculo
--- Ejemplo: 200 créditos acumulados de 400 => (200/400)*8 + 1 = 5to Semestre
--- Ejemplo: 199 créditos acumulados de 400 => Math.floor((199/400)*8) + 1 = 4to Semestre
+-- 3. Índices de optimización
+ALTER TABLE `usuarios` ADD INDEX `idx_expediente` (`expediente`);
+ALTER TABLE `usuarios` ADD INDEX `idx_creditos` (`creditos_acumulados`);
+
+-- 4. Actualización sembrada de créditos para prueba de cálculo
 UPDATE `usuarios` 
 SET `creditos_totales_carrera` = 400
 WHERE `creditos_totales_carrera` IS NULL OR `creditos_totales_carrera` = 0;
