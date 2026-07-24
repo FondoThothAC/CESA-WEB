@@ -2,22 +2,54 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/useAuth';
+import PixelOfficeCanvas from './PixelOfficeCanvas';
 
 export default function AdminIAConfigTab() {
   const { token, user } = useAuth();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'skills' | 'jobs' | 'llm_config'>('dashboard');
-  const [iaConfigs, setIaConfigs] = useState<any[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ id: '', provider: '', api_url: '', api_key: '', auth_header: '', is_active: '1', metadata: '{}' });
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'pixel_office' | 'swarm' | 'jobs' | 'approvals' | 'llm_config'>('dashboard');
 
-  // Estados de Telemetría ZeroClaw
+  // Estados del Swarm de Agentes
+  const [agents, setAgents] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [approvals, setApprovals] = useState<any[]>([]);
+  const [loadingSwarm, setLoadingSwarm] = useState(false);
+
+  // Modal Agente Form
+  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [agentForm, setAgentForm] = useState({
+    id: '',
+    nombre_agente: '',
+    encargado_nombre: '',
+    eje_trabajo: '',
+    color_hex: '#3b82f6',
+    telegram_chat_id: '',
+    canal_notificacion: 'telegram',
+    prompt_personalidad: '',
+    req_aprobacion: '1',
+    activo: '1'
+  });
+
+  // Modal Job Form (Cron Manager)
+  const [showJobModal, setShowJobModal] = useState(false);
+  const [jobForm, setJobForm] = useState({
+    id: '',
+    agent_id: '',
+    titulo_tarea: '',
+    frecuencia_label: 'Cada Martes y Jueves 09:00 AM',
+    cron_expression: '0 9 * * 2,4',
+    tipo_accion: 'reporte_eje',
+    detalles_json: '{}',
+    activa: '1'
+  });
+
+  // Telemetría ZeroClaw
   const [zeroData, setZeroData] = useState<any>({
     provider: 'Ollama Cloud',
     model: 'nemotron-3-super',
     uptime: 'Online (PM2 #0)',
-    gateway_port: ':3000',
+    gateway_port: ':42617',
     memory_backend: 'MariaDB + RAG Vector (.md)',
     memory_paired: true,
     cost_overview: { session: 0, daily: 0, monthly: 0, total_tokens: 15420, total_requests: 128 },
@@ -28,99 +60,190 @@ export default function AdminIAConfigTab() {
       { name: 'Email / SMTP', active: true },
       { name: 'Meta Social Orchestrator', active: true }
     ],
-    component_health: { channels: 'Ok', daemon: 'Ok', gateway: 'Ok', scheduler: 'Ok' },
-    rag_articles: 14,
-    chat_sessions: 42,
-    chat_messages: 128
+    component_health: { channels: 'Ok', daemon: 'Ok', gateway: 'Ok', scheduler: 'Ok' }
   });
-  const [loadingZero, setLoadingZero] = useState(true);
 
-  // Cargar telemetría ZeroClaw
-  const fetchZeroClawTelemetry = async () => {
-    setLoadingZero(true);
+  // Cargar datos del Swarm
+  const fetchSwarmData = async () => {
+    setLoadingSwarm(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/telemetria.php?action=zeroclaw`, {
+      // Agentes
+      const resA = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php?action=list_agents`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
-      const data = await res.json();
-      if (data.success && data.zeroclaw) {
-        setZeroData(data.zeroclaw);
-      }
+      const dataA = await resA.json();
+      if (dataA.success) setAgents(dataA.agents || []);
+
+      // Jobs
+      const resJ = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php?action=list_jobs`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      const dataJ = await resJ.json();
+      if (dataJ.success) setJobs(dataJ.jobs || []);
+
+      // Approvals
+      const resApp = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php?action=list_approvals`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      const dataApp = await resApp.json();
+      if (dataApp.success) setApprovals(dataApp.approvals || []);
     } catch (e) {
-      console.error('Error al obtener telemetría ZeroClaw:', e);
+      console.error('Error al cargar datos del Swarm:', e);
     } finally {
-      setLoadingZero(false);
+      setLoadingSwarm(false);
     }
   };
 
-  // Cargar proveedores dinámicos
-  const fetchIaConfig = async () => {
-    try {
-      const res = await fetch(`${API_URL}/api/admin/dynamic_configs.php?action=list&type=ia`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
-      const data = await res.json();
-      if (data.success) setIaConfigs(data.data || []);
-    } catch (e) {}
-  };
-
   useEffect(() => {
-    fetchZeroClawTelemetry();
-    fetchIaConfig();
+    fetchSwarmData();
   }, [token]);
 
-  const saveIaConfig = async (e: React.FormEvent) => {
+  // Guardar Sub-Agente
+  const handleSaveAgent = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const fd = new FormData();
-      fd.append('action', 'save');
-      fd.append('type', 'ia');
-      Object.entries(formData).forEach(([k, v]) => fd.append(k, String(v)));
-      const res = await fetch(`${API_URL}/api/admin/dynamic_configs.php`, {
+      fd.append('action', 'save_agent');
+      Object.entries(agentForm).forEach(([k, v]) => fd.append(k, String(v)));
+
+      const res = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd
       });
       const data = await res.json();
       if (data.success) {
-        alert('Configuración guardada con éxito');
-        setShowForm(false);
-        fetchIaConfig();
+        alert('Agente guardado con éxito');
+        setShowAgentModal(false);
+        fetchSwarmData();
       } else {
-        alert(data.error || 'Error al guardar');
+        alert(data.error || 'Error al guardar agente');
       }
     } catch (e) {
-      alert('Error de red');
+      alert('Error de conexión');
     }
   };
 
+  // Guardar Tarea Cron
+  const handleSaveJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const fd = new FormData();
+      fd.append('action', 'save_job');
+      Object.entries(jobForm).forEach(([k, v]) => fd.append(k, String(v)));
+
+      const res = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Tarea programada con éxito');
+        setShowJobModal(false);
+        fetchSwarmData();
+      } else {
+        alert(data.error || 'Error al guardar tarea');
+      }
+    } catch (e) {
+      alert('Error de conexión');
+    }
+  };
+
+  // Toggle o Eliminar Job
+  const handleToggleJob = async (id: number) => {
+    try {
+      const fd = new FormData();
+      fd.append('action', 'toggle_job');
+      fd.append('id', String(id));
+      await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd
+      });
+      fetchSwarmData();
+    } catch (e) {}
+  };
+
+  const handleDeleteJob = async (id: number) => {
+    if (!confirm('¿Eliminar esta tarea programada?')) return;
+    try {
+      const fd = new FormData();
+      fd.append('action', 'delete_job');
+      fd.append('id', String(id));
+      await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd
+      });
+      fetchSwarmData();
+    } catch (e) {}
+  };
+
+  // Accionar Aprobación
+  const handleActionApproval = async (id: number, estado: string) => {
+    const feedback = prompt(`Ingresa un comentario o instrucción para ${estado}:`) || '';
+    try {
+      const fd = new FormData();
+      fd.append('action', 'action_approval');
+      fd.append('id', String(id));
+      fd.append('estado', estado);
+      fd.append('feedback', feedback);
+
+      const res = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Estado actualizado a ${estado}`);
+        fetchSwarmData();
+      }
+    } catch (e) {}
+  };
+
+  // Simular Junta de Mesa de Expertos
+  const handleRunMeeting = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php?action=run_meeting`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Junta completada: ${data.resumen}`);
+        fetchSwarmData();
+      }
+    } catch (e) {}
+  };
+
   const isMaster = user?.email === 'software@fondothoth.com';
-  const canEdit = isMaster || (user as any)?.permiso_ia;
+  const canEdit = isMaster || (user as any)?.permiso_ia || (user as any)?.rol === 'admin' || (user as any)?.rol === 'mesa_directiva';
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 font-sans bg-[#090d16] p-6 rounded-[2.5rem] border border-blue-500/20 text-white shadow-2xl">
-      {/* ZERO CLAW DASHBOARD HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+      {/* HEADER ZEROCLAW */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center font-black text-sm shadow-lg shadow-blue-600/30">
             ZC
           </div>
           <div>
             <h2 className="text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-              ZeroClaw Engine <span className="text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full font-mono">v4.7 VPS</span>
+              ZeroClaw Engine <span className="text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full font-mono">v7.0 Swarm</span>
             </h2>
-            <p className="text-xs text-slate-400 font-medium">Panel de Monitoreo & Orquestación del Agente Bob</p>
+            <p className="text-xs text-slate-400 font-medium">Orquestador de Sub-Agentes CESA UNISON & Mesa de Expertos</p>
           </div>
         </div>
 
-        {/* NAVEGACIÓN SUB-TABS ESTILO ZEROCLAW */}
+        {/* NAVEGACIÓN SUB-TABS */}
         <div className="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-white/10">
           {[
             { id: 'dashboard', label: '📊 Dashboard' },
-            { id: 'pixel_office', label: '🎮 Pixel Office' },
-            { id: 'skills', label: '🤖 Agente & Skills' },
-            { id: 'jobs', label: '⏰ Scheduled Jobs' },
-            { id: 'llm_config', label: '⚙️ Configuración LLM' }
+            { id: 'pixel_office', label: '🎮 Pixel Office (2D)' },
+            { id: 'swarm', label: `👥 Sub-Agentes (${agents.length})` },
+            { id: 'jobs', label: `⏰ Tareas Cron (${jobs.length})` },
+            { id: 'approvals', label: `📥 Aprobaciones (${approvals.filter(a => a.estado === 'pendiente').length})` }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -137,383 +260,487 @@ export default function AdminIAConfigTab() {
         </div>
       </div>
 
+      {/* ---------------------------------------------------- */}
+      {/* 1. DASHBOARD GENERAL */}
+      {/* ---------------------------------------------------- */}
       {activeSubTab === 'dashboard' && (
         <div className="space-y-8 animate-in fade-in duration-300">
-          {/* TARJETAS SUPERIORES DE TELEMETRÍA (PROVIDER, UPTIME, GATEWAY, MEMORY) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Provider / Model */}
             <div className="bg-[#111625] border border-white/10 p-5 rounded-3xl space-y-2">
-              <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-wider">
-                <span>🤖</span> Provider / Model
-              </div>
+              <span className="text-[10px] font-black uppercase text-slate-400">🤖 Motor / Modelo</span>
               <p className="text-lg font-black text-white">{zeroData.provider}</p>
-              <span className="inline-block bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold">
+              <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold">
                 {zeroData.model}
               </span>
             </div>
 
-            {/* Uptime */}
             <div className="bg-[#111625] border border-white/10 p-5 rounded-3xl space-y-2">
-              <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-wider">
-                <span>⏱️</span> Uptime
-              </div>
+              <span className="text-[10px] font-black uppercase text-slate-400">⏱️ Estado Servicio</span>
               <p className="text-lg font-black text-emerald-400 flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 {zeroData.uptime}
               </p>
-              <p className="text-[10px] text-slate-500 font-medium">PM2 Daemon OK</p>
+              <p className="text-[10px] text-slate-500">Puerto Listener: :42617</p>
             </div>
 
-            {/* Gateway Port */}
             <div className="bg-[#111625] border border-white/10 p-5 rounded-3xl space-y-2">
-              <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-wider">
-                <span>🌐</span> Gateway Port
-              </div>
-              <p className="text-lg font-black font-mono text-purple-400">{zeroData.gateway_port}</p>
-              <p className="text-[10px] text-slate-500 font-medium">Locale: es-MX</p>
+              <span className="text-[10px] font-black uppercase text-slate-400">👥 Swarm Activo</span>
+              <p className="text-lg font-black text-purple-400">{agents.length} Sub-Agentes</p>
+              <p className="text-[10px] text-slate-500">Mesa Directiva CESA</p>
             </div>
 
-            {/* Memory Backend */}
             <div className="bg-[#111625] border border-white/10 p-5 rounded-3xl space-y-2">
-              <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-wider">
-                <span>🗄️</span> Memory Backend
-              </div>
-              <p className="text-sm font-black text-white truncate">{zeroData.memory_backend}</p>
-              <span className="inline-block bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                Paired: Yes
+              <span className="text-[10px] font-black uppercase text-slate-400">💲 Costo Adicional</span>
+              <p className="text-lg font-black text-emerald-400">$0.00 USD</p>
+              <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                Tasa Fija local VPS
               </span>
             </div>
           </div>
 
-          {/* GRID CENTRAL: COST OVERVIEW, ACTIVE CHANNELS & COMPONENT HEALTH */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* COST OVERVIEW */}
-            <div className="bg-[#111625] border border-white/10 p-6 rounded-3xl space-y-6">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-400 border-b border-white/5 pb-3">
-                <span>💲</span> Cost Overview (VPS Local Tasa Fija)
-              </div>
-
-              <div className="space-y-4 text-xs font-medium">
-                <div className="flex justify-between items-center bg-black/30 p-3 rounded-2xl">
-                  <span className="text-slate-400">Session Spend:</span>
-                  <span className="font-mono font-black text-emerald-400">${zeroData.cost_overview.session.toFixed(4)}</span>
+          <div className="bg-[#111625] border border-white/10 p-6 rounded-3xl space-y-4">
+            <h3 className="text-sm font-black uppercase text-white flex items-center gap-2">
+              <span>📡</span> Canales de Difusión & Notificaciones en CCO
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {zeroData.active_channels.map((ch: any, idx: number) => (
+                <div key={idx} className="bg-black/30 p-4 rounded-2xl border border-white/5 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200">{ch.name}</span>
+                  <span className="text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                    Activo
+                  </span>
                 </div>
-                <div className="flex justify-between items-center bg-black/30 p-3 rounded-2xl">
-                  <span className="text-slate-400">Daily Average:</span>
-                  <span className="font-mono font-black text-emerald-400">${zeroData.cost_overview.daily.toFixed(4)}</span>
-                </div>
-                <div className="flex justify-between items-center bg-black/30 p-3 rounded-2xl">
-                  <span className="text-slate-400">Monthly Projection:</span>
-                  <span className="font-mono font-black text-emerald-400">${zeroData.cost_overview.monthly.toFixed(4)}</span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-white/5 flex justify-between text-[10px] text-slate-400 font-mono">
-                <span>Total Tokens: <strong>{zeroData.cost_overview.total_tokens}</strong></span>
-                <span>Requests: <strong>{zeroData.cost_overview.total_requests}</strong></span>
-              </div>
-            </div>
-
-            {/* ACTIVE CHANNELS */}
-            <div className="bg-[#111625] border border-white/10 p-6 rounded-3xl space-y-6">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-blue-400 border-b border-white/5 pb-3">
-                <span>📡</span> Active Channels (Canales Conectados)
-              </div>
-
-              <div className="space-y-3">
-                {zeroData.active_channels.map((channel: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between bg-black/30 p-3 rounded-2xl">
-                    <span className="text-xs font-bold text-slate-200">{channel.name}</span>
-                    <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
-                      channel.active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-500'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${channel.active ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`}></span>
-                      {channel.active ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* COMPONENT HEALTH */}
-            <div className="bg-[#111625] border border-white/10 p-6 rounded-3xl space-y-6">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-400 border-b border-white/5 pb-3">
-                <span>🩺</span> Component Health (Salud del Sistema)
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-black/30 p-4 rounded-2xl border border-emerald-500/20 flex flex-col justify-between">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Channels</span>
-                  <p className="text-sm font-black text-emerald-400 mt-2 flex items-center gap-1.5">
-                    ● {zeroData.component_health.channels}
-                  </p>
-                </div>
-
-                <div className="bg-black/30 p-4 rounded-2xl border border-emerald-500/20 flex flex-col justify-between">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Daemon</span>
-                  <p className="text-sm font-black text-emerald-400 mt-2 flex items-center gap-1.5">
-                    ● {zeroData.component_health.daemon}
-                  </p>
-                </div>
-
-                <div className="bg-black/30 p-4 rounded-2xl border border-emerald-500/20 flex flex-col justify-between">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Gateway</span>
-                  <p className="text-sm font-black text-emerald-400 mt-2 flex items-center gap-1.5">
-                    ● {zeroData.component_health.gateway}
-                  </p>
-                </div>
-
-                <div className="bg-black/30 p-4 rounded-2xl border border-emerald-500/20 flex flex-col justify-between">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Scheduler</span>
-                  <p className="text-sm font-black text-emerald-400 mt-2 flex items-center gap-1.5">
-                    ● {zeroData.component_health.scheduler}
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* SUB-TAB: PIXEL OFFICE (VIRTUAL HQ) */}
-      {activeSubTab === 'pixel_office' as any && (
+      {/* ---------------------------------------------------- */}
+      {/* 2. VISOR PIXEL OFFICE 2D */}
+      {/* ---------------------------------------------------- */}
+      {activeSubTab === 'pixel_office' && (
+        <PixelOfficeCanvas
+          agentsList={agents}
+          onTriggerMeeting={fetchSwarmData}
+        />
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* 3. SUB-AGENTES DEL SWARM (MESA DIRECTIVA & ÁREAS) */}
+      {/* ---------------------------------------------------- */}
+      {activeSubTab === 'swarm' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="flex justify-between items-end border-b border-white/10 pb-3">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-white/10 pb-4 gap-3">
             <div>
-              <h3 className="text-lg font-black uppercase text-white flex items-center gap-2">
-                🎮 Sede Virtual: Pixel Office
-                <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[9px] font-black px-2 py-0.5 rounded-full">EN VIVO</span>
-              </h3>
-              <p className="text-xs text-slate-400">Interactúa con Bob y gestiona integraciones desde el entorno 2D.</p>
+              <h3 className="text-lg font-black uppercase text-white">Swarm de Sub-Agentes de la Mesa Directiva</h3>
+              <p className="text-xs text-slate-400">Cada miembro de la Mesa Directiva tiene un sub-agente asignado</p>
             </div>
-            <div className="flex gap-2">
-               <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/10 transition-colors">
-                  🔗 Conectar Google Workspace
-               </button>
-               <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/10 transition-colors">
-                  🔗 Conectar Canva
-               </button>
-               <button className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg shadow-blue-500/20 transition-colors">
-                  [ ] Modo Pantalla Completa
-               </button>
-            </div>
-          </div>
-
-          <div className="relative w-full h-[600px] bg-[#000] rounded-3xl border-2 border-slate-800 overflow-hidden shadow-2xl group">
-             {/* Fallback/Loader before iframe loads or if it fails */}
-             <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#090d16] z-0">
-                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-slate-400 font-mono text-sm tracking-widest uppercase">Cargando Motor ZeroClaw (Puerto 42617)...</p>
-             </div>
-             
-             {/* Iframe pointing to the deployed Pixel Office */}
-             <iframe 
-                src="https://cesaunison.fondothoth.com/pixel-office/" 
-                className="relative z-10 w-full h-full border-0"
-                title="ZeroClaw Pixel Office"
-                sandbox="allow-scripts allow-same-origin allow-popups"
-             ></iframe>
-
-             {/* Overlay HUD */}
-             <div className="absolute top-4 left-4 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="bg-black/60 backdrop-blur-md border border-white/10 p-3 rounded-xl">
-                   <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Conexión WebSocket Establecida</p>
-                   <p className="text-[9px] font-mono text-slate-400 mt-1">wss://cesaunison.fondothoth.com/zeroclaw-ws</p>
-                </div>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {/* SUB-TAB 2: AGENTE & SKILLS */}
-      {activeSubTab === 'skills' && (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="border-b border-white/10 pb-3">
-            <h3 className="text-lg font-black uppercase text-white">Habilidades & Plugins del Agente Bob</h3>
-            <p className="text-xs text-slate-400">Capacidades activas de procesamiento y automatización</p>
+            {canEdit && (
+              <button
+                onClick={() => {
+                  setAgentForm({
+                    id: '',
+                    nombre_agente: '',
+                    encargado_nombre: '',
+                    eje_trabajo: '',
+                    color_hex: '#3b82f6',
+                    telegram_chat_id: '',
+                    canal_notificacion: 'telegram',
+                    prompt_personalidad: '',
+                    req_aprobacion: '1',
+                    activo: '1'
+                  });
+                  setShowAgentModal(true);
+                }}
+                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg shadow-blue-600/30"
+              >
+                + Agregar Nuevo Agente / Área
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              { title: '📝 Redactor de Comunicados', icon: '📄', status: 'Activo', desc: 'Genera boletines oficiales CESA y avisos para redes.' },
-              { title: '🔍 Búsqueda de Contactos', icon: '👤', status: 'Activo', desc: 'Consulta correos y datos de alumnos/docentes en MariaDB.' },
-              { title: '🎨 Diseñador Canva Flyers', icon: '🎨', status: 'Activo', desc: 'Crea especificaciones visuales y deep-links a plantillas.' },
-              { title: '📚 RAG Vector (.md)', icon: '📖', status: 'Activo', desc: 'Indexación de reglamentos y documentos oficiales en Markdown.' },
-              { title: '🎓 Generador de Exámenes', icon: '🧠', status: 'Activo', desc: 'Evaluaciones dinámicas de idiomas y habilidades profesionales.' },
-              { title: '📲 Push Notification Dispatcher', icon: '🔔', status: 'Activo', desc: 'Envío de notificaciones Web Push PWA sin costo.' }
-            ].map((skill, i) => (
-              <div key={i} className="bg-[#111625] border border-white/10 p-5 rounded-3xl space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-2xl">{skill.icon}</span>
-                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase">
-                    {skill.status}
+            {agents.map((ag) => (
+              <div key={ag.id} className="bg-[#111625] border border-white/10 p-5 rounded-3xl space-y-3 relative overflow-hidden group">
+                <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: ag.color_hex || '#3b82f6' }}></div>
+                
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm text-white shadow-md" style={{ backgroundColor: ag.color_hex || '#3b82f6' }}>
+                      {ag.nombre_agente[0]}
+                    </div>
+                    <div>
+                      <h4 className="text-base font-black text-white">{ag.nombre_agente}</h4>
+                      <p className="text-xs text-blue-400 font-bold">Encargado: {ag.encargado_nombre}</p>
+                    </div>
+                  </div>
+                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${ag.activo == 1 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}>
+                    {ag.activo == 1 ? '● Activo' : 'Inactivo'}
                   </span>
                 </div>
-                <h4 className="text-sm font-black text-white">{skill.title}</h4>
-                <p className="text-xs text-slate-400">{skill.desc}</p>
+
+                <div className="space-y-1">
+                  <span className="text-[9px] text-slate-500 uppercase font-black">Eje de Trabajo</span>
+                  <p className="text-xs text-slate-300 font-medium">{ag.eje_trabajo}</p>
+                </div>
+
+                <div className="flex justify-between items-center pt-3 border-t border-white/5 text-[10px] text-slate-400 font-mono">
+                  <span>Tareas Activas: <strong>{ag.total_jobs || 0}</strong></span>
+                  <span>Aprobación: <strong>{ag.req_aprobacion == 1 ? 'Requerida' : 'Directa'}</strong></span>
+                </div>
+
+                {canEdit && (
+                  <button
+                    onClick={() => {
+                      setAgentForm({
+                        id: ag.id,
+                        nombre_agente: ag.nombre_agente,
+                        encargado_nombre: ag.encargado_nombre,
+                        eje_trabajo: ag.eje_trabajo,
+                        color_hex: ag.color_hex || '#3b82f6',
+                        telegram_chat_id: ag.telegram_chat_id || '',
+                        canal_notificacion: ag.canal_notificacion || 'telegram',
+                        prompt_personalidad: ag.prompt_personalidad || '',
+                        req_aprobacion: String(ag.req_aprobacion ?? 1),
+                        activo: String(ag.activo ?? 1)
+                      });
+                      setShowAgentModal(true);
+                    }}
+                    className="w-full bg-white/5 hover:bg-white/10 text-white font-bold text-xs py-2 rounded-xl border border-white/10 transition-colors"
+                  >
+                    ✏️ Editar Agente / Eje
+                  </button>
+                )}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* SUB-TAB 3: SCHEDULED JOBS */}
+      {/* ---------------------------------------------------- */}
+      {/* 4. GESTOR CRON INTERACTIVO (TAREAS PROGRAMADAS) */}
+      {/* ---------------------------------------------------- */}
       {activeSubTab === 'jobs' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="border-b border-white/10 pb-3">
-            <h3 className="text-lg font-black uppercase text-white">Tareas Programadas en Segundo Plano</h3>
-            <p className="text-xs text-slate-400">Cronjobs ejecutados automáticamente en el VPS</p>
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-white/10 pb-4 gap-3">
+            <div>
+              <h3 className="text-lg font-black uppercase text-white">Tareas Programadas del Swarm (Cron Manager)</h3>
+              <p className="text-xs text-slate-400">Programa tareas automáticas por agente sin escribir código</p>
+            </div>
+            {canEdit && (
+              <button
+                onClick={() => {
+                  setJobForm({
+                    id: '',
+                    agent_id: agents[0]?.id || '',
+                    titulo_tarea: '',
+                    frecuencia_label: 'Cada Martes y Jueves 09:00 AM',
+                    cron_expression: '0 9 * * 2,4',
+                    tipo_accion: 'reporte_eje',
+                    detalles_json: '{}',
+                    activa: '1'
+                  });
+                  setShowJobModal(true);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg shadow-emerald-600/30"
+              >
+                + Nueva Tarea Programada
+              </button>
+            )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto bg-[#111625] border border-white/10 rounded-3xl p-4">
+            <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-white/10 text-[9px] uppercase tracking-widest text-slate-400">
                   <th className="py-3 px-4 font-black">Tarea</th>
+                  <th className="py-3 px-4 font-black">Agente / Encargado</th>
                   <th className="py-3 px-4 font-black">Frecuencia</th>
+                  <th className="py-3 px-4 font-black">Tipo Acción</th>
                   <th className="py-3 px-4 font-black">Estado</th>
-                  <th className="py-3 px-4 font-black">Última Ejecución</th>
+                  <th className="py-3 px-4 font-black text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 text-xs text-slate-300">
-                <tr className="hover:bg-white/[0.02]">
-                  <td className="py-3 px-4 font-bold text-white">Renovación de Tokens Meta Social</td>
-                  <td className="py-3 px-4 font-mono text-slate-400">Cada 12 horas</td>
-                  <td className="py-3 px-4 text-emerald-400 font-bold">● OK</td>
-                  <td className="py-3 px-4 font-mono text-[10px] text-slate-400">Hace 45 minutos</td>
-                </tr>
-                <tr className="hover:bg-white/[0.02]">
-                  <td className="py-3 px-4 font-bold text-white">Re-indexación RAG (.md)</td>
-                  <td className="py-3 px-4 font-mono text-slate-400">Cada 24 horas</td>
-                  <td className="py-3 px-4 text-emerald-400 font-bold">● OK</td>
-                  <td className="py-3 px-4 font-mono text-[10px] text-slate-400">Hace 3 horas</td>
-                </tr>
-                <tr className="hover:bg-white/[0.02]">
-                  <td className="py-3 px-4 font-bold text-white">Análisis de Sentimiento Estudiantil</td>
-                  <td className="py-3 px-4 font-mono text-slate-400">Cada 6 horas</td>
-                  <td className="py-3 px-4 text-emerald-400 font-bold">● OK</td>
-                  <td className="py-3 px-4 font-mono text-[10px] text-slate-400">Hace 10 minutos</td>
-                </tr>
+                {jobs.map((jb) => (
+                  <tr key={jb.id} className="hover:bg-white/[0.02]">
+                    <td className="py-3 px-4 font-bold text-white">{jb.titulo_tarea}</td>
+                    <td className="py-3 px-4">
+                      <span className="text-blue-400 font-bold block">{jb.nombre_agente}</span>
+                      <span className="text-[10px] text-slate-400">({jb.encargado_nombre})</span>
+                    </td>
+                    <td className="py-3 px-4 font-mono text-slate-300">{jb.frecuencia_label}</td>
+                    <td className="py-3 px-4">
+                      <span className="bg-purple-500/20 text-purple-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
+                        {jb.tipo_accion}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`font-bold text-[10px] ${jb.activa == 1 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        {jb.activa == 1 ? '● ACTIVA' : '○ Inactiva'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right space-x-2">
+                      <button
+                        onClick={() => handleToggleJob(jb.id)}
+                        className="text-[10px] bg-white/5 hover:bg-white/10 text-slate-300 px-2.5 py-1 rounded-lg border border-white/10"
+                      >
+                        {jb.activa == 1 ? 'Pausar' : 'Activar'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteJob(jb.id)}
+                        className="text-[10px] bg-red-500/20 text-red-400 hover:bg-red-500/30 px-2.5 py-1 rounded-lg border border-red-500/30"
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* SUB-TAB 4: CONFIGURACIÓN LLM PROVEEDORES */}
-      {activeSubTab === 'llm_config' && (
+      {/* ---------------------------------------------------- */}
+      {/* 5. PENDIENTES DE APROBACIÓN (CANVA / COMUNICADOS) */}
+      {/* ---------------------------------------------------- */}
+      {activeSubTab === 'approvals' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="flex justify-between items-center border-b border-white/10 pb-3">
-            <div>
-              <h3 className="text-lg font-black uppercase text-white">Proveedores de LLM y Conexiones</h3>
-              <p className="text-xs text-slate-400">Administra las llaves de API y endpoints</p>
-            </div>
-            {canEdit && (
-              <button
-                onClick={() => {
-                  setFormData({ id: '', provider: '', api_url: '', api_key: '', auth_header: '', is_active: '1', metadata: '{}' });
-                  setShowForm(!showForm);
-                }}
-                className="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-lg shadow-emerald-600/30"
-              >
-                {showForm ? 'Cerrar' : '+ Nuevo Proveedor'}
-              </button>
-            )}
+          <div className="border-b border-white/10 pb-4">
+            <h3 className="text-lg font-black uppercase text-white">Bandeja de Aprobaciones Pendientes</h3>
+            <p className="text-xs text-slate-400">Borradores generados por los sub-agentes esperando el Visto Bueno del encargado</p>
           </div>
 
-          {showForm && canEdit && (
-            <form onSubmit={saveIaConfig} className="bg-[#111625] p-6 border border-emerald-500/30 rounded-3xl space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase font-bold">Proveedor / Nombre</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.provider}
-                    onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
-                    placeholder="Ollama / Groq / Mistral"
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase font-bold">Endpoint URL</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.api_url}
-                    onChange={(e) => setFormData({ ...formData, api_url: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-emerald-500 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase font-bold">API Key</label>
-                  <input
-                    type="password"
-                    value={formData.api_key}
-                    onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase font-bold">Auth Header Format</label>
-                  <input
-                    type="text"
-                    value={formData.auth_header}
-                    onChange={(e) => setFormData({ ...formData, auth_header: e.target.value })}
-                    placeholder="Bearer {key}"
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase font-bold">Estado</label>
-                  <select
-                    value={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.value })}
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-emerald-500"
-                  >
-                    <option value="1">Activo</option>
-                    <option value="0">Inactivo</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase font-bold">Metadata (JSON)</label>
-                  <input
-                    type="text"
-                    value={formData.metadata}
-                    onChange={(e) => setFormData({ ...formData, metadata: e.target.value })}
-                    placeholder='{"default_model": "nemotron-3-super"}'
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-emerald-500 font-mono"
-                  />
-                </div>
-              </div>
-              <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white w-full py-3 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-lg shadow-blue-600/30">
-                Guardar Proveedor
-              </button>
-            </form>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {iaConfigs.length === 0 ? (
-              <div className="col-span-2 text-center py-10 text-slate-500 text-xs font-bold uppercase">
-                No hay proveedores registrados
+          <div className="space-y-4">
+            {approvals.length === 0 ? (
+              <div className="text-center py-12 text-slate-500 font-mono text-xs">
+                No hay borradores pendientes de aprobación en este momento.
               </div>
             ) : (
-              iaConfigs.map((cfg) => (
-                <div key={cfg.id} className="bg-[#111625] border border-white/10 p-5 rounded-3xl flex justify-between items-center">
-                  <div>
-                    <h4 className="text-sm font-black text-white">{cfg.provider}</h4>
-                    <p className="text-[10px] text-slate-400 font-mono truncate max-w-xs">{cfg.api_url}</p>
-                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full mt-1 inline-block ${
-                      cfg.is_active == 1 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+              approvals.map((ap) => (
+                <div key={ap.id} className="bg-[#111625] border border-white/10 p-5 rounded-3xl space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase">
+                        {ap.tipo}
+                      </span>
+                      <h4 className="text-base font-black text-white mt-2">{ap.titulo}</h4>
+                      <p className="text-xs text-slate-400">Generado por <strong>{ap.nombre_agente}</strong> para <strong>{ap.encargado_nombre}</strong></p>
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase px-3 py-1 rounded-full ${
+                      ap.estado === 'pendiente' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                      ap.estado === 'aprobado' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
                     }`}>
-                      {cfg.is_active == 1 ? 'Activo' : 'Inactivo'}
+                      {ap.estado}
                     </span>
                   </div>
+
+                  <div className="bg-black/40 p-4 rounded-2xl border border-white/5 text-xs text-slate-300 font-mono">
+                    {ap.contenido_preview}
+                  </div>
+
+                  {ap.estado === 'pendiente' && (
+                    <div className="flex gap-3 justify-end pt-2">
+                      <button
+                        onClick={() => handleActionApproval(ap.id, 'cambios_solicitados')}
+                        className="bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 text-xs font-bold px-4 py-2 rounded-xl border border-amber-600/30"
+                      >
+                        ✏️ Solicitar Cambios
+                      </button>
+                      <button
+                        onClick={() => handleActionApproval(ap.id, 'rechazado')}
+                        className="bg-red-600/20 text-red-400 hover:bg-red-600/30 text-xs font-bold px-4 py-2 rounded-xl border border-red-600/30"
+                      >
+                        ✕ Rechazar
+                      </button>
+                      <button
+                        onClick={() => handleActionApproval(ap.id, 'aprobado')}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-5 py-2 rounded-xl shadow-lg shadow-emerald-600/30"
+                      >
+                        ✓ Aprobar & Publicar
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* MODAL FORMULARIO AGENTE */}
+      {/* ---------------------------------------------------- */}
+      {showAgentModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <form onSubmit={handleSaveAgent} className="bg-[#111625] border border-blue-500/30 p-6 rounded-3xl w-full max-w-lg space-y-4">
+            <h3 className="text-lg font-black uppercase text-white border-b border-white/10 pb-3">
+              {agentForm.id ? 'Editar Sub-Agente' : 'Nuevo Sub-Agente / Área'}
+            </h3>
+
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Nombre del Agente</label>
+                <input
+                  required
+                  type="text"
+                  value={agentForm.nombre_agente}
+                  onChange={(e) => setAgentForm({ ...agentForm, nombre_agente: e.target.value })}
+                  placeholder="ej. Atlas"
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Encargado (Miembro)</label>
+                <input
+                  required
+                  type="text"
+                  value={agentForm.encargado_nombre}
+                  onChange={(e) => setAgentForm({ ...agentForm, encargado_nombre: e.target.value })}
+                  placeholder="ej. Arturo"
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Eje de Trabajo / Área</label>
+                <input
+                  required
+                  type="text"
+                  value={agentForm.eje_trabajo}
+                  onChange={(e) => setAgentForm({ ...agentForm, eje_trabajo: e.target.value })}
+                  placeholder="ej. Emprendimiento & Bazar Estudiantil"
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Color Distintivo</label>
+                <input
+                  type="color"
+                  value={agentForm.color_hex}
+                  onChange={(e) => setAgentForm({ ...agentForm, color_hex: e.target.value })}
+                  className="w-full h-9 bg-black/60 border border-white/10 rounded-xl p-1 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Aprobación Humana</label>
+                <select
+                  value={agentForm.req_aprobacion}
+                  onChange={(e) => setAgentForm({ ...agentForm, req_aprobacion: e.target.value })}
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
+                >
+                  <option value="1">Sí (Requerir Visto Bueno)</option>
+                  <option value="0">No (Publicación Directa)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setShowAgentModal(false)}
+                className="bg-slate-800 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-2 rounded-xl shadow-lg shadow-blue-600/30"
+              >
+                Guardar Agente
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* MODAL FORMULARIO TAREA CRON */}
+      {/* ---------------------------------------------------- */}
+      {showJobModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <form onSubmit={handleSaveJob} className="bg-[#111625] border border-emerald-500/30 p-6 rounded-3xl w-full max-w-lg space-y-4">
+            <h3 className="text-lg font-black uppercase text-white border-b border-white/10 pb-3">
+              Nueva Tarea Programada (Cron)
+            </h3>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Agente Asignado</label>
+                <select
+                  value={jobForm.agent_id}
+                  onChange={(e) => setJobForm({ ...jobForm, agent_id: e.target.value })}
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
+                >
+                  {agents.map((a) => (
+                    <option key={a.id} value={a.id}>{a.nombre_agente} ({a.encargado_nombre} - {a.eje_trabajo})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-slate-400 font-bold uppercase">Título de la Tarea</label>
+                <input
+                  required
+                  type="text"
+                  value={jobForm.titulo_tarea}
+                  onChange={(e) => setJobForm({ ...jobForm, titulo_tarea: e.target.value })}
+                  placeholder="ej. Reporte semanal del Bazar"
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] text-slate-400 font-bold uppercase">Frecuencia (Legible)</label>
+                  <input
+                    required
+                    type="text"
+                    value={jobForm.frecuencia_label}
+                    onChange={(e) => setJobForm({ ...jobForm, frecuencia_label: e.target.value })}
+                    placeholder="ej. Cada Lunes 10:00 AM"
+                    className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-slate-400 font-bold uppercase">Tipo de Acción</label>
+                  <select
+                    value={jobForm.tipo_accion}
+                    onChange={(e) => setJobForm({ ...jobForm, tipo_accion: e.target.value })}
+                    className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white outline-none"
+                  >
+                    <option value="reporte_eje">Reporte de Eje</option>
+                    <option value="flyer_canva">Generar Canva Flyer</option>
+                    <option value="comunicado_borrador">Borrador Comunicado</option>
+                    <option value="recordatorio">Recordatorio</option>
+                    <option value="junta_expertos">Junta Mesa de Expertos</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setShowJobModal(false)}
+                className="bg-slate-800 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-5 py-2 rounded-xl shadow-lg shadow-emerald-600/30"
+              >
+                Programar Tarea
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

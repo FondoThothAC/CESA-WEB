@@ -105,9 +105,9 @@ scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
     database/migrations/v6.5_add_external_fields_to_vacantes.sql \
     database/migrations/v6.6_rag_bazar_marketplace_auth.sql \
     database/migrations/v6.7_ollama_pool_and_chat_sessions.sql \
-    database/migrations/v6.8_ocean_psychometric_sentiment.sql \
     database/migrations/v6.8_activate_publicidad_and_bazar.sql \
     database/migrations/v6.9_student_expediente_credits_and_auditoria.sql \
+    database/migrations/v7.0_zeroclaw_swarm.sql \
     scripts/setup_telegram_webhook.php \
     scripts/install_zeroclaw.sh \
     $USER@$IP:/tmp/
@@ -276,9 +276,13 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     echo "   - Aplicando v6.9_student_expediente_credits_and_auditoria.sql..."
     sudo mysql "$DB_NAME" -f < /tmp/v6.9_student_expediente_credits_and_auditoria.sql || true
     
+    # Aplicar Swarm de Sub-Agentes v7.0
+    echo "   - Aplicando v7.0_zeroclaw_swarm.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v7.0_zeroclaw_swarm.sql || true
+    
     # Configurar Webhook oficial de Telegram (@CesaUnisonBot)
     echo "   - Vinculando Webhook de Telegram (@CesaUnisonBot)..."
-    php /var/www/cesa-web/scripts/setup_telegram_webhook.php https://cesaunison.fondothoth.com
+    php /tmp/setup_telegram_webhook.php https://cesaunison.fondothoth.com
 
     # Instalar y Configurar ZeroClaw y Pixel Office
     echo "   - Configurando motor ZeroClaw y Pixel Office..."
