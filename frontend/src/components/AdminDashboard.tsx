@@ -28,6 +28,7 @@ const AdminDashboard = () => {
   const [profileData, setProfileData] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const { token, user } = useAuth();
+  const isMaster = user?.email === 'software@fondothoth.com' || user?.email === 'a213203453@unison.mx';
   
   const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -762,12 +763,12 @@ const AdminDashboard = () => {
             { id: 'directorio', label: 'Usuarios', color: 'bg-slate-700' },
             { id: 'ia_config', label: 'Agente BOB', color: 'bg-emerald-600' },
             { id: 'rag_knowledge', label: '📚 Conocimiento RAG (.md)', color: 'bg-emerald-600' },
-            { id: 'social', label: 'Ecosistema Social', color: 'bg-pink-600' },
-            { id: 'votaciones', label: 'Elecciones', color: 'bg-indigo-600' },
-            { id: 'invitaciones', label: 'Onboarding (CSV)', color: 'bg-indigo-600 border border-indigo-500' },
-            { id: 'padron', label: 'Padrón Electoral', color: 'bg-teal-600' },
-            { id: 'acceso', label: 'Control de Acceso (QR)', color: 'bg-emerald-600' },
-            ...(user?.email === 'software@fondothoth.com' || user?.rol === 'admin' || user?.rol === 'mesa_directiva' || user?.ver_denuncias == 1 || user?.permiso_ia ? [
+            ...(isMaster ? [
+              { id: 'social', label: 'Ecosistema Social', color: 'bg-pink-600' },
+              { id: 'votaciones', label: 'Elecciones', color: 'bg-indigo-600' },
+              { id: 'invitaciones', label: 'Onboarding (CSV)', color: 'bg-indigo-600 border border-indigo-500' },
+              { id: 'padron', label: 'Padrón Electoral', color: 'bg-teal-600' },
+              { id: 'acceso', label: 'Control de Acceso (QR)', color: 'bg-emerald-600' },
               { id: 'sentimiento', label: '🧠 Sentimiento Estudiantil', color: 'bg-purple-600' },
               { id: 'auditoria', label: '🔒 Auditoría & Chat Logs', color: 'bg-yellow-600' }
             ] : [])
@@ -780,7 +781,7 @@ const AdminDashboard = () => {
                {t.label}
             </button>
          ))}
-         {user?.email === 'software@fondothoth.com' && (
+         {isMaster && (
             <button 
                onClick={() => setActiveTab('modo_dios')}
                className={`text-[9px] font-black uppercase tracking-widest px-5 py-3 rounded-2xl transition-all ${activeTab === 'modo_dios' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-slate-900/50 text-amber-500 border border-amber-500/30 hover:bg-slate-800'}`}

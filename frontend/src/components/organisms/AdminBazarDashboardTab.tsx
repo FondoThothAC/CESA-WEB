@@ -43,6 +43,7 @@ interface BazarLog {
 
 export default function AdminBazarDashboardTab() {
   const { token, user } = useAuth();
+  const isMaster = user?.email === 'software@fondothoth.com' || user?.email === 'a213203453@unison.mx';
   const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
   // Estados de Publicidad (Ads)
@@ -440,137 +441,139 @@ export default function AdminBazarDashboardTab() {
         </div>
       </div>
 
-      {/* SECCIÓN 1: CONFIGURACIÓN DE PUBLICIDAD (ADS) */}
-      <div className="bg-slate-900/40 p-8 rounded-[2.5rem] border border-amber-500/20 backdrop-blur-2xl space-y-6">
-        <div className="flex justify-between items-center border-b border-white/5 pb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚡</span>
-            <div>
-              <h4 className="text-lg font-black text-white uppercase tracking-tight">
-                Configuración de Publicidad (Google AdMob / AdSense)
-              </h4>
-              <p className="text-xs text-slate-400">Control global de banners en Bazar y anuncios interstitial en simuladores</p>
-            </div>
-          </div>
-          <span
-            className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border ${
-              adConfig.activo
-                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                : 'bg-red-500/20 border-red-500 text-red-400'
-            }`}
-          >
-            {adConfig.activo ? '● ADS ACTIVOS' : '○ ADS INACTIVOS'}
-          </span>
-        </div>
-
-        {adMessage && (
-          <div
-            className={`p-4 rounded-2xl text-xs font-bold uppercase tracking-wider ${
-              adMessage.type === 'success'
-                ? 'bg-emerald-500/20 border border-emerald-500 text-emerald-300'
-                : 'bg-red-500/20 border border-red-500 text-red-300'
-            }`}
-          >
-            {adMessage.text}
-          </div>
-        )}
-
-        {adLoading ? (
-          <div className="text-center py-10 text-slate-500 text-xs font-bold uppercase tracking-widest">
-            Cargando configuración de anuncios...
-          </div>
-        ) : (
-          <form onSubmit={handleSaveAdConfig} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Switch Activar */}
-            <div className="md:col-span-2 flex items-center justify-between bg-black/40 p-5 rounded-2xl border border-white/5">
+      {/* SECCIÓN 1: CONFIGURACIÓN DE PUBLICIDAD (ADS) - EXCLUSIVO MASTER ADMIN */}
+      {isMaster && (
+        <div className="bg-slate-900/40 p-8 rounded-[2.5rem] border border-amber-500/20 backdrop-blur-2xl space-y-6">
+          <div className="flex justify-between items-center border-b border-white/5 pb-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">⚡</span>
               <div>
-                <p className="text-xs font-black text-white uppercase">Estado General de Publicidad</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Al desactivar, no se renderizará ningún anuncio en el sitio web ni app</p>
+                <h4 className="text-lg font-black text-white uppercase tracking-tight">
+                  Configuración de Publicidad (Google AdMob / AdSense)
+                </h4>
+                <p className="text-xs text-slate-400">Control global de banners en Bazar y anuncios interstitial en simuladores</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setAdConfig({ ...adConfig, activo: !adConfig.activo })}
-                className={`w-14 h-8 rounded-full transition-all duration-300 relative ${
-                  adConfig.activo ? 'bg-amber-500 shadow-lg shadow-amber-500/30' : 'bg-slate-800'
-                }`}
-              >
-                <span
-                  className={`w-6 h-6 bg-white rounded-full absolute top-1 transition-all duration-300 ${
-                    adConfig.activo ? 'right-1' : 'left-1'
+            </div>
+            <span
+              className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border ${
+                adConfig.activo
+                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                  : 'bg-red-500/20 border-red-500 text-red-400'
+              }`}
+            >
+              {adConfig.activo ? '● ADS ACTIVOS' : '○ ADS INACTIVOS'}
+            </span>
+          </div>
+
+          {adMessage && (
+            <div
+              className={`p-4 rounded-2xl text-xs font-bold uppercase tracking-wider ${
+                adMessage.type === 'success'
+                  ? 'bg-emerald-500/20 border border-emerald-500 text-emerald-300'
+                  : 'bg-red-500/20 border border-red-500 text-red-300'
+              }`}
+            >
+              {adMessage.text}
+            </div>
+          )}
+
+          {adLoading ? (
+            <div className="text-center py-10 text-slate-500 text-xs font-bold uppercase tracking-widest">
+              Cargando configuración de anuncios...
+            </div>
+          ) : (
+            <form onSubmit={handleSaveAdConfig} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Switch Activar */}
+              <div className="md:col-span-2 flex items-center justify-between bg-black/40 p-5 rounded-2xl border border-white/5">
+                <div>
+                  <p className="text-xs font-black text-white uppercase">Estado General de Publicidad</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Al desactivar, no se renderizará ningún anuncio en el sitio web ni app</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAdConfig({ ...adConfig, activo: !adConfig.activo })}
+                  className={`w-14 h-8 rounded-full transition-all duration-300 relative ${
+                    adConfig.activo ? 'bg-amber-500 shadow-lg shadow-amber-500/30' : 'bg-slate-800'
                   }`}
-                ></span>
-              </button>
-            </div>
+                >
+                  <span
+                    className={`w-6 h-6 bg-white rounded-full absolute top-1 transition-all duration-300 ${
+                      adConfig.activo ? 'right-1' : 'left-1'
+                    }`}
+                  ></span>
+                </button>
+              </div>
 
-            {/* Publisher ID */}
-            <div>
-              <label className="text-[9px] uppercase font-black text-slate-400 tracking-wider block mb-2">
-                Publisher ID (AdMob / AdSense)
-              </label>
-              <input
-                type="text"
-                value={adConfig.publisher_id}
-                onChange={(e) => setAdConfig({ ...adConfig, publisher_id: e.target.value })}
-                placeholder="ca-pub-3940256099942544"
-                className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-amber-500 outline-none font-mono"
-              />
-            </div>
+              {/* Publisher ID */}
+              <div>
+                <label className="text-[9px] uppercase font-black text-slate-400 tracking-wider block mb-2">
+                  Publisher ID (AdMob / AdSense)
+                </label>
+                <input
+                  type="text"
+                  value={adConfig.publisher_id}
+                  onChange={(e) => setAdConfig({ ...adConfig, publisher_id: e.target.value })}
+                  placeholder="ca-pub-3940256099942544"
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-amber-500 outline-none font-mono"
+                />
+              </div>
 
-            {/* Banner Slot ID */}
-            <div>
-              <label className="text-[9px] uppercase font-black text-slate-400 tracking-wider block mb-2">
-                Banner Ad Slot ID (Bazar)
-              </label>
-              <input
-                type="text"
-                value={adConfig.banner_slot_id}
-                onChange={(e) => setAdConfig({ ...adConfig, banner_slot_id: e.target.value })}
-                placeholder="6300978111"
-                className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-amber-500 outline-none font-mono"
-              />
-            </div>
+              {/* Banner Slot ID */}
+              <div>
+                <label className="text-[9px] uppercase font-black text-slate-400 tracking-wider block mb-2">
+                  Banner Ad Slot ID (Bazar)
+                </label>
+                <input
+                  type="text"
+                  value={adConfig.banner_slot_id}
+                  onChange={(e) => setAdConfig({ ...adConfig, banner_slot_id: e.target.value })}
+                  placeholder="6300978111"
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-amber-500 outline-none font-mono"
+                />
+              </div>
 
-            {/* Interstitial Slot ID */}
-            <div>
-              <label className="text-[9px] uppercase font-black text-slate-400 tracking-wider block mb-2">
-                Interstitial Slot ID (Pantalla Completa Examen)
-              </label>
-              <input
-                type="text"
-                value={adConfig.interstitial_slot_id}
-                onChange={(e) => setAdConfig({ ...adConfig, interstitial_slot_id: e.target.value })}
-                placeholder="1033173712"
-                className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-amber-500 outline-none font-mono"
-              />
-            </div>
+              {/* Interstitial Slot ID */}
+              <div>
+                <label className="text-[9px] uppercase font-black text-slate-400 tracking-wider block mb-2">
+                  Interstitial Slot ID (Pantalla Completa Examen)
+                </label>
+                <input
+                  type="text"
+                  value={adConfig.interstitial_slot_id}
+                  onChange={(e) => setAdConfig({ ...adConfig, interstitial_slot_id: e.target.value })}
+                  placeholder="1033173712"
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-amber-500 outline-none font-mono"
+                />
+              </div>
 
-            {/* Frecuencia Diaria */}
-            <div>
-              <label className="text-[9px] uppercase font-black text-slate-400 tracking-wider block mb-2">
-                Frecuencia Máxima Diaria por Usuario
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="10"
-                value={adConfig.frecuencia_diaria}
-                onChange={(e) => setAdConfig({ ...adConfig, frecuencia_diaria: Number(e.target.value) || 2 })}
-                className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-amber-500 outline-none"
-              />
-            </div>
+              {/* Frecuencia Diaria */}
+              <div>
+                <label className="text-[9px] uppercase font-black text-slate-400 tracking-wider block mb-2">
+                  Frecuencia Máxima Diaria por Usuario
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={adConfig.frecuencia_diaria}
+                  onChange={(e) => setAdConfig({ ...adConfig, frecuencia_diaria: Number(e.target.value) || 2 })}
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-amber-500 outline-none"
+                />
+              </div>
 
-            <div className="md:col-span-2 pt-2">
-              <button
-                type="submit"
-                disabled={adSaving}
-                className="w-full bg-amber-500 hover:bg-amber-400 text-black py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
-              >
-                {adSaving ? 'Guardando Publicidad...' : 'Guardar Cambios de Publicidad'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
+              <div className="md:col-span-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={adSaving}
+                  className="w-full bg-amber-500 hover:bg-amber-400 text-black py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                >
+                  {adSaving ? 'Guardando Publicidad...' : 'Guardar Cambios de Publicidad'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* SECCIÓN 2: MAPA ESQUEMÁTICO EN VIVO CON PLANTILLAS Y HISTORIAL */}
       <div className="bg-slate-900/40 p-8 rounded-[2.5rem] border border-white/10 backdrop-blur-2xl space-y-6">

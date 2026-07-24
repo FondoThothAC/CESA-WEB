@@ -10,8 +10,16 @@ type Props = {
 };
 
 export default function InterstitialAd({ show = false, onClose }: Props) {
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const { showInterstitial } = useInterstitialAd();
+  
+  // A usuarios autenticados (mesa directiva, estudiantes, etc.) no se les muestra publicidad
+  if (user || token) {
+    if (show) {
+      onClose?.();
+    }
+    return null;
+  }
   const [config, setConfig] = useState<{
     activo: boolean;
     publisher_id: string;

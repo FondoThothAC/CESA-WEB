@@ -217,8 +217,8 @@ export default function AdminIAConfigTab() {
     } catch (e) {}
   };
 
-  const isMaster = user?.email === 'software@fondothoth.com';
-  const canEdit = isMaster || (user as any)?.permiso_ia || (user as any)?.rol === 'admin' || (user as any)?.rol === 'mesa_directiva';
+  const isMaster = user?.email === 'software@fondothoth.com' || user?.email === 'a213203453@unison.mx';
+  const canEdit = isMaster;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 font-sans bg-[#090d16] p-6 rounded-[2.5rem] border border-blue-500/20 text-white shadow-2xl">
