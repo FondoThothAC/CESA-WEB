@@ -50,28 +50,61 @@ try {
         // LOGIN ACTION
         if ($action === 'login') {
             $identifier = trim($input['email'] ?? $input['identifier'] ?? '');
-            $password = $input['password'] ?? '';
+            $password = trim($input['password'] ?? '');
+            $telefonoInput = trim($input['telefono'] ?? '');
+            $curpInput = trim($input['curp'] ?? '');
             
-            if (empty($identifier)) throw new Exception('Por favor ingresa tu Correo (@unison.mx), Celular o CURP.');
+            if (empty($identifier)) throw new Exception('Por favor ingresa tu Número de Expediente o Correo.');
 
-            // Buscar por Email, Teléfono, CURP o Matrícula
+            // Normalizar expediente (ej: a222219849 o A222219849 -> 222219849)
+            $clean_id = ltrim(strtolower($identifier), 'a');
+
+            // Buscar por Email, Expediente, Matrícula, Teléfono, Celular o CURP
             $stmt = $pdo->prepare("
                 SELECT * FROM usuarios 
-                WHERE (email = :id OR telefono = :id OR curp = :id OR matricula = :id) 
+                WHERE (
+                    email = :id 
+                    OR email = :email_full
+                    OR expediente = :id 
+                    OR expediente = :clean_id
+                    OR matricula = :id 
+                    OR matricula = :clean_id
+                    OR telefono = :id 
+                    OR celular = :id 
+                    OR curp = :id
+                ) 
                 AND activo = 1
             ");
-            $stmt->execute([':id' => $identifier]);
+            $stmt->execute([
+                ':id' => $identifier,
+                ':email_full' => str_contains($identifier, '@') ? $identifier : $identifier . '@unison.mx',
+                ':clean_id' => $clean_id
+            ]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Permitir inicio de sesión con contraseña, o sin contraseña si ingresa los 3 datos de validación
+            // Autenticación flexible: Contraseña o Número de Celular/Teléfono ligado
             $authSuccess = false;
             if ($user) {
+                // 1. Verificación por hash de contraseña tradicional
                 if (!empty($password) && password_verify($password, $user['password_hash'])) {
                     $authSuccess = true;
-                } else if (!empty($input['curp']) && !empty($input['telefono']) && 
-                           strtolower(trim($input['curp'])) === strtolower(trim($user['curp'] ?? '')) &&
-                           trim($input['telefono']) === trim($user['telefono'] ?? '')) {
-                    // Autenticación por Validación de Identidad Triple (Sin contraseña)
+                }
+                
+                // 2. Verificación si el teléfono o celular coincide (removiendo caracteres no numéricos)
+                $providedPhone = !empty($telefonoInput) ? $telefonoInput : $password;
+                $cleanProvidedPhone = preg_replace('/\D/', '', $providedPhone);
+                $dbPhone = preg_replace('/\D/', '', $user['telefono'] ?? '');
+                $dbCelular = preg_replace('/\D/', '', $user['celular'] ?? '');
+
+                if (!empty($cleanProvidedPhone) && strlen($cleanProvidedPhone) >= 8) {
+                    if ((!empty($dbPhone) && $cleanProvidedPhone === $dbPhone) || 
+                        (!empty($dbCelular) && $cleanProvidedPhone === $dbCelular)) {
+                        $authSuccess = true;
+                    }
+                }
+
+                // 3. Verificación alternativa si se proporciona CURP
+                if (!empty($curpInput) && strtolower($curpInput) === strtolower(trim($user['curp'] ?? ''))) {
                     $authSuccess = true;
                 }
             }

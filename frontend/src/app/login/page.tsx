@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 
 const LoginPage = () => {
     const [isLogin, setIsLogin] = useState(true);
-    const [usePassword, setUsePassword] = useState(true);
+    const [usePassword, setUsePassword] = useState(false);
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [nombre, setNombre] = useState('');
@@ -30,11 +30,13 @@ const LoginPage = () => {
 
         try {
             if (isLogin) {
-                const success = await login(identifier, password, curp, telefono);
-                if (success) {
+                const passVal = usePassword ? password : telefono;
+                const phoneVal = usePassword ? '' : telefono;
+                const res = await login(identifier, passVal, curp, phoneVal);
+                if (res.success) {
                     router.push('/');
                 } else {
-                    setError('Identificador, contraseña o datos de identidad incorrectos.');
+                    setError(res.error || 'Número de expediente, correo o celular incorrectos.');
                 }
             } else {
                 // Registro Real con Asignación de Perfil e Identidad Unificada
@@ -57,7 +59,7 @@ const LoginPage = () => {
                 if (res.success) {
                     setSuccessMsg('¡Cuenta registrada exitosamente con perfil ' + rol.toUpperCase() + '! Iniciando sesión...');
                     const loginRes = await login(identifier, password, curp, telefono);
-                    if (loginRes) {
+                    if (loginRes.success) {
                         setTimeout(() => router.push('/'), 1000);
                     } else {
                         setIsLogin(true);
@@ -86,7 +88,7 @@ const LoginPage = () => {
                     <span className="text-5xl mb-4 inline-block">🎓</span>
                     <h1 className="text-3xl font-black text-white">CESA <span className="text-[var(--primary)]">UNISON</span></h1>
                     <p className="text-[var(--text-muted)] text-sm uppercase tracking-[0.2em] font-bold mt-2">
-                        {isLogin ? 'Acceso Unificado (Correo / Celular / CURP)' : 'Registro de Identidad UNISON'}
+                        {isLogin ? 'Acceso con Expediente y Celular' : 'Registro de Identidad UNISON'}
                     </p>
                 </div>
 
@@ -112,7 +114,7 @@ const LoginPage = () => {
                                     value={nombre}
                                     onChange={(e) => setNombre(e.target.value)}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs"
-                                    placeholder="Juan Pérez"
+                                    placeholder="Bárbara..."
                                     required
                                 />
                             </div>
@@ -139,11 +141,11 @@ const LoginPage = () => {
                                         value={telefono}
                                         onChange={(e) => setTelefono(e.target.value)}
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs"
-                                        placeholder="6621234567"
+                                        placeholder="6624102866"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] uppercase font-black text-white/40 mb-1 block ml-2">CURP</label>
+                                    <label className="text-[10px] uppercase font-black text-white/40 mb-1 block ml-2">CURP (Opcional)</label>
                                     <input 
                                         type="text"
                                         value={curp}
@@ -155,13 +157,13 @@ const LoginPage = () => {
                             </div>
 
                             <div>
-                                <label className="text-[10px] uppercase font-black text-white/40 mb-1 block ml-2">Matrícula UNISON (Opcional)</label>
+                                <label className="text-[10px] uppercase font-black text-white/40 mb-1 block ml-2">Matrícula / Expediente UNISON</label>
                                 <input 
                                     type="text"
                                     value={matricula}
                                     onChange={(e) => setMatricula(e.target.value)}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs"
-                                    placeholder="219200000"
+                                    placeholder="222219849"
                                 />
                             </div>
                         </>
@@ -169,67 +171,40 @@ const LoginPage = () => {
 
                     <div>
                         <label className="text-[10px] uppercase font-black text-white/40 mb-1 block ml-2">
-                            {isLogin ? 'Correo (@unison.mx), Celular o CURP' : 'Correo Institucional'}
+                            {isLogin ? 'Número de Expediente o Correo' : 'Correo Institucional'}
                         </label>
                         <input 
                             type="text"
                             value={identifier}
                             onChange={(e) => setIdentifier(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs"
-                            placeholder={isLogin ? 'usuario@unison.mx / 6621234567 / CURP' : 'usuario@unison.mx'}
+                            placeholder={isLogin ? 'Ej: 222219849 o usuario@unison.mx' : 'usuario@unison.mx'}
                             required
                         />
                     </div>
 
                     {isLogin && (
-                        <div className="flex items-center justify-between text-[11px] px-1 py-1">
-                            <button 
-                                type="button" 
-                                onClick={() => setUsePassword(!usePassword)}
-                                className="text-white/60 hover:text-white transition-all underline font-semibold"
-                            >
-                                {usePassword ? '🔓 Entrar por Validación de Identidad (Sin contraseña)' : '🔑 Usar Contraseña Tradicional'}
-                            </button>
-                        </div>
-                    )}
-
-                    {usePassword ? (
                         <div>
-                            <label className="text-[10px] uppercase font-black text-white/40 mb-1 block ml-2">Contraseña</label>
+                            <div className="flex items-center justify-between mb-1 ml-2">
+                                <label className="text-[10px] uppercase font-black text-white/40 block">
+                                    {usePassword ? 'Contraseña Tradicional' : 'Número de Celular Registrado'}
+                                </label>
+                                <button 
+                                    type="button" 
+                                    onClick={() => setUsePassword(!usePassword)}
+                                    className="text-[10px] text-indigo-400 hover:text-indigo-300 transition-all font-semibold"
+                                >
+                                    {usePassword ? '📱 Entrar con Celular' : '🔑 Usar Contraseña'}
+                                </button>
+                            </div>
                             <input 
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                type={usePassword ? "password" : "tel"}
+                                value={usePassword ? password : telefono}
+                                onChange={(e) => usePassword ? setPassword(e.target.value) : setTelefono(e.target.value)}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs"
-                                placeholder="••••••••"
-                                required={usePassword && isLogin}
+                                placeholder={usePassword ? "••••••••" : "Ej: 6624102866"}
+                                required
                             />
-                        </div>
-                    ) : (
-                        <div className="space-y-3 bg-white/5 p-4 rounded-xl border border-white/10">
-                            <p className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider">Validación de Triple Identidad Institucional</p>
-                            <div>
-                                <label className="text-[9px] uppercase font-black text-white/40 mb-1 block">Celular Registrado</label>
-                                <input 
-                                    type="tel"
-                                    value={telefono}
-                                    onChange={(e) => setTelefono(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-xs"
-                                    placeholder="6621234567"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[9px] uppercase font-black text-white/40 mb-1 block">CURP</label>
-                                <input 
-                                    type="text"
-                                    value={curp}
-                                    onChange={(e) => setCurp(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-xs uppercase"
-                                    placeholder="ABCD900101..."
-                                    required
-                                />
-                            </div>
                         </div>
                     )}
 
