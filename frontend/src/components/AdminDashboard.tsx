@@ -767,7 +767,7 @@ const AdminDashboard = () => {
             { id: 'invitaciones', label: 'Onboarding (CSV)', color: 'bg-indigo-600 border border-indigo-500' },
             { id: 'padron', label: 'Padrón Electoral', color: 'bg-teal-600' },
             { id: 'acceso', label: 'Control de Acceso (QR)', color: 'bg-emerald-600' },
-            ...(user?.email === 'software@fondothoth.com' || user?.email === 'a213203453@unison.mx' || user?.permiso_ia ? [
+            ...(user?.email === 'software@fondothoth.com' || user?.rol === 'admin' || user?.rol === 'mesa_directiva' || user?.ver_denuncias == 1 || user?.permiso_ia ? [
               { id: 'sentimiento', label: '🧠 Sentimiento Estudiantil', color: 'bg-purple-600' },
               { id: 'auditoria', label: '🔒 Auditoría & Chat Logs', color: 'bg-yellow-600' }
             ] : [])
