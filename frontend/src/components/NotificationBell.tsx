@@ -66,7 +66,7 @@ export default function NotificationBell() {
       </button>
 
       {showDropdown && (
-        <div className="absolute top-14 right-0 w-80 bg-[#0f172a] rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden glass">
+        <div className="absolute bottom-14 right-0 w-80 bg-[#0f172a] rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden glass" style={{zIndex: 9999}}>
           <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/40">
             <h3 className="text-white text-sm font-black uppercase tracking-widest">Notificaciones</h3>
             {unreadCount > 0 && (

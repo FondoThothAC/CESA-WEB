@@ -51,7 +51,42 @@ const AcademicProfile = ({ profile }: AcademicProfileProps) => {
       });
       const data = await res.json();
       if (data.success) {
-        setCatalog(data.catalog);
+        // Ordenar: Inglés primero, luego idiomas por popularidad decreciente, luego psicometría, luego el resto
+        const IDIOMA_ORDER: Record<string, number> = {
+          'inglés': 1, 'ingles': 1,
+          'francés': 2, 'frances': 2,
+          'japonés': 3, 'japones': 3,
+          'alemán': 4, 'aleman': 4,
+          'italiano': 5,
+          'portugués': 6, 'portugues': 6,
+          'chino': 7,
+        };
+        const sortedCatalog = [...(data.catalog || [])].sort((a: any, b: any) => {
+          const catA = (a.categoria || '').toLowerCase();
+          const catB = (b.categoria || '').toLowerCase();
+          const nameA = (a.nombre || '').toLowerCase();
+          const nameB = (b.nombre || '').toLowerCase();
+          const isIdiomaA = catA.includes('idioma');
+          const isIdiomaB = catB.includes('idioma');
+          const isPsicoA = catA.includes('psico') || nameA.includes('psico');
+          const isPsicoB = catB.includes('psico') || nameB.includes('psico');
+          if (isIdiomaA && isIdiomaB) {
+            // Ordenar idiomas: inglés primero, luego los demás por orden definido
+            const findOrder = (name: string) => {
+              for (const [key, val] of Object.entries(IDIOMA_ORDER)) {
+                if (name.includes(key)) return val;
+              }
+              return 99;
+            };
+            return findOrder(nameA) - findOrder(nameB);
+          }
+          if (isIdiomaA) return -1;
+          if (isIdiomaB) return 1;
+          if (isPsicoA) return -1;
+          if (isPsicoB) return 1;
+          return 0;
+        });
+        setCatalog(sortedCatalog);
         setMyCerts(data.my_certs);
       }
     } catch (e) {}
@@ -150,7 +185,9 @@ const AcademicProfile = ({ profile }: AcademicProfileProps) => {
             </p>
             <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                <span className="bg-primary/10 border border-primary/20 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-primary italic">Alumno Regular</span>
-               <span className="bg-bg-primary/50 border border-border px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-text-muted">Gobernanza CBI-01</span>
+               {profile.carrera && profile.carrera !== 'No especificada' && (
+                 <span className="bg-bg-primary/50 border border-border px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-text-muted">{profile.carrera}</span>
+               )}
             </div>
           </div>
           <div className="text-center md:text-right space-y-4">
