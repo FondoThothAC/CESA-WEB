@@ -75,15 +75,6 @@ export default function RootLayout({
           `}
         </Script>
 
-        {/* Google AdSense */}
-        <Script
-          id="google-adsense"
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6563043041010743"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
-
         {/* Google Analytics Tracking Script */}
         {process.env.NEXT_PUBLIC_GA_ID && (
           <>
