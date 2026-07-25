@@ -49,36 +49,44 @@ try {
         
         // LOGIN ACTION
         if ($action === 'login') {
-            $identifier = trim($input['email'] ?? $input['identifier'] ?? '');
+            $rawIdentifier = trim($input['email'] ?? $input['identifier'] ?? '');
             $password = trim($input['password'] ?? '');
             $telefonoInput = trim($input['telefono'] ?? '');
             $curpInput = trim($input['curp'] ?? '');
             
-            if (empty($identifier)) throw new Exception('Por favor ingresa tu Número de Expediente o Correo.');
+            if (empty($rawIdentifier)) throw new Exception('Por favor ingresa tu Número de Expediente o Correo.');
 
-            // Normalizar expediente (ej: a222219849 o A222219849 -> 222219849)
-            $clean_id = ltrim(strtolower($identifier), 'a');
+            $identifier = strtolower($rawIdentifier);
+            
+            // Extraer solo dígitos numéricos para la matrícula/expediente
+            preg_match('/\d+/', $identifier, $matches);
+            $clean_num = $matches[0] ?? '';
 
-            // Buscar por Email, Expediente, Matrícula, Teléfono, Celular o CURP
+            // Construir versión limpia del correo institucional
+            $clean_email = str_contains($identifier, '@')
+                ? $identifier
+                : (!empty($clean_num) ? "a{$clean_num}@unison.mx" : $identifier);
+
+            $clean_phone_id = preg_replace('/\D/', '', $identifier);
+
+            // Buscar por Email (LOWER), Expediente, Matrícula, Teléfono, Celular o CURP
             $stmt = $pdo->prepare("
                 SELECT * FROM usuarios 
                 WHERE (
-                    email = :id 
-                    OR email = :email_full
-                    OR expediente = :id 
-                    OR expediente = :clean_id
-                    OR matricula = :id 
-                    OR matricula = :clean_id
-                    OR telefono = :id 
-                    OR celular = :id 
-                    OR curp = :id
+                    LOWER(email) = :id 
+                    OR LOWER(email) = :clean_email
+                    OR expediente = :clean_num
+                    OR matricula = :clean_num
+                    OR (:clean_phone != '' AND (telefono = :clean_phone OR celular = :clean_phone))
+                    OR LOWER(curp) = :id
                 ) 
                 AND activo = 1
             ");
             $stmt->execute([
                 ':id' => $identifier,
-                ':email_full' => str_contains($identifier, '@') ? $identifier : $identifier . '@unison.mx',
-                ':clean_id' => $clean_id
+                ':clean_email' => $clean_email,
+                ':clean_num' => $clean_num,
+                ':clean_phone' => $clean_phone_id
             ]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -90,13 +98,13 @@ try {
                     $authSuccess = true;
                 }
                 
-                // 2. Verificación si el teléfono o celular coincide (removiendo caracteres no numéricos)
+                // 2. Verificación si el teléfono o celular coincide (removiendo espacios y guiones)
                 $providedPhone = !empty($telefonoInput) ? $telefonoInput : $password;
                 $cleanProvidedPhone = preg_replace('/\D/', '', $providedPhone);
                 $dbPhone = preg_replace('/\D/', '', $user['telefono'] ?? '');
                 $dbCelular = preg_replace('/\D/', '', $user['celular'] ?? '');
 
-                if (!empty($cleanProvidedPhone) && strlen($cleanProvidedPhone) >= 8) {
+                if (!empty($cleanProvidedPhone) && strlen($cleanProvidedPhone) >= 7) {
                     if ((!empty($dbPhone) && $cleanProvidedPhone === $dbPhone) || 
                         (!empty($dbCelular) && $cleanProvidedPhone === $dbCelular)) {
                         $authSuccess = true;
