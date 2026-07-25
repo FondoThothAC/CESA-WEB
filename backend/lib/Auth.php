@@ -22,8 +22,8 @@ class Auth {
      */
     private function verifyAuth(): void {
         // Intentar obtener token de Header, Cookie o Sesión
-        $headers = getallheaders();
-        $token = $headers['Authorization'] ?? $headers['authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? ($_COOKIE['cesa_jwt'] ?? ($_SESSION['token'] ?? null));
+        $allHeaders = function_exists('getallheaders') ? array_change_key_case(getallheaders(), CASE_LOWER) : [];
+        $token = $allHeaders['authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ($_COOKIE['cesa_jwt'] ?? ($_SESSION['token'] ?? null));
 
         if ($token) {
             // Limpiar Bearer si existe

@@ -30,11 +30,10 @@ const LoginPage = () => {
 
         try {
             if (isLogin) {
-                const passVal = usePassword ? password : telefono;
-                const phoneVal = usePassword ? '' : telefono;
-                const res = await login(identifier, passVal, curp, phoneVal);
+                const val = password || telefono;
+                const res = await login(identifier, val, curp, val);
                 if (res.success) {
-                    router.push('/');
+                    window.location.href = '/';
                 } else {
                     setError(res.error || 'Número de expediente, correo o celular incorrectos.');
                 }
@@ -199,8 +198,8 @@ const LoginPage = () => {
                             </div>
                             <input 
                                 type={usePassword ? "password" : "tel"}
-                                value={usePassword ? password : telefono}
-                                onChange={(e) => usePassword ? setPassword(e.target.value) : setTelefono(e.target.value)}
+                                value={password || telefono}
+                                onChange={(e) => { setPassword(e.target.value); setTelefono(e.target.value); }}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs"
                                 placeholder={usePassword ? "••••••••" : "Ej: 6624102866"}
                                 required

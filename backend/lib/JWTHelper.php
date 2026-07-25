@@ -7,7 +7,7 @@
 class JWTHelper {
     private static $secret = 'cesa_secret_key_2026_2028'; // Cambiar en producción
 
-    public static function create(array $payload, int $expiry = 3600): string {
+    public static function create(array $payload, int $expiry = 2592000): string {
         $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
         $payload['exp'] = time() + $expiry;
         $payload_json = json_encode($payload);
