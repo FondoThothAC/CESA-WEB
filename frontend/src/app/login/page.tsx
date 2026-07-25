@@ -15,6 +15,7 @@ const LoginPage = () => {
     const [telefono, setTelefono] = useState('');
     const [curp, setCurp] = useState('');
     const [rol, setRol] = useState('estudiante');
+    const [carrera, setCarrera] = useState('');
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,7 +53,8 @@ const LoginPage = () => {
                     matricula,
                     telefono,
                     curp,
-                    rol
+                    rol,
+                    carrera
                 });
 
                 if (res.success) {
@@ -77,28 +79,23 @@ const LoginPage = () => {
     return (
         <div className="min-h-screen flex items-center justify-center p-8 bg-black">
             {/* Background Effects */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[var(--primary)] opacity-10 rounded-full blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[var(--accent)] opacity-5 rounded-full blur-[120px]"></div>
-            </div>
+            <div className="absolute inset-0 bg-gradient-to-tr from-blue-950/20 via-black to-indigo-950/20 pointer-events-none" />
 
-            <div className="glass w-full max-w-md p-10 relative z-10 border-white/5 shadow-2xl">
+            <div className="w-full max-w-md bg-slate-950/80 border border-white/10 p-8 rounded-3xl backdrop-blur-xl relative z-10 shadow-2xl">
                 <div className="text-center mb-8">
-                    <span className="text-5xl mb-4 inline-block">🎓</span>
-                    <h1 className="text-3xl font-black text-white">CESA <span className="text-[var(--primary)]">UNISON</span></h1>
-                    <p className="text-[var(--text-muted)] text-sm uppercase tracking-[0.2em] font-bold mt-2">
-                        {isLogin ? 'Acceso con Expediente y Celular' : 'Registro de Identidad UNISON'}
-                    </p>
+                    <img src="/logo-cesa.jpg" alt="CESA UNISON" className="w-16 h-16 rounded-2xl mx-auto mb-4 border border-white/10 shadow-xl" />
+                    <h1 className="text-2xl font-black text-white tracking-tight uppercase">Portal CESA UNISON</h1>
+                    <p className="text-xs text-white/50 font-bold uppercase tracking-widest mt-1">Identidad Estudiantil & Servicios</p>
                 </div>
 
                 {error && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl mb-6 text-center">
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-4 rounded-2xl mb-6 font-semibold animate-in fade-in">
                         {error}
                     </div>
                 )}
 
                 {successMsg && (
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-xl mb-6 text-center">
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-4 rounded-2xl mb-6 font-semibold animate-in fade-in">
                         {successMsg}
                     </div>
                 )}
@@ -113,8 +110,8 @@ const LoginPage = () => {
                                     value={nombre}
                                     onChange={(e) => setNombre(e.target.value)}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs"
-                                    placeholder="Bárbara..."
-                                    required
+                                    placeholder="Nombre completo"
+                                    required={!isLogin}
                                 />
                             </div>
 
@@ -129,6 +126,31 @@ const LoginPage = () => {
                                     <option value="empresa">🏢 Empresa / Empleador</option>
                                     <option value="sociedad">🏛️ Sociedad de Alumnos</option>
                                     <option value="mesa_directiva">⭐ Mesa Directiva CESA</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] uppercase font-black text-white/40 mb-1 block ml-2">Carrera UNISON (Opcional)</label>
+                                <select 
+                                    value={carrera}
+                                    onChange={(e) => setCarrera(e.target.value)}
+                                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs"
+                                >
+                                    <option value="">-- Seleccionar Carrera (Opcional) --</option>
+                                    <option value="Ing. en Sistemas de Información">Ing. en Sistemas de Información</option>
+                                    <option value="Lic. en Ciencias de la Computación">Lic. en Ciencias de la Computación</option>
+                                    <option value="Ing. Industrial y de Sistemas">Ing. Industrial y de Sistemas</option>
+                                    <option value="Ing. Mecatrónica">Ing. Mecatrónica</option>
+                                    <option value="Ing. Civil">Ing. Civil</option>
+                                    <option value="Lic. en Derecho">Lic. en Derecho</option>
+                                    <option value="Lic. en Psicología">Lic. en Psicología</option>
+                                    <option value="Lic. en Administración">Lic. en Administración</option>
+                                    <option value="Lic. en Contaduría Pública">Lic. en Contaduría Pública</option>
+                                    <option value="Lic. en Medicina">Lic. en Medicina</option>
+                                    <option value="Químico Biólogo Clínico">Químico Biólogo Clínico</option>
+                                    <option value="Lic. en Arquitectura">Lic. en Arquitectura</option>
+                                    <option value="Lic. en Mercadotecnia">Lic. en Mercadotecnia</option>
+                                    <option value="Otra Carrera UNISON">Otra Carrera UNISON</option>
                                 </select>
                             </div>
 

@@ -164,6 +164,7 @@ class CesaApiClient {
     telefono?: string;
     curp?: string;
     rol?: string;
+    carrera?: string;
   }): Promise<ApiResponse<{ message?: string }>> {
     return this.request('auth.php?action=signup', {
       method: 'POST',

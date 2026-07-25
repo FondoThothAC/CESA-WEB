@@ -60,12 +60,28 @@ try {
         
         if ($action === 'update') {
             $input = json_decode(file_get_contents('php://input'), true);
-            $bio = trim(strip_tags($input['bio'] ?? ''));
+            $bio = trim(strip_tags((string)($input['bio'] ?? '')));
+            $carrera = isset($input['carrera']) ? trim(strip_tags((string)$input['carrera'])) : null;
+            $avatar_path = isset($input['avatar_path']) ? trim(strip_tags((string)$input['avatar_path'])) : null;
             
-            $stmt = $pdo->prepare("UPDATE usuarios SET bio = ? WHERE id = ?");
-            $stmt->execute([$bio, $user['id']]);
+            $updates = ["bio = ?"];
+            $params = [$bio];
+
+            if ($carrera !== null) {
+                $updates[] = "carrera = ?";
+                $params[] = $carrera;
+            }
+            if ($avatar_path !== null) {
+                $updates[] = "avatar_path = ?";
+                $params[] = $avatar_path;
+            }
+
+            $params[] = $user['id'];
+            $sql = "UPDATE usuarios SET " . implode(", ", $updates) . " WHERE id = ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
             
-            echo json_encode(['success' => true, 'message' => 'Perfil actualizado']);
+            echo json_encode(['success' => true, 'message' => 'Perfil actualizado exitosamente']);
             exit;
         }
     }

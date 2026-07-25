@@ -173,6 +173,7 @@ try {
             $telefono = trim($input['telefono'] ?? '');
             $curp = trim($input['curp'] ?? '');
             $rol = trim($input['rol'] ?? 'estudiante');
+            $carrera = trim($input['carrera'] ?? 'No especificada');
             
             $validRoles = ['estudiante', 'empresa', 'sociedad', 'mesa_directiva'];
             if (!in_array($rol, $validRoles)) {
@@ -194,10 +195,10 @@ try {
             
             $stmt = $pdo->prepare("
                 INSERT INTO usuarios 
-                (email, password_hash, nombre_completo, matricula, telefono, curp, rol) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (email, password_hash, nombre_completo, matricula, expediente, telefono, celular, curp, rol, carrera) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$email, $hash, $nombre, $matricula, $telefono, $curp, $rol]);
+            $stmt->execute([$email, $hash, $nombre, $matricula, $matricula, $telefono, $telefono, $curp, $rol, $carrera]);
 
             echo json_encode([
                 'success' => true,
