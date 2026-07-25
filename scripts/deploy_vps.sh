@@ -112,6 +112,7 @@ scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
     database/migrations/v7.2_seed_user_a222219849.sql \
     database/migrations/v7.3_seed_user_a221216515.sql \
     database/migrations/v7.4_seed_new_users.sql \
+    database/migrations/v7.5_social_integrations.sql \
     scripts/setup_telegram_webhook.php \
     scripts/install_zeroclaw.sh \
     $USER@$IP:/tmp/
@@ -296,6 +297,10 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     echo "   - Aplicando v7.4_seed_new_users.sql..."
     sudo mysql "$DB_NAME" -f < /tmp/v7.4_seed_new_users.sql || true
     
+    # Aplicar Integración Social Media v7.5
+    echo "   - Aplicando v7.5_social_integrations.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v7.5_social_integrations.sql || true
+    
     # Configurar Webhook oficial de Telegram (@CesaUnisonBot)
     echo "   - Vinculando Webhook de Telegram (@CesaUnisonBot)..."
     php /tmp/setup_telegram_webhook.php https://cesaunison.fondothoth.com
@@ -306,7 +311,7 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     
     echo "✅ Archivos migrados, permisos configurados y bots vinculados."
 
-    rm -f /tmp/schema.sql /tmp/05_skills.sql /tmp/06_push.sql /tmp/v3.6_admin_governance.sql /tmp/v3.6_skills_and_credits.sql /tmp/v3.7_karma_system.sql /tmp/v3.8_karma_expansion.sql /tmp/v3.9_tutorias_module.sql /tmp/v4.1_inbox_system.sql /tmp/v4.1_skills_vacantes.sql /tmp/v4.2_bazar_expansion.sql /tmp/v4.3_bazar_schematic.sql /tmp/v4.4_delegation_and_social.sql /tmp/v4.5_bazar_spots_and_editions.sql /tmp/v4.6_psychometric_tests.sql /tmp/v4.7_seed_psychometric_tests.sql /tmp/v4.8_publicidad_and_godmode.sql /tmp/v4.9_seed_more_skills_questions.sql /tmp/v5.0_seed_chinese_questions.sql /tmp/v5.1_seed_all_remaining_questions.sql /tmp/v5.2_seed_gestion_y_otros.sql /tmp/v5.3_admin_granular_roles_and_ia_metadata.sql /tmp/v5.4_votaciones_noticias.sql /tmp/v5.5_refinamiento_electoral.sql /tmp/v5.6_matrix_permissions.sql /tmp/v5.7_admin_seeds.sql /tmp/v5.8_extended_permissions.sql /tmp/v6.0_dynamic_providers.sql /tmp/v6.1_job_applications.sql /tmp/v6.2_sociedades_anuncios_y_elecciones.sql /tmp/v6.3_test_seed_votaciones.sql /tmp/v6.4_update_candidates_photos.sql /tmp/v6.5_add_external_fields_to_vacantes.sql /tmp/v6.8_activate_publicidad_and_bazar.sql /tmp/v6.9_student_expediente_credits_and_auditoria.sql /tmp/v7.0_zeroclaw_swarm.sql /tmp/v7.1_bazar_multi_map_and_archiving.sql /tmp/v7.2_seed_user_a222219849.sql /tmp/v7.3_seed_user_a221216515.sql /tmp/v7.4_seed_new_users.sql /tmp/setup_telegram_webhook.php /tmp/install_zeroclaw.sh
+    rm -f /tmp/schema.sql /tmp/05_skills.sql /tmp/06_push.sql /tmp/v3.6_admin_governance.sql /tmp/v3.6_skills_and_credits.sql /tmp/v3.7_karma_system.sql /tmp/v3.8_karma_expansion.sql /tmp/v3.9_tutorias_module.sql /tmp/v4.1_inbox_system.sql /tmp/v4.1_skills_vacantes.sql /tmp/v4.2_bazar_expansion.sql /tmp/v4.3_bazar_schematic.sql /tmp/v4.4_delegation_and_social.sql /tmp/v4.5_bazar_spots_and_editions.sql /tmp/v4.6_psychometric_tests.sql /tmp/v4.7_seed_psychometric_tests.sql /tmp/v4.8_publicidad_and_godmode.sql /tmp/v4.9_seed_more_skills_questions.sql /tmp/v5.0_seed_chinese_questions.sql /tmp/v5.1_seed_all_remaining_questions.sql /tmp/v5.2_seed_gestion_y_otros.sql /tmp/v5.3_admin_granular_roles_and_ia_metadata.sql /tmp/v5.4_votaciones_noticias.sql /tmp/v5.5_refinamiento_electoral.sql /tmp/v5.6_matrix_permissions.sql /tmp/v5.7_admin_seeds.sql /tmp/v5.8_extended_permissions.sql /tmp/v6.0_dynamic_providers.sql /tmp/v6.1_job_applications.sql /tmp/v6.2_sociedades_anuncios_y_elecciones.sql /tmp/v6.3_test_seed_votaciones.sql /tmp/v6.4_update_candidates_photos.sql /tmp/v6.5_add_external_fields_to_vacantes.sql /tmp/v6.8_activate_publicidad_and_bazar.sql /tmp/v6.9_student_expediente_credits_and_auditoria.sql /tmp/v7.0_zeroclaw_swarm.sql /tmp/v7.1_bazar_multi_map_and_archiving.sql /tmp/v7.2_seed_user_a222219849.sql /tmp/v7.3_seed_user_a221216515.sql /tmp/v7.4_seed_new_users.sql /tmp/v7.5_social_integrations.sql /tmp/setup_telegram_webhook.php /tmp/install_zeroclaw.sh
 
 
 EOF
