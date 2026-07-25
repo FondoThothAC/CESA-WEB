@@ -13,9 +13,9 @@ header('Content-Type: application/json');
 $method = $_SERVER['REQUEST_METHOD'];
 $user = Auth::getAuthenticatedUser();
 
-if (!$user) {
+if ($method !== 'GET' && !$user) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'error' => 'Sesión no válida']);
+    echo json_encode(['success' => false, 'error' => 'Inicia sesión para interactuar']);
     exit;
 }
 
@@ -23,11 +23,11 @@ try {
     $pdo = getDBConnection();
     $notificationManager = new NotificationManager($pdo);
 
-    // 1. GET: Listar publicaciones con Karma y Sentimiento
+    // 1. GET: Listar publicaciones con Karma y Sentimiento (Acceso Público o Autenticado)
     if ($method === 'GET') {
         $coordinacion = $_GET['coordinacion'] ?? 'general';
         $postId = (int)($_GET['id'] ?? 0);
-        $usuario_id = $user['id'];
+        $usuario_id = $user['id'] ?? 0;
         
         if ($postId > 0) {
             $stmt = $pdo->prepare("

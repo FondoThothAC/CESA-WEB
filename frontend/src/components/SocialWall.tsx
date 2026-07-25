@@ -117,15 +117,21 @@ const SocialWall = () => {
 
   const fetchPosts = async () => {
     try {
-      const res = await fetch(`${API_URL}/muro.php?coordinacion=${coordinacion}`);
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_URL}/muro.php?coordinacion=${coordinacion}`, { headers });
       const data = await res.json();
-      if (data.success) setPosts(data.posts);
+      if (data.success) setPosts(data.posts || []);
     } catch (e) { console.error("Error al cargar el muro", e); }
   };
 
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || isLoading || !token) return;
+    if (!content.trim() || isLoading) return;
+    if (!token) {
+      alert("Por favor inicia sesión con tu número de expediente o correo para publicar en CESA Social.");
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -148,6 +154,8 @@ const SocialWall = () => {
         setContent('');
         setUrl('');
         fetchPosts();
+      } else {
+        alert(data.error || "Error al publicar en el muro.");
       }
     } catch (e) { alert("Error de conexión al muro."); } 
     finally { setIsLoading(false); }
