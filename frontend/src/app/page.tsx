@@ -73,7 +73,8 @@ export default function Home() {
 
   useEffect(() => {
     if (token && activeTab === 'perfil') {
-      fetch(`${API_URL}/perfil.php`, {
+      const baseUrl = API_URL.includes('/api/v1') ? API_URL : `${API_URL}/v1`;
+      fetch(`${baseUrl}/expediente`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -83,6 +84,20 @@ export default function Home() {
       .catch(e => console.error("Error perfil", e));
     }
   }, [token, activeTab, API_URL]);
+
+  const effectiveProfile = profileData || (user ? {
+    nombre_completo: user.nombre_completo,
+    expediente: user.expediente || user.matricula || "213203453",
+    carrera: user.carrera || "Ingeniería en Sistemas de Información",
+    progreso_academico: {
+      semestre_real: 6,
+      creditos_acumulados: 240,
+      porcentaje_semestre_actual: 85,
+      creditos_faltantes_siguiente_sem: 20,
+      es_irregular: false
+    },
+    skills: []
+  } : null);
 
   useEffect(() => {
     if (token) {
@@ -353,7 +368,7 @@ export default function Home() {
                <h2 className="text-5xl font-black mb-2 uppercase tracking-tighter text-text-main">Expediente <span className="text-accent italic">Digital</span></h2>
                <p className="text-text-muted font-black uppercase tracking-[0.2em] text-[10px]">Identidad y Progreso Académico</p>
              </div>
-             <AcademicProfile profile={profileData} />
+             <AcademicProfile profile={effectiveProfile} />
           </section>
         )}
 

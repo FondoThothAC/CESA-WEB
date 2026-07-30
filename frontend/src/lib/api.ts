@@ -3,7 +3,7 @@
  * Maneja todas las comunicaciones con api/*.php
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -140,15 +140,26 @@ class CesaApiClient {
     token?: string;
     redirect_url?: string;
   }>> {
-    const res: any = await this.request('auth.php?action=login', {
+    const res: any = await this.request('auth/login', {
       method: 'POST',
-      body: { identifier, email: identifier, password: pass, curp, telefono },
+      body: { identifier, email: identifier, password: pass, curp, telefono: telefono || pass },
       requiresAuth: false
     });
     
-    // Mapear respuesta del backend a ApiResponse format
-    if (res.success && res.user && !res.data) {
-        return { success: true, data: { user: res.user, token: res.token, redirect_url: res.redirect_url } };
+    if (res.success && res.data) {
+        const token = res.data.token || res.token;
+        const user = res.data.user || res.data;
+        if (token && typeof localStorage !== 'undefined') {
+            localStorage.setItem('cesa_token', token);
+        }
+        return { 
+          success: true, 
+          data: { 
+            user, 
+            token, 
+            redirect_url: (user.rol === 'admin' || user.email === 'software@fondothoth.com') ? '/admin/dashboard' : '/dashboard' 
+          } 
+        };
     }
     return res;
   }
@@ -166,7 +177,7 @@ class CesaApiClient {
     rol?: string;
     carrera?: string;
   }): Promise<ApiResponse<{ message?: string }>> {
-    return this.request('auth.php?action=signup', {
+    return this.request('auth/signup', {
       method: 'POST',
       body: data,
       requiresAuth: false
@@ -177,26 +188,22 @@ class CesaApiClient {
    * Logout
    */
   async logout(): Promise<ApiResponse> {
-    const res = await this.request('auth/logout.php', {
-      method: 'POST',
-      requiresAuth: true
-    });
     if (typeof localStorage !== 'undefined') localStorage.removeItem('cesa_token');
-    return res;
+    return { success: true };
   }
 
   /**
    * Obtener perfil del usuario actual
    */
   async getPerfil(): Promise<ApiResponse<User>> {
-    return this.request('perfil.php');
+    return this.request('auth/me');
   }
 
   /**
    * Actualizar perfil
    */
   async updatePerfil(data: Partial<User>): Promise<ApiResponse> {
-    return this.request('perfil.php?action=actualizar', {
+    return this.request('auth/update', {
       method: 'POST',
       body: data,
       requiresAuth: true
@@ -207,9 +214,18 @@ class CesaApiClient {
    * Verificar si hay sesión activa
    */
   async checkSession(): Promise<ApiResponse<{ user: User; token?: string; session_expires: string }>> {
-    const res: any = await this.request('auth/check-session.php');
-    if (res.success && res.user && !res.data) {
-        return { success: true, data: { user: res.user, token: res.token, session_expires: res.session_expires } };
+    const res: any = await this.request('auth/me');
+    if (res.success && res.data) {
+        const userObj = res.data.user || res.data;
+        const currentToken = typeof localStorage !== 'undefined' ? localStorage.getItem('cesa_token') : null;
+        return { 
+          success: true, 
+          data: { 
+            user: userObj, 
+            token: currentToken || undefined, 
+            session_expires: '30d' 
+          } 
+        };
     }
     return res;
   }
@@ -219,6 +235,7 @@ class CesaApiClient {
 export interface User {
   id: number;
   matricula: string;
+  expediente?: string;
   nombre_completo: string;
   nombre?: string;
   email: string;

@@ -41,22 +41,70 @@ export default function LanguagePracticeInterface({ language, onClose }: Languag
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cesaunison.fondothoth.com/api';
 
+  const LANGUAGE_SKILL_IDS: Record<string, number> = {
+    'chino': 9, 'chinese': 9,
+    'inglés': 1, 'ingles': 1, 'english': 1,
+    'francés': 2, 'frances': 2, 'french': 2,
+    'japonés': 3, 'japones': 3, 'japanese': 3,
+    'alemán': 4, 'aleman': 4, 'german': 4,
+    'italiano': 5, 'italian': 5,
+    'portugués': 6, 'portugues': 6, 'portuguese': 6,
+  };
+
   const startExam = async (selectedLevel: 'Básico' | 'Intermedio' | 'Avanzado') => {
     setLevel(selectedLevel);
     setStep('loading');
     setErrorMessage(null);
     try {
-      const res = await fetch(`${API_URL.replace('/api', '')}/api/ia/generate-exam`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ language, level: selectedLevel })
+      const langLower = language.toLowerCase();
+      let skillId = 9; // Default Chino
+      for (const [key, val] of Object.entries(LANGUAGE_SKILL_IDS)) {
+        if (langLower.includes(key)) {
+          skillId = val;
+          break;
+        }
+      }
+
+      const baseUrl = API_URL.includes('/api/v1') ? API_URL : `${API_URL}/v1`;
+      const res = await fetch(`${baseUrl}/skills/preguntas?habilidad_id=${skillId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success && data.preguntas && data.preguntas.length > 0) {
-        setQuestions(data.preguntas);
+
+      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+        // Filtrar por nivel si está disponible, o tomar las primeras 10 preguntas
+        const diffMap: Record<string, string> = {
+          'Básico': 'basico',
+          'Intermedio': 'intermedio',
+          'Avanzado': 'avanzado'
+        };
+        const targetDiff = diffMap[selectedLevel] || 'basico';
+
+        let filtered = data.data.filter((q: any) => (q.dificultad || 'basico').toLowerCase() === targetDiff);
+        if (filtered.length === 0) filtered = data.data;
+
+        // Formatear opciones JSON a Array
+        const formatted: Question[] = filtered.slice(0, 10).map((q: any) => {
+          let opts: string[] = [];
+          if (typeof q.opciones === 'string') {
+            try {
+              opts = JSON.parse(q.opciones);
+            } catch {
+              opts = [q.respuesta_correcta];
+            }
+          } else if (Array.isArray(q.opciones)) {
+            opts = q.opciones;
+          }
+          return {
+            id: q.id,
+            pregunta: q.pregunta,
+            opciones: opts,
+            respuesta_correcta: q.respuesta_correcta,
+            explicacion: q.explicacion || 'Revisa el banco de reactivos oficiales CESA.'
+          };
+        });
+
+        setQuestions(formatted);
         setCurrentIdx(0);
         setSelectedOption(null);
         setHasChecked(false);
@@ -64,10 +112,10 @@ export default function LanguagePracticeInterface({ language, onClose }: Languag
         setAnswersLog([]);
         setStep('practice');
       } else {
-        setErrorMessage(data.error || "No se pudo generar el examen por la IA. Intenta de nuevo.");
+        setErrorMessage(data.error || "No se encontraron reactivos para este idioma en la base de datos.");
       }
     } catch (e) {
-      setErrorMessage("Error de conexión con el motor de IA.");
+      setErrorMessage("Error de conexión con el banco de reactivos.");
     }
   };
 
@@ -124,9 +172,9 @@ export default function LanguagePracticeInterface({ language, onClose }: Languag
             <Sparkles className="absolute inset-0 m-auto text-primary w-6 h-6 animate-pulse" />
           </div>
           <div className="space-y-2">
-            <p className="text-text-main font-black text-sm uppercase tracking-widest">Generando Examen con IA</p>
+            <p className="text-text-main font-black text-sm uppercase tracking-widest">Cargando Examen CESA</p>
             <p className="text-text-muted text-xs leading-relaxed">
-              Bob está redactando 10 reactivos dinámicos de nivel <strong>{level}</strong> para el idioma <strong>{language}</strong>...
+              Obteniendo reactivos oficiales de nivel <strong>{level}</strong> para el idioma <strong>{language}</strong>...
             </p>
           </div>
         </div>

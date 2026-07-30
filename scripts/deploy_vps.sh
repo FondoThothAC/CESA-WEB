@@ -335,12 +335,17 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP \
 # 5. Permisos Finales
 echo "🔑 5/6 Restaurando permisos para www-data..."
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP \
-    "sudo chown -R www-data:www-data $REMOTE_PATH && sudo chmod -R 755 $REMOTE_PATH"
+    "sudo chown -R www-data:www-data $REMOTE_PATH && sudo chown -R $USER:$USER $REMOTE_PATH/rust-backend && sudo chmod -R 755 $REMOTE_PATH"
 
 # 6. Despliegue del Microservicio de IA (NODE.JS)
 echo "📦 6/6 Levantando Motor de IA (Node.js)..."
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     # 1. Instalar Node.js 18 si no existe
+    if ! command -v gcc &> /dev/null || ! command -v pkg-config &> /dev/null; then
+        echo "   - Instalando paquetes de compilación C/C++ y OpenSSL (build-essential, pkg-config, libssl-dev)..."
+        sudo apt-get update && sudo apt-get install -y build-essential pkg-config libssl-dev
+    fi
+
     if ! command -v node &> /dev/null; then
         echo "   - Instalando Node.js..."
         curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
@@ -372,7 +377,38 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     sudo -u www-data PM2_HOME=/var/www/home/.pm2 pm2 save
 EOF
 
+# 7. Despliegue del Backend Unificado en Rust
+echo "🦀 7/7 Sincronizando y Levantando Backend Unificado en Rust..."
+rsync -avz --delete --rsync-path="sudo rsync" -e "ssh -i \"$SSH_KEY\" -o StrictHostKeyChecking=no" \
+    --exclude 'target' \
+    rust-backend/ $USER@$IP:$REMOTE_PATH/rust-backend/
+
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
+    # Proteger RAM creando SWAP si no existe
+    if ! sudo swapon --show | grep -q "/swapfile"; then
+        echo "   - Creando memoria SWAP de 2GB para prevenir congelamiento..."
+        sudo fallocate -l 2G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+    fi
+
+    echo "   - Compilando binario Release de Rust (modo ligero -j 1)..."
+    cd /var/www/cesa-web/rust-backend
+    export PATH="$HOME/.cargo/bin:$PATH"
+    rustup default stable 2>/dev/null || true
+    cargo build --release -j 1
+
+    echo "   - Levantando servicio cesa-rust en PM2..."
+    sudo -u www-data PM2_HOME=/var/www/home/.pm2 pm2 restart cesa-rust 2>/dev/null || \
+    sudo -u www-data PM2_HOME=/var/www/home/.pm2 pm2 start target/release/cesa-rust-backend --name "cesa-rust" --max-memory-restart 250M --time
+    
+    sudo -u www-data PM2_HOME=/var/www/home/.pm2 pm2 save
+EOF
+
 echo "✅ Despliegue completado satisfactoriamente."
 echo "🔗 URL: https://$DOMAIN"
 echo "📲 PWA (PHP Shell): https://$DOMAIN/pwa/"
 echo "🤖 AI Status: https://$DOMAIN/api/ia/admin/status"
+echo "🦀 Rust API Status: https://$DOMAIN/api/v1/health"
+

@@ -27,11 +27,12 @@ const ReportList = () => {
 
   const fetchReportes = async () => {
     try {
-      const res = await fetch(`${API_URL}/reportes.php?modo=comunidad`, {
+      const baseUrl = API_URL.includes('/api/v1') ? API_URL : `${API_URL}/v1`;
+      const res = await fetch(`${baseUrl}/reportes?modo=comunidad`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) setReportes(data.data);
+      if (data.success && data.data) setReportes(data.data);
     } catch (e) {
       console.error("Error fetching reportes", e);
     } finally {

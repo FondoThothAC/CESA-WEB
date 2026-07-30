@@ -1,0 +1,15 @@
+pub mod admin;
+pub mod ai_engine;
+pub mod auth;
+pub mod bazar;
+pub mod empleos;
+pub mod expedientes;
+pub mod noticias;
+pub mod ocean;
+pub mod publicidad;
+pub mod rag_admin;
+pub mod reportes;
+pub mod skills;
+pub mod social;
+pub mod telegram;
+pub mod votaciones;

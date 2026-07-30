@@ -19,13 +19,20 @@ const ReportForm = () => {
         setStatus('loading');
 
         try {
-            const res = await fetch(`${API_URL}/reportes.php`, {
+            const baseUrl = API_URL.includes('/api/v1') ? API_URL : `${API_URL}/v1`;
+            const res = await fetch(`${baseUrl}/reportes/crear`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
                     'Authorization': token ? `Bearer ${token}` : ''
                 },
-                body: JSON.stringify({ tipo, contenido, anonimo })
+                body: JSON.stringify({ 
+                    tipo: 'queja',
+                    categoria: tipo, 
+                    asunto: `Incidencia en ${tipo}`,
+                    descripcion: contenido, 
+                    anonimo 
+                })
             });
             const data = await res.json();
             if (data.success) {
