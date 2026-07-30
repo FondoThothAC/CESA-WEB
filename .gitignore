@@ -30,3 +30,4 @@ scratch/
 scratch_*
 *.key
 
+rust-backend/target/
