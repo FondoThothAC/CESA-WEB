@@ -9,6 +9,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../lib/Auth.php';
 require_once __DIR__ . '/../lib/AdminHelper.php';
+require_once __DIR__ . '/../lib/NotificationManager.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -41,7 +42,7 @@ try {
             if ($filtro === 'pendiente') {
                 $where[] = "e.verificado = 0";
             } else if ($filtro === 'activo') {
-                $where[] = "e.activo = 1 AND e.verificado = 1";
+                $where[] = "e.active = 1 AND e.verificado = 1";
             }
 
             if ($where) {
@@ -93,10 +94,11 @@ try {
                     e.descripcion,
                     e.instagram,
                     e.whatsapp,
+                    e.verificado,
                     u.nombre_completo as responsable,
                     u.matricula
                 FROM cat_puestos cp
-                LEFT JOIN emprendimientos e ON cp.id = e.puesto_id AND e.activo = 1 AND e.verificado = 1
+                LEFT JOIN emprendimientos e ON cp.id = e.puesto_id AND e.active = 1
                 LEFT JOIN usuarios u ON e.usuario_id = u.id
                 ORDER BY cp.id ASC
             ");
@@ -172,8 +174,11 @@ try {
 
         case 'aprobar':
             $id = (int)($_POST['id'] ?? 0);
-            $stmt = $pdo->prepare("UPDATE emprendimientos SET verificado = 1, activo = 1 WHERE id = ?");
+            $stmt = $pdo->prepare("UPDATE emprendimientos SET verificado = 1, active = 1 WHERE id = ?");
             $stmt->execute([$id]);
+            $owner = $pdo->prepare("SELECT usuario_id, nombre_negocio FROM emprendimientos WHERE id = ?");
+            $owner->execute([$id]); $owner = $owner->fetch(PDO::FETCH_ASSOC);
+            if ($owner) (new NotificationManager($pdo))->createNotification((int)$owner['usuario_id'], 'sistema', 'Reserva de Bazar aprobada', 'Tu reserva de ' . $owner['nombre_negocio'] . ' fue aprobada.', '#bazar');
             
             AdminHelper::logAction($pdo, $user['id'], 'bazar_aprobar', "Negocio ID $id aprobado");
             echo json_encode(['success' => true]);
@@ -182,9 +187,11 @@ try {
         case 'rechazar':
             $id = (int)($_POST['id'] ?? 0);
             $razon = $_POST['razon'] ?? 'No cumple con los lineamientos';
-            
-            $stmt = $pdo->prepare("UPDATE emprendimientos SET activo = 0, verificado = 0 WHERE id = ?");
+            $owner = $pdo->prepare("SELECT usuario_id, nombre_negocio FROM emprendimientos WHERE id = ?");
+            $owner->execute([$id]); $owner = $owner->fetch(PDO::FETCH_ASSOC);
+            $stmt = $pdo->prepare("UPDATE emprendimientos SET active = 0, verificado = 0, puesto_id = NULL WHERE id = ?");
             $stmt->execute([$id]);
+            if ($owner) (new NotificationManager($pdo))->createNotification((int)$owner['usuario_id'], 'sistema', 'Reserva de Bazar rechazada', 'Tu reserva de ' . $owner['nombre_negocio'] . ' fue rechazada. Consulta tu Perfil.', '#perfil');
             
             AdminHelper::logAction($pdo, $user['id'], 'bazar_rechazar', "Negocio ID $id rechazado", ['razon' => $razon]);
             echo json_encode(['success' => true]);

@@ -3,11 +3,14 @@
 // ==============================================================================
 
 use axum::http::Method;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{CorsLayer, AllowOrigin};
 
 pub fn cors_layer() -> CorsLayer {
     CorsLayer::new()
-        .allow_origin(Any)
+        // Permitir que el frontend envíe credenciales (cookies/tokens)
+        .allow_credentials(true)
+        // Reflejar cualquier origin (necesario cuando credentials = true, ya que no se permite '*')
+        .allow_origin(AllowOrigin::predicate(|_, _| true))
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -15,5 +18,5 @@ pub fn cors_layer() -> CorsLayer {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers(Any)
+        .allow_headers(tower_http::cors::Any)
 }

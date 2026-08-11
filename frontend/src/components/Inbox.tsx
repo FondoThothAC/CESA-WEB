@@ -52,7 +52,7 @@ const Inbox = () => {
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cesaunison.fondothoth.com/api';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cesaunison.fondothoth.com/api/v1';
 
   useEffect(() => {
     scrollToBottom();
@@ -112,7 +112,7 @@ const Inbox = () => {
 
   const fetchThreads = async () => {
     try {
-      const res = await fetch(`${API_URL}/mensajes.php?action=threads`, {
+      const res = await fetch(`${API_URL}/social/mensajes/conversaciones`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -143,7 +143,7 @@ const Inbox = () => {
   const fetchChatHistory = async (contactId: number | 'ai') => {
     if (contactId === 'ai') return;
     try {
-      const res = await fetch(`${API_URL}/mensajes.php?action=chat&contact_id=${contactId}`, {
+      const res = await fetch(`${API_URL}/social/mensajes/chat?contact_id=${contactId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -226,8 +226,9 @@ const Inbox = () => {
         console.error("Error IA", e);
       }
     } else {
+      const tempId = Date.now();
       const userMsg: Message = {
-        id: Date.now(),
+        id: tempId,
         emisor_id: user?.id || 0,
         receptor_id: receptorId,
         contenido: msgText,
@@ -237,24 +238,27 @@ const Inbox = () => {
       setMessages(prev => [...prev, userMsg]);
 
       try {
-        const res = await fetch(`${API_URL}/mensajes.php`, {
+        const res = await fetch(`${API_URL}/social/mensajes/enviar`, {
           method: 'POST',
           headers: { 
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json' 
           },
           body: JSON.stringify({ 
-            receptor_id: receptorId,
-            contenido: msgText,
-            lat,
-            lon
+            contact_id: receptorId,
+            contenido: msgText
           })
         });
         const data = await res.json();
         if (data.success) {
           fetchThreads();
+        } else {
+          setMessages(prev => prev.filter(m => m.id !== tempId));
+          alert(data.error || data.mensaje || "Error al enviar el mensaje.");
         }
       } catch (e) {
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        alert("Error de conexión al enviar el mensaje.");
         console.error("Error P2P", e);
       }
     }

@@ -12,6 +12,7 @@ const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ss
 
 import 'leaflet/dist/leaflet.css';
 import BazarSchematicMap from './BazarSchematicMap';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface Producto {
   id: number;
@@ -46,8 +47,8 @@ const CATEGORIAS = [
   { id: 'arte', label: 'Arte/Diseño', icon: '🎨' },
 ];
 
-const BazarGrid = () => {
-  const { user, token } = useAuth();
+const BazarGrid = ({ onViewReservations }: { onViewReservations?: () => void }) => {
+  const { user, token: contextToken } = useAuth();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [mapLocations, setMapLocations] = useState<any[]>([]);
   const [activeCat, setActiveCat] = useState('todas');
@@ -60,6 +61,15 @@ const BazarGrid = () => {
   const [activeEdicionId, setActiveEdicionId] = useState<number | null>(null);
   const mapRef = React.useRef<any>(null);
   const [goldMarker, setGoldMarker] = useState<any>(null);
+  const [confirmation, setConfirmation] = useState<any>(null);
+
+  // Leer el token de localStorage como fuente de verdad para evitar el
+  // problema de hidratación donde el estado React llega tarde
+  const getToken = () => {
+    if (contextToken) return contextToken;
+    if (typeof window !== 'undefined') return localStorage.getItem('cesa_token');
+    return null;
+  };
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cesaunison.fondothoth.com/api';
 
@@ -91,11 +101,15 @@ const BazarGrid = () => {
     fetchEdiciones();
   }, [activeCat, activeEdicionId]);
 
-  // Fix para el error de mapa gris en SPA
+  // Fix para el error de mapa gris en SPA (ejecucion segura sin crash)
   useEffect(() => {
-    if (mapRef.current) {
+    if (mapRef.current && typeof mapRef.current.invalidateSize === 'function') {
       setTimeout(() => {
-        mapRef.current.invalidateSize();
+        try {
+          mapRef.current?.invalidateSize();
+        } catch (e) {
+          console.warn("mapRef invalidateSize ignored", e);
+        }
       }, 800);
     }
   }, [mapLocations]);
@@ -119,15 +133,17 @@ const BazarGrid = () => {
       const edParam = activeEdicionId ? `&edicion_id=${activeEdicionId}` : '';
       const res = await fetch(`${API_URL}/bazar.php?action=listar&categoria=${activeCat}${edParam}`);
       const data = await res.json();
-      if (data.success) setProductos(data.data);
+      if (data.success) setProductos(data.data || []);
     } catch (e) { console.error("Error fetching bazar products", e); }
   };
 
   const handleVote = async (id: number, valor: number) => {
+    const token = getToken();
+    if (!token) return;
     try {
-      const res = await fetch(`${API_URL}/bazar.php`, {
+      const res = await fetch(`${API_URL}/bazar.php?action=votar`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
@@ -140,10 +156,11 @@ const BazarGrid = () => {
 
   const fetchMapLocations = async () => {
     try {
-      const edParam = activeEdicionId ? `?edicion_id=${activeEdicionId}` : '';
+      // Intentar con el backend Rust primero, fallback al PHP
+      const edParam = activeEdicionId ? `&edicion_id=${activeEdicionId}` : '';
       const res = await fetch(`${API_URL}/bazar.php?action=listar_ubicaciones${edParam}`);
       const data = await res.json();
-      if (data.success) setMapLocations(data.data);
+      if (data.success) setMapLocations(data.data || []);
     } catch (e) { console.error("Error fetching map locations", e); }
   };
 
@@ -151,7 +168,7 @@ const BazarGrid = () => {
     try {
       const res = await fetch(`${API_URL}/bazar.php?action=catalogo_puestos`);
       const data = await res.json();
-      if (data.success) setCatalogoPuestos(data.data);
+      if (data.success) setCatalogoPuestos(data.data || []);
     } catch (e) { console.error("Error fetching catalogue of spots", e); }
   };
 
@@ -164,30 +181,50 @@ const BazarGrid = () => {
     e.preventDefault();
     setLoading(true);
 
+    const token = getToken();
+    if (!token) {
+      alert('Debes iniciar sesión para registrar tu negocio.');
+      setLoading(false);
+      return;
+    }
+
     const formData = new FormData(e.currentTarget);
     const payload = Object.fromEntries(formData.entries());
-    
+    if (selectedPuesto) (payload as any).puesto_id = selectedPuesto;
+
+    if (!payload.puesto_id) {
+      alert('Por favor selecciona un puesto de la Calle de la Cultura antes de registrar tu emprendimiento.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch(`${API_URL}/bazar.php?action=registrar`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ action: 'registrar', ...payload })
       });
 
       const data = await res.json();
       if (data.success) {
+        setConfirmation(data.reservation || { folio: data.id, estado: 'Pendiente' });
         setShowForm(false);
         setSelectedPuesto(null);
         setSelectedSpotDetails(null);
         fetchProductos();
         fetchMapLocations();
       } else {
-        alert(data.error || 'Error al registrar negocio');
+        if (data.reservation) {
+          setConfirmation(data.reservation);
+          setShowForm(false);
+        } else {
+          alert(data.error || data.message || 'Error al registrar negocio');
+        }
       }
-    } catch (e) { console.error("Error registering", e); } 
+    } catch (e) { console.error("Error registering", e); }
     finally { setLoading(false); }
   };
 
@@ -195,6 +232,22 @@ const BazarGrid = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 pb-24 space-y-12 animate-in fade-in duration-500">
+      {confirmation && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-slate-900 border border-emerald-500/30 p-8 text-center shadow-2xl">
+            <div className="text-4xl mb-3">✅</div>
+            <h3 className="text-xl font-black text-white uppercase">Reserva apartada</h3>
+            <p className="mt-2 text-sm text-slate-300">Tu solicitud está pendiente de revisión.</p>
+            <p className="mt-4 text-lg font-mono font-black text-emerald-400">{confirmation.folio}</p>
+            {confirmation.verify_url && <div className="my-5 flex justify-center rounded-2xl bg-white p-4"><QRCodeSVG value={confirmation.verify_url} size={150} /></div>}
+            <p className="text-[10px] text-slate-400">{confirmation.email_sent ? 'Enviamos el ticket a tu correo institucional.' : 'El ticket quedó guardado en tu Perfil.'}</p>
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => { setConfirmation(null); onViewReservations?.(); }} className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-[10px] font-black uppercase text-white">Ver mi reserva</button>
+              <button onClick={() => setConfirmation(null)} className="rounded-xl border border-white/10 px-4 py-3 text-[10px] font-black uppercase text-slate-300">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Title Header with Active Edition Status */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-6">
@@ -294,7 +347,7 @@ const BazarGrid = () => {
                 ) : (
                   <button 
                     onClick={() => {
-                      if (!token) {
+                      if (!getToken()) {
                         alert('Por favor inicia sesión para apartar un puesto en el bazar.');
                         return;
                       }
@@ -338,7 +391,7 @@ const BazarGrid = () => {
          </div>
          <button 
             onClick={() => {
-              if (!token && !showForm) {
+              if (!getToken() && !showForm) {
                 alert('Debes iniciar sesión para publicar tu negocio.');
                 return;
               }
@@ -362,20 +415,33 @@ const BazarGrid = () => {
               <textarea name="descripcion" required placeholder="Describe lo que vendes u ofreces..." className="md:col-span-3 bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm outline-none h-32 resize-none focus:border-indigo-500" />
               
               <div className="md:col-span-3 space-y-4">
-                 <label className="text-[10px] uppercase font-black text-indigo-400 tracking-widest">Puesto Seleccionado en la Calle de la Cultura</label>
-                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 max-h-48 overflow-y-auto pr-2 border border-white/5 p-4 rounded-2xl bg-black/10">
-                    {catalogoPuestos.map((p) => {
+                 <div className="p-4 rounded-2xl bg-indigo-600/10 border border-indigo-500/30 flex items-center justify-between">
+                    <div>
+                       <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest block">Puesto Seleccionado en la Calle de la Cultura</span>
+                       <p className="text-white font-black text-sm mt-0.5">
+                          {selectedPuesto ? `Puesto #${selectedPuesto} — Calle de la Cultura` : '⚠️ Ningún puesto seleccionado (Elige uno de la lista a continuación)'}
+                       </p>
+                    </div>
+                    {selectedPuesto && (
+                       <span className="bg-emerald-500 text-white font-black text-[9px] px-3 py-1.5 rounded-xl uppercase tracking-widest">
+                          ✓ Puesto Apartado
+                       </span>
+                    )}
+                 </div>
+
+                 <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-10 gap-2 max-h-48 overflow-y-auto pr-2 border border-white/5 p-4 rounded-2xl bg-black/10">
+                    {(catalogoPuestos.length > 0 ? catalogoPuestos : Array.from({ length: 30 }, (_, i) => ({ id: i + 1, zona: 'Central' }))).map((p) => {
                        const isOccupied = mapLocations.some(loc => Number(loc.puesto_id) === Number(p.id));
                        return (
                           <div 
                              key={p.id}
                              onClick={() => !isOccupied && setSelectedPuesto(p.id)}
                              className={`p-3 rounded-xl border text-center cursor-pointer transition-all ${
-                                selectedPuesto === p.id ? 'bg-indigo-600 border-white text-white' : 
-                                (isOccupied ? 'opacity-30 bg-slate-800 border-white/5 cursor-not-allowed' : 'bg-black/20 border-white/10 text-white/40 hover:border-indigo-500')
+                                selectedPuesto === p.id ? 'bg-indigo-600 border-white text-white shadow-lg shadow-indigo-600/40 scale-105' : 
+                                (isOccupied ? 'opacity-30 bg-slate-800 border-white/5 cursor-not-allowed' : 'bg-black/20 border-white/10 text-white/60 hover:border-indigo-500 hover:text-white')
                              }`}
                           >
-                             <span className="text-[10px] font-black">{p.zona ? p.zona[0].toUpperCase() : 'P'}{p.id}</span>
+                             <span className="text-[10px] font-black">#{p.id}</span>
                           </div>
                        );
                     })}

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Landmark, GraduationCap, Users } from 'lucide-react';
+import Link from 'next/link';
+import { Landmark, GraduationCap, Users, MapPin } from 'lucide-react';
 
 const Hero = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
     return (
@@ -35,6 +36,9 @@ const Hero = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
                 </p>
                 
                 <div className="flex flex-wrap gap-4 justify-center items-center">
+                    <Link href="/mapa/" className="btn-clean-primary flex items-center gap-3 group text-[10px] font-black uppercase tracking-[0.2em]">
+                        Mapa 3D 🗺️
+                    </Link>
                     <button onClick={() => onNavigate('empleos')} className="btn-clean-primary flex items-center gap-3 group text-[10px] font-black uppercase tracking-[0.2em]">
                         Bolsa de Trabajo 🚀
                     </button>

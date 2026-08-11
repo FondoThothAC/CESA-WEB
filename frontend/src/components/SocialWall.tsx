@@ -107,9 +107,17 @@ const SocialWall = () => {
   const [useAlias, setUseAlias] = useState(false);
   const [coordinacion, setCoordinacion] = useState('general');
   const [isLoading, setIsLoading] = useState(false);
-  const { user, token } = useAuth();
-  
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cesaunison.fondothoth.com/api';
+  const { user, token: contextToken } = useAuth();
+
+  // Leer el token del localStorage como fuente de verdad para evitar el
+  // problema de hidratación donde el estado React llega tarde
+  const getToken = () => {
+    if (contextToken) return contextToken;
+    if (typeof window !== 'undefined') return localStorage.getItem('cesa_token');
+    return null;
+  };
+
+  const BASE_URL = '/api';
 
   useEffect(() => {
     fetchPosts();
@@ -117,17 +125,20 @@ const SocialWall = () => {
 
   const fetchPosts = async () => {
     try {
+      const token = getToken();
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API_URL}/muro.php?coordinacion=${coordinacion}`, { headers });
+      const res = await fetch(`${BASE_URL}/muro.php?coordinacion=${coordinacion}`, { headers });
       const data = await res.json();
-      if (data.success) setPosts(data.posts || []);
+      if (data.success) setPosts(data.posts || data.data || []);
     } catch (e) { console.error("Error al cargar el muro", e); }
   };
 
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || isLoading) return;
+
+    const token = getToken();
     if (!token) {
       alert("Por favor inicia sesión con tu número de expediente o correo para publicar en CESA Social.");
       return;
@@ -135,16 +146,16 @@ const SocialWall = () => {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/muro.php`, {
+      const res = await fetch(`${BASE_URL}/muro.php`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           action: 'publicar',
           contenido: content,
-          url_externa: url,
+          url_externa: url || null,
           coordinacion: coordinacion,
           usar_alias: useAlias
         })
@@ -155,20 +166,21 @@ const SocialWall = () => {
         setUrl('');
         fetchPosts();
       } else {
-        alert(data.error || "Error al publicar en el muro.");
+        alert(data.error || data.message || "Error al publicar en el muro.");
       }
-    } catch (e) { alert("Error de conexión al muro."); } 
+    } catch (e) { alert("Error de conexión al muro."); }
     finally { setIsLoading(false); }
   };
 
   const handleVote = async (postId: number, valor: number) => {
+    const token = getToken();
     if (!token) return;
     try {
-      const res = await fetch(`${API_URL}/muro.php`, {
+      const res = await fetch(`${BASE_URL}/muro.php`, {
         method: 'POST',
-        headers: { 
-           'Authorization': `Bearer ${token}`,
-           'Content-Type': 'application/json'
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ action: 'votar', publicacion_id: postId, valor })
       });
@@ -176,6 +188,7 @@ const SocialWall = () => {
       if (data.success) fetchPosts();
     } catch (e) { }
   };
+
 
   return (
     <div className="max-w-6xl mx-auto pb-24 px-4 grid grid-cols-1 lg:grid-cols-4 gap-8">

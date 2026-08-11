@@ -44,6 +44,16 @@ class Auth {
                 $_SESSION['nombre'] = $decoded['nombre'] ?? '';
             }
         }
+
+        // Respaldo de sesión nativa si no hay token Bearer activo
+        if (!$this->currentUser && isset($_SESSION['user_id'])) {
+            $this->currentUser = [
+                'id' => (int)$_SESSION['user_id'],
+                'email' => $_SESSION['email'] ?? '',
+                'rol' => $_SESSION['rol'] ?? 'estudiante',
+                'nombre' => $_SESSION['nombre'] ?? ''
+            ];
+        }
     }
 
     public function isLoggedIn(): bool {

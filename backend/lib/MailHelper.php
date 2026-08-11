@@ -19,15 +19,24 @@ class MailHelper {
             return true;
         }
 
-        // Headers para HTML
         $headers[] = 'MIME-Version: 1.0';
-        $headers[] = 'Content-type: text/html; charset=utf-8';
         $headers[] = "From: $fromName <$from>";
         $headers[] = "Reply-To: $from";
-
-        // NOTA: Para producción real con SMTP autenticado, se recomienda PHPMailer.
-        // Aquí usamos mail() como base para la infraestructura.
-        return mail($to, $subject, self::wrapTemplate($subject, $body), implode("\r\n", $headers));
+        if (!$attachments) {
+            $headers[] = 'Content-type: text/html; charset=utf-8';
+            return mail($to, $subject, self::wrapTemplate($subject, $body), implode("\r\n", $headers));
+        }
+        $boundary = '=_CESA_' . md5(uniqid('', true));
+        $headers[] = 'Content-Type: multipart/mixed; boundary="' . $boundary . '"';
+        $message = '--' . $boundary . "\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" . self::wrapTemplate($subject, $body) . "\r\n";
+        foreach ($attachments as $attachment) {
+            $path = $attachment['path'] ?? '';
+            if (!$path || !is_readable($path)) continue;
+            $name = basename($attachment['name'] ?? basename($path));
+            $type = $attachment['type'] ?? 'application/octet-stream';
+            $message .= '--' . $boundary . "\r\nContent-Type: $type; name=\"$name\"\r\nContent-Disposition: attachment; filename=\"$name\"\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode((string)file_get_contents($path))) . "\r\n";
+        }
+        return mail($to, $subject, $message . '--' . $boundary . "--\r\n", implode("\r\n", $headers));
     }
 
     private static function wrapTemplate(string $title, string $content): string {

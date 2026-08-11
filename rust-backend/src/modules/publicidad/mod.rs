@@ -23,6 +23,16 @@ pub struct BannerPublicitario {
     pub activo: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct AdsenseConfig {
+    pub id: Option<i32>,
+    pub activo: Option<i8>, // MySQL TINYINT
+    pub publisher_id: Option<String>,
+    pub banner_slot_id: Option<String>,
+    pub interstitial_slot_id: Option<String>,
+    pub frecuencia_diaria: Option<i32>,
+}
+
 /// Handler público para listar banners publicitarios activos
 pub async fn get_publicidad(State(state): State<AppState>) -> impl IntoResponse {
     let result = sqlx::query_as::<_, BannerPublicitario>(
@@ -40,6 +50,37 @@ pub async fn get_publicidad(State(state): State<AppState>) -> impl IntoResponse 
     }
 }
 
+/// Handler público para obtener la configuración de Google AdSense
+pub async fn get_adsense_config(State(state): State<AppState>) -> impl IntoResponse {
+    let result = sqlx::query_as::<_, AdsenseConfig>(
+        "SELECT id, activo, publisher_id, banner_slot_id, interstitial_slot_id, frecuencia_diaria FROM publicidad_config WHERE id = 1",
+    )
+    .fetch_optional(&state.db)
+    .await;
+
+    match result {
+        Ok(Some(config)) => ApiResponse::success(config).into_response(),
+        Ok(None) => {
+            // Retornar configuración por defecto inactiva si no existe
+            let default_config = AdsenseConfig {
+                id: Some(1),
+                activo: Some(0),
+                publisher_id: None,
+                banner_slot_id: None,
+                interstitial_slot_id: None,
+                frecuencia_diaria: Some(2),
+            };
+            ApiResponse::success(default_config).into_response()
+        }
+        Err(err) => {
+            tracing::error!("Error al consultar config AdSense: {:?}", err);
+            ApiResponse::<()>::error(StatusCode::INTERNAL_SERVER_ERROR, "Error al cargar config AdSense").into_response()
+        }
+    }
+}
+
 pub fn router() -> Router<AppState> {
-    Router::new().route("/publicidad", get(get_publicidad))
+    Router::new()
+        .route("/publicidad", get(get_publicidad))
+        .route("/publicidad/adsense", get(get_adsense_config))
 }

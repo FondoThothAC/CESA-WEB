@@ -348,7 +348,7 @@ export default function Home() {
                <h2 className="text-5xl font-black mb-2 uppercase tracking-tighter text-text-main">Bazar <span className="text-accent italic">Emprendedor</span></h2>
                <p className="text-text-muted font-black uppercase tracking-[0.2em] text-[10px]">Impulsando Proyectos Universitarios</p>
             </div>
-            <BazarGrid />
+            <BazarGrid onViewReservations={() => setActiveTab('perfil')} />
           </section>
         )}
 

@@ -34,6 +34,7 @@ const AcademicProfile = ({ profile }: AcademicProfileProps) => {
   const [showCarnet, setShowCarnet] = useState(false);
   const [identidad, setIdentidad] = useState<any>(null);
   const [loadingCarnet, setLoadingCarnet] = useState(false);
+  const [reservas, setReservas] = useState<any[]>([]);
   const { token } = useAuth();
   
   const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -41,8 +42,24 @@ const AcademicProfile = ({ profile }: AcademicProfileProps) => {
   useEffect(() => {
     if (token) {
       fetchCatalog();
+      fetchReservas();
     }
   }, [token]);
+
+  const fetchReservas = async () => {
+    try {
+      const res = await fetch(`${API_URL}/bazar.php?action=mis_reservas`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.success) setReservas(data.data || []);
+    } catch (e) { console.error('Error cargando reservas', e); }
+  };
+
+  const downloadTicket = async (id: number, folio: string) => {
+    const res = await fetch(`${API_URL}/bazar.php?action=descargar_ticket&id=${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return;
+    const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = `${folio}.pdf`; a.click(); URL.revokeObjectURL(url);
+  };
 
   const fetchCatalog = async () => {
     try {
@@ -208,6 +225,18 @@ const AcademicProfile = ({ profile }: AcademicProfileProps) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="lg:col-span-3 clean-card border border-indigo-500/20 p-8 rounded-[40px]">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted">Mis Reservas del Bazar</h3>
+            <span className="text-[9px] text-indigo-400 font-black uppercase">{reservas.length} ticket(s)</span>
+          </div>
+          {reservas.length === 0 ? <p className="text-sm text-text-muted">Aún no tienes reservas registradas.</p> : <div className="grid grid-cols-1 md:grid-cols-2 gap-5">{reservas.map((r) => (
+            <div key={r.id} className="rounded-3xl border border-border bg-bg-primary/40 p-5 flex gap-5 items-center">
+              <div className="bg-white p-2 rounded-xl shrink-0"><QRCodeSVG value={r.verify_url} size={88} /></div>
+              <div className="min-w-0 flex-1"><p className="font-mono font-black text-indigo-400">{r.folio}</p><p className="text-sm font-bold text-text-main truncate">{r.nombre_negocio}</p><p className="text-[10px] text-text-muted uppercase">Puesto #{r.puesto_id || 'Liberado'} · {r.zona || '—'}</p><span className={`inline-block mt-2 text-[9px] font-black uppercase px-2 py-1 rounded-full ${r.estado === 'Aprobada' ? 'bg-emerald-500/10 text-emerald-400' : r.estado === 'Rechazada' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>{r.estado}</span><button onClick={() => downloadTicket(r.id, r.folio)} className="block mt-3 text-[9px] font-black uppercase text-indigo-400 hover:text-white">Descargar PDF</button></div>
+            </div>
+          ))}</div>}
+        </div>
         <div className="lg:col-span-2 space-y-10">
            {/* Detailed Progress Card */}
            <div className="clean-card border border-border p-8 rounded-[40px] bg-bg-secondary/45">

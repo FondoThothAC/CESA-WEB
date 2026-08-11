@@ -33,26 +33,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Verificar si hay sesión activa en PHP
+   * Verificar si hay sesión activa — lee el token de localStorage como fuente primaria.
+   * El endpoint /auth/me no devuelve el token en la respuesta (solo datos del usuario),
+   * por eso el token siempre se toma del localStorage si existe.
    */
   const checkAuth = useCallback(async () => {
     try {
-      const response = await api.checkSession();
-      
-      if (response.success && response.data && response.data.user) {
-        setUser(response.data.user);
-        const newToken = response.data.token || (typeof window !== 'undefined' ? localStorage.getItem('cesa_token') : null);
-        setToken(newToken);
-        if (typeof window !== 'undefined' && response.data.token) {
-           localStorage.setItem('cesa_token', response.data.token);
-        }
-      } else {
+      // Leer token almacenado ANTES de hacer la petición
+      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('cesa_token') : null;
+
+      if (!storedToken) {
+        // Sin token en localStorage = no hay sesión activa
         setUser(null);
         setToken(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // Establecer el token en el estado inmediatamente para evitar el flash de "no autenticado"
+      setToken(storedToken);
+
+      const response = await api.checkSession();
+
+      if (response.success && response.data && response.data.user) {
+        setUser(response.data.user);
+        // El token ya está en el estado (línea de arriba); si viene uno nuevo lo actualizamos
+        if (response.data.token) {
+          setToken(response.data.token);
+          localStorage.setItem('cesa_token', response.data.token);
+        }
+      } else {
+        // Token inválido o expirado — limpiar todo
+        setUser(null);
+        setToken(null);
+        if (typeof window !== 'undefined') localStorage.removeItem('cesa_token');
       }
     } catch (error) {
       console.error('Error verificando sesión:', error);
-      setUser(null);
+      // En caso de error de red, mantener el token del localStorage si existe
+      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('cesa_token') : null;
+      if (!storedToken) {
+        setUser(null);
+        setToken(null);
+      }
     } finally {
       setIsLoading(false);
     }

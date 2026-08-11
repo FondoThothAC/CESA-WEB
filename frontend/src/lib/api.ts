@@ -3,7 +3,7 @@
  * Maneja todas las comunicaciones con api/*.php
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -49,7 +49,6 @@ class CesaApiClient {
       const data = await res.json();
       if (data.token) {
         this.csrfToken = data.token;
-        // Actualizar meta tag
         if (typeof document !== 'undefined') {
             let meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement;
             if (!meta) {
@@ -73,32 +72,26 @@ class CesaApiClient {
       method = 'GET',
       body,
       headers = {},
-      requiresAuth = false
     } = options;
 
-    // Headers por defecto
     const defaultHeaders: Record<string, string> = {
       ...headers
     };
 
-    // Include token for authorization if present (JWT as an alternative path/fallback)
     const lsToken = typeof localStorage !== 'undefined' ? localStorage.getItem('cesa_token') : null;
     if (lsToken) {
        defaultHeaders['Authorization'] = `Bearer ${lsToken}`;
     }
 
-    // Incluir CSRF token si está disponible
     if (this.csrfToken) {
       defaultHeaders['X-CSRF-Token'] = this.csrfToken;
     }
 
-    // Preparar body
     let finalBody: string | FormData | undefined;
     
     if (body) {
       if (body instanceof FormData) {
         finalBody = body;
-        // fetch auto sets content type for FormData
       } else {
         defaultHeaders['Content-Type'] = 'application/json';
         finalBody = JSON.stringify(body);
@@ -110,15 +103,14 @@ class CesaApiClient {
         method,
         headers: defaultHeaders,
         body: finalBody,
-        credentials: 'include' // Importante para sesiones PHP
+        credentials: 'include'
       });
 
       const data = await response.json();
 
-      // Si el token expiró, intentar refrescar
       if (response.status === 419 && this.csrfToken) {
         await this.refreshCsrfToken();
-        return this.request(endpoint, options); // Reintentar
+        return this.request(endpoint, options);
       }
 
       return data;
@@ -132,7 +124,7 @@ class CesaApiClient {
   }
 
   // ============================================
-  // MÉTODOS DE AUTENTICACIÓN
+  // MÉTODOS DE AUTENTICACIÓN (PHP auth.php)
   // ============================================
 
   async login(identifier: string, pass?: string, curp?: string, telefono?: string): Promise<ApiResponse<{
@@ -140,15 +132,15 @@ class CesaApiClient {
     token?: string;
     redirect_url?: string;
   }>> {
-    const res: any = await this.request('auth/login', {
+    const res: any = await this.request('auth.php?action=login', {
       method: 'POST',
-      body: { identifier, email: identifier, password: pass, curp, telefono: telefono || pass },
+      body: { action: 'login', identifier, email: identifier, password: pass, curp, telefono: telefono || pass },
       requiresAuth: false
     });
     
-    if (res.success && res.data) {
-        const token = res.data.token || res.token;
-        const user = res.data.user || res.data;
+    if (res.success) {
+        const token = res.token || (res.data && res.data.token);
+        const user = res.user || (res.data && res.data.user) || res.data;
         if (token && typeof localStorage !== 'undefined') {
             localStorage.setItem('cesa_token', token);
         }
@@ -157,16 +149,13 @@ class CesaApiClient {
           data: { 
             user, 
             token, 
-            redirect_url: (user.rol === 'admin' || user.email === 'software@fondothoth.com') ? '/admin/dashboard' : '/dashboard' 
+            redirect_url: (user?.rol === 'admin' || user?.email === 'software@fondothoth.com' || user?.email === 'a213203453@unison.mx') ? '/admin/dashboard' : '/dashboard' 
           } 
         };
     }
     return res;
   }
 
-  /**
-   * Registro de usuario real con asignación de rol/perfil e Identidad Unificada
-   */
   async signup(data: {
     email: string;
     password?: string;
@@ -177,46 +166,35 @@ class CesaApiClient {
     rol?: string;
     carrera?: string;
   }): Promise<ApiResponse<{ message?: string }>> {
-    return this.request('auth/signup', {
+    return this.request('auth.php?action=signup', {
       method: 'POST',
-      body: data,
+      body: { action: 'signup', ...data },
       requiresAuth: false
     });
   }
 
-  /**
-   * Logout
-   */
   async logout(): Promise<ApiResponse> {
     if (typeof localStorage !== 'undefined') localStorage.removeItem('cesa_token');
+    await this.request('auth.php?action=logout', { method: 'POST' });
     return { success: true };
   }
 
-  /**
-   * Obtener perfil del usuario actual
-   */
   async getPerfil(): Promise<ApiResponse<User>> {
-    return this.request('auth/me');
+    return this.request('auth.php?action=me');
   }
 
-  /**
-   * Actualizar perfil
-   */
   async updatePerfil(data: Partial<User>): Promise<ApiResponse> {
-    return this.request('auth/update', {
+    return this.request('auth.php?action=update', {
       method: 'POST',
       body: data,
       requiresAuth: true
     });
   }
 
-  /**
-   * Verificar si hay sesión activa
-   */
   async checkSession(): Promise<ApiResponse<{ user: User; token?: string; session_expires: string }>> {
-    const res: any = await this.request('auth/me');
-    if (res.success && res.data) {
-        const userObj = res.data.user || res.data;
+    const res: any = await this.request('auth.php?action=me');
+    if (res.success && (res.user || res.data)) {
+        const userObj = res.user || (res.data && res.data.user) || res.data;
         const currentToken = typeof localStorage !== 'undefined' ? localStorage.getItem('cesa_token') : null;
         return { 
           success: true, 
@@ -278,8 +256,5 @@ export interface Vacante {
   created_at: string;
 }
 
-// Instancia singleton
 export const api = new CesaApiClient();
-
-// Named exports para uso directo
 export const { login, signup, logout, getPerfil, updatePerfil, checkSession } = api;

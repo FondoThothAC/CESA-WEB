@@ -21,7 +21,7 @@ export default function InterstitialAd({ show = false, onClose }: Props) {
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cesaunison.fondothoth.com/api/v1';
 
   useEffect(() => {
     // Si el usuario está autenticado, no cargar ni mostrar publicidad
@@ -34,17 +34,17 @@ export default function InterstitialAd({ show = false, onClose }: Props) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    fetch(`${API_URL}/admin/publicidad.php`, {
+    fetch(`${API_URL}/publicidad/adsense`, {
       headers
     })
       .then((r) => r.json())
       .then((data) => {
         if (data.success && data.data) {
           setConfig({
-            activo: data.data.activo === 1,
+            activo: data.data.activo === 1 || data.data.activo === true,
             publisher_id: data.data.publisher_id ?? '',
             interstitial_slot_id: data.data.interstitial_slot_id ?? '',
-            frecuencia_diaria: parseInt(data.data.frecuencia_diaria, 10) || 2,
+            frecuencia_diaria: Number(data.data.frecuencia_diaria) || 2,
           });
         }
       })
@@ -54,7 +54,7 @@ export default function InterstitialAd({ show = false, onClose }: Props) {
       .finally(() => {
         setLoading(false);
       });
-  }, [token, API_URL]);
+  }, [user, token, API_URL]);
 
   useEffect(() => {
     if (show) {
@@ -75,5 +75,5 @@ export default function InterstitialAd({ show = false, onClose }: Props) {
     }
   }, [show, config, loading, showInterstitial, onClose, user, token]);
 
-  return null; // This component handles the ad rendering programmatically via the DOM.
+  return null; // Componente que maneja la renderización de anuncios programáticamente en el DOM.
 }

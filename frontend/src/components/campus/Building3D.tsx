@@ -44,25 +44,27 @@ function LShapeBuilding({ building, totalHeight, floorHeight, baseColor }: {
   floorHeight: number;
   baseColor: string;
 }) {
-  const mainW = building.size[0] * 0.65;
-  const mainD = building.size[1];
-  const wingW = building.size[0] * 0.35;
-  const wingD = building.size[1] * 0.5;
+  const w = building.size[0];
+  const d = building.size[1];
+  const mainW = w * 0.65;
+  const mainD = d;
+  const wingW = w * 0.35;
+  const wingD = d * 0.5;
   const darkerColor = new THREE.Color(baseColor).multiplyScalar(0.7).getHexString();
 
   return (
     <group>
-      <mesh position={[0, totalHeight / 2, 0]} castShadow receiveShadow>
+      <mesh position={[-w / 2 + mainW / 2, totalHeight / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[mainW, totalHeight, mainD]} />
-        <meshStandardMaterial color={baseColor} roughness={0.4} metalness={0.15} transparent opacity={0.7} />
+        <meshStandardMaterial color={baseColor} roughness={0.3} metalness={0.2} transparent opacity={0.85} />
       </mesh>
-      <mesh position={[mainW / 2 + wingW / 2, totalHeight * 0.4, -mainD / 2 + wingD / 2]} castShadow receiveShadow>
+      <mesh position={[w / 2 - wingW / 2, totalHeight * 0.4, d / 2 - wingD / 2]} castShadow receiveShadow>
         <boxGeometry args={[wingW, totalHeight * 0.8, wingD]} />
-        <meshStandardMaterial color={baseColor} roughness={0.4} metalness={0.15} transparent opacity={0.7} />
+        <meshStandardMaterial color={baseColor} roughness={0.3} metalness={0.2} transparent opacity={0.85} />
       </mesh>
       {Array.from({ length: building.floors }).map((_, i) => (
         <mesh key={`sep-${i}`} position={[0, i * floorHeight, 0]} receiveShadow>
-          <boxGeometry args={[mainW + 0.06, 0.06, mainD + 0.06]} />
+          <boxGeometry args={[w + 0.06, 0.06, d + 0.06]} />
           <meshStandardMaterial color={`#${darkerColor}`} />
         </mesh>
       ))}
@@ -82,22 +84,23 @@ function UShapeBuilding({ building, totalHeight, floorHeight, baseColor }: {
   const w = building.size[0];
   const d = building.size[1];
   const armW = w * 0.25;
-  const armD = d * 0.7;
+  const armD = d * 0.6;
+  const mainD = d - armD;
   const darkerColor = new THREE.Color(baseColor).multiplyScalar(0.7).getHexString();
 
   return (
     <group>
-      <mesh position={[0, totalHeight / 2, -d / 2 + armD / 2]} castShadow receiveShadow>
-        <boxGeometry args={[w, totalHeight, armD]} />
-        <meshStandardMaterial color={baseColor} roughness={0.5} metalness={0.15} />
+      <mesh position={[0, totalHeight / 2, -d / 2 + mainD / 2]} castShadow receiveShadow>
+        <boxGeometry args={[w, totalHeight, mainD]} />
+        <meshStandardMaterial color={baseColor} roughness={0.3} metalness={0.2} transparent opacity={0.85} />
       </mesh>
       <mesh position={[-w / 2 + armW / 2, totalHeight / 2, d / 2 - armD / 2]} castShadow receiveShadow>
         <boxGeometry args={[armW, totalHeight, armD]} />
-        <meshStandardMaterial color={baseColor} roughness={0.5} metalness={0.15} />
+        <meshStandardMaterial color={baseColor} roughness={0.3} metalness={0.2} transparent opacity={0.85} />
       </mesh>
       <mesh position={[w / 2 - armW / 2, totalHeight / 2, d / 2 - armD / 2]} castShadow receiveShadow>
         <boxGeometry args={[armW, totalHeight, armD]} />
-        <meshStandardMaterial color={baseColor} roughness={0.5} metalness={0.15} />
+        <meshStandardMaterial color={baseColor} roughness={0.3} metalness={0.2} transparent opacity={0.85} />
       </mesh>
       {Array.from({ length: building.floors }).map((_, i) => (
         <mesh key={`sep-${i}`} position={[0, i * floorHeight, 0]} receiveShadow>
@@ -197,7 +200,7 @@ function RectBuilding({ building, totalHeight, floorHeight, baseColor }: {
     <group>
       <mesh position={[0, totalHeight / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[building.size[0], totalHeight, building.size[1]]} />
-        <meshStandardMaterial color={baseColor} roughness={0.4} metalness={0.15} transparent opacity={0.75} />
+        <meshStandardMaterial color={baseColor} roughness={0.3} metalness={0.2} transparent opacity={0.85} />
       </mesh>
       {Array.from({ length: building.floors }).map((_, i) => (
         <mesh key={`sep-${i}`} position={[0, i * floorHeight, 0]} receiveShadow>
@@ -271,6 +274,7 @@ export default function Building3D({ building, isSelected, isHighlighted, onClic
     <group
       ref={groupRef}
       position={[building.position[0], 0, building.position[2]]}
+      rotation={[0, building.rotation || 0, 0]}
       onClick={handleClick}
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
       onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}

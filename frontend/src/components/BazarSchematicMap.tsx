@@ -27,6 +27,17 @@ interface BazarSchematicMapProps {
  * 2. Doble Pasillo (112 puestos a ambos lados del pasillo)
  * 3. Exterior Perimetral (Doble Pasillo + Puestos exteriores bordeando cuadrantes)
  */
+const getCategoryColor = (cat?: string): string => {
+  const c = (cat || '').toLowerCase().trim();
+  if (c.includes('comida') || c.includes('alimento') || c.includes('snack')) return '#f59e0b';
+  if (c.includes('producto') || c.includes('arte') || c.includes('manualid')) return '#a855f7';
+  if (c.includes('accesorio') || c.includes('ropa') || c.includes('joya')) return '#ec4899';
+  if (c.includes('servicio') || c.includes('reparacion')) return '#3b82f6';
+  if (c.includes('asesoria') || c.includes('tutor') || c.includes('clase')) return '#6366f1';
+  if (c.includes('tec') || c.includes('soft') || c.includes('gadget')) return '#10b981';
+  return '#f97316';
+};
+
 const BazarSchematicMap: React.FC<BazarSchematicMapProps> = ({ 
   locations, 
   puestos, 
@@ -158,7 +169,7 @@ const BazarSchematicMap: React.FC<BazarSchematicMapProps> = ({
 
   // Separar los puestos disponibles
   const availablePuestos = activePuestos.filter(p => {
-    return !locations.some(loc => Number(loc.puesto_id) === Number(p.id));
+    return p.disponible !== 0 && !locations.some(loc => Number(loc.puesto_id) === Number(p.id));
   });
 
   return (
@@ -184,6 +195,21 @@ const BazarSchematicMap: React.FC<BazarSchematicMapProps> = ({
 
       {/* SVG Canvas */}
       <svg viewBox="0 0 100 100" className="w-full h-full rounded-[32px] overflow-hidden shadow-inner">
+        <defs>
+          {locations.map((loc) => {
+            const logo = loc.logo_path || loc.logo;
+            if (!logo) return null;
+            const pId = Number(loc.puesto_id);
+            const puestoDetails = activePuestos.find(p => Number(p.id) === pId) || { coord_x: 50, coord_y: 50 };
+            const posX = typeof puestoDetails.coord_x === 'string' ? parseFloat(puestoDetails.coord_x) : puestoDetails.coord_x;
+            const posY = typeof puestoDetails.coord_y === 'string' ? parseFloat(puestoDetails.coord_y) : puestoDetails.coord_y;
+            return (
+              <clipPath key={`clip-logo-${loc.id}-${pId}`} id={`clip-logo-${loc.id}-${pId}`}>
+                <circle cx={posX} cy={posY} r="1.4" />
+              </clipPath>
+            );
+          })}
+        </defs>
         
         {/* 1. Fondo de Arena / Calles (Beige/Tan) */}
         <rect width="100" height="100" fill="#f4eae1" />
@@ -283,75 +309,114 @@ const BazarSchematicMap: React.FC<BazarSchematicMapProps> = ({
           );
         })}
 
-        {/* 6. Nodos Ocupados (Círculos Naranjas / Amarillos con Marca de Negocio) */}
+        {/* 6. Nodos Ocupados (Aura Roja de Ocupado + Sub-color de Categoría o Logo) */}
         {locations.map((loc) => {
-          const puestoDetails = activePuestos.find(p => Number(p.id) === Number(loc.puesto_id)) || {
-            id: loc.puesto_id,
+          const pId = Number(loc.puesto_id);
+          const puestoDetails = activePuestos.find(p => Number(p.id) === pId) || {
+            id: pId,
             coord_x: 50,
             coord_y: 50
           };
-          const isSelected = selectedPuestoId === Number(loc.puesto_id);
-          const isHovered = hoveredPuestoId === Number(loc.puesto_id);
+          const isSelected = selectedPuestoId === pId;
+          const isHovered = hoveredPuestoId === pId;
           const posX = typeof puestoDetails.coord_x === 'string' ? parseFloat(puestoDetails.coord_x) : puestoDetails.coord_x;
           const posY = typeof puestoDetails.coord_y === 'string' ? parseFloat(puestoDetails.coord_y) : puestoDetails.coord_y;
 
+          const catColor = getCategoryColor(loc.categoria);
+          const logoUrl = loc.logo_path || loc.logo;
+
           return (
             <g
-              key={`occupied-${loc.id}-${loc.puesto_id}`}
+              key={`occupied-${loc.id}-${pId}`}
               className="cursor-pointer"
-              onMouseEnter={() => setHoveredPuestoId(Number(loc.puesto_id))}
+              onMouseEnter={() => setHoveredPuestoId(pId)}
               onMouseLeave={() => setHoveredPuestoId(null)}
               onClick={() => onSelectSpot && onSelectSpot(puestoDetails as Puesto, loc)}
             >
               <circle 
                 cx={posX} 
                 cy={posY} 
-                r="3.5" 
+                r="3.8" 
                 fill="transparent"
                 style={{ pointerEvents: 'all' }}
               />
-              {isSelected && (
-                <circle 
-                  cx={posX} 
-                  cy={posY} 
-                  r="2.5" 
-                  fill="#f97316"
-                  opacity="0.4"
-                  className="animate-pulse"
-                />
-              )}
+              
+              {/* Aura Roja de Estado Ocupado */}
               <circle 
                 cx={posX} 
                 cy={posY} 
-                r={isSelected ? "1.8" : isHovered ? "1.5" : "1.2"} 
-                fill={isSelected ? "#c2410c" : "#f97316"} 
-                stroke="#ffffff" 
-                strokeWidth={isHovered ? "0.6" : "0.3"}
-                className="transition-all duration-200"
+                r={isSelected ? "3.2" : "2.4"} 
+                fill="#ef4444"
+                opacity="0.35"
+                className="animate-pulse"
               />
               <circle 
-                cx={posX - 0.3} 
-                cy={posY - 0.3} 
-                r="0.3" 
-                fill="#ffffff" 
-                opacity="0.6" 
+                cx={posX} 
+                cy={posY} 
+                r="2.0" 
+                fill="none" 
+                stroke="#ef4444"
+                strokeWidth="0.4"
+                opacity="0.9"
               />
+
+              {/* Interior: Logo si existe, de lo contrario Sub-color de Categoría */}
+              {logoUrl ? (
+                <>
+                  <image 
+                    href={logoUrl} 
+                    x={posX - 1.4} 
+                    y={posY - 1.4} 
+                    width="2.8" 
+                    height="2.8" 
+                    clipPath={`url(#clip-logo-${loc.id}-${pId})`} 
+                  />
+                  <circle 
+                    cx={posX} 
+                    cy={posY} 
+                    r="1.4" 
+                    fill="none" 
+                    stroke="#ef4444" 
+                    strokeWidth="0.3" 
+                  />
+                </>
+              ) : (
+                <>
+                  <circle 
+                    cx={posX} 
+                    cy={posY} 
+                    r={isSelected ? "1.8" : isHovered ? "1.5" : "1.3"} 
+                    fill={catColor} 
+                    stroke="#dc2626" 
+                    strokeWidth={isHovered ? "0.6" : "0.4"}
+                    className="transition-all duration-200"
+                  />
+                  <circle 
+                    cx={posX - 0.3} 
+                    cy={posY - 0.3} 
+                    r="0.3" 
+                    fill="#ffffff" 
+                    opacity="0.7" 
+                  />
+                </>
+              )}
+
               {isHovered && (
                 <g>
                   <rect 
-                    x={posX - 12} 
-                    y={posY - 7} 
-                    width="24" 
-                    height="5" 
-                    rx="1" 
+                    x={posX - 13} 
+                    y={posY - 7.5} 
+                    width="26" 
+                    height="5.5" 
+                    rx="1.2" 
                     fill="#0f172a" 
                     opacity="0.95"
-                    stroke="#f97316"
-                    strokeWidth="0.2"
+                    stroke={catColor}
+                    strokeWidth="0.3"
                   />
                   <text 
                     x={posX} 
-                    y={posY - 3.5} 
+                    y={posY - 4} 
                     fill="#ffffff" 
                     fontSize="1.8" 
                     fontWeight="bold" 
@@ -367,18 +432,23 @@ const BazarSchematicMap: React.FC<BazarSchematicMapProps> = ({
         })}
       </svg>
 
-      {/* Leyenda Inferior */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 flex items-center gap-4 text-[9px] font-bold text-slate-300 shadow-xl">
+      {/* Leyenda Inferior Mejorada */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 flex flex-wrap items-center gap-3 text-[9px] font-bold text-slate-300 shadow-xl z-10">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white/40"></span>
           <span>LIBRE ({availablePuestos.length})</span>
         </div>
+        <div className="h-3 w-px bg-white/20"></div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-500/40"></span>
           <span>OCUPADO ({locations.length})</span>
         </div>
-        <div className="text-slate-500 font-mono">
-          MAPA: <strong className="text-blue-400 uppercase">{mapType.replace('_', ' ')}</strong>
+        <div className="h-3 w-px bg-white/20"></div>
+        <div className="flex items-center gap-2 text-[8px] text-slate-400">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span> Comida</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#a855f7]"></span> Productos</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ec4899]"></span> Accesorios</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#3b82f6]"></span> Servicios</span>
         </div>
       </div>
     </div>
