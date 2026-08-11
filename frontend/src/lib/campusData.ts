@@ -1,8 +1,8 @@
 // ============================================================
-// campusData.ts — Datos del Campus Universitario UNISON
-// Posiciones re-calibradas según plano oficial LAMINA-HERMOSILLO
-// Escala: plano 3D = 90x55 unidades (Norte-Sur × Este-Oeste)
-// El campus ocupa ~2.5 km² real → ~90x55 unidades 3D
+// campusData.ts — Datos del Campus UNISON
+// Coordenadas medidas directamente de campus-map.jpg (2054×1310 px)
+// Mapeadas al plano 3D de 90×55 unidades centrado en (0,0)
+// X: [-45, +45]  Z: [-27.5, +27.5]
 // ============================================================
 
 export interface Room {
@@ -29,11 +29,9 @@ export interface Building {
   street?: string;
   landmark?: string;
   color?: string;
-  // Nuevos campos de información del edificio
   phone?: string;
   hours?: string;
   description?: string;
-  image?: string;
 }
 
 export interface Tree {
@@ -59,12 +57,10 @@ export interface Street {
   color: string;
 }
 
-// Nodos de caminos peatonales para wayfinding
-// Cada nodo tiene [x, z] y conexiones hacia otros índices de nodo
 export interface WaypointNode {
   id: string;
-  position: [number, number]; // [x, z] en espacio 3D
-  connections: string[];      // IDs de nodos conectados
+  position: [number, number];
+  connections: string[];
 }
 
 const FLOOR_COLORS: Record<number, string> = {
@@ -96,683 +92,705 @@ export function generateRooms(building: Building): Room[] {
 }
 
 // ============================================================
-// EDIFICIOS — Posiciones corregidas según plano real UNISON
-// Ejes: X = Este(+) / Oeste(-), Z = Sur(+) / Norte(-)
-// Centro del campus = [0, 0, 0] ≈ Plaza Central
-// Calles reales:
-//   Blvd. Navarrete → Z ≈ +22
-//   Blvd. Luis Encinas → Z ≈ +8
-//   Av. Colosio → Z ≈ -12
-//   Calle de la Reforma → X ≈ -2 (sur del campus)
+// EDIFICIOS — Posiciones pixel→3D desde campus-map.jpg
 // ============================================================
 
 export const buildings: Building[] = [
 
-  // ═══════════════════════════════════════════════
-  // ZONA NORTE (Blvd. Navarrete — Blvd. Luis Encinas)
-  // ═══════════════════════════════════════════════
-
+  // ═══ ZONA NORESTE — Blvd. Navarrete ═══
   {
-    id: '1-A',
-    section: 1,
-    letter: 'A',
-    name: 'Museo de la Universidad de Sonora',
+    id: '9-N', section: 9, letter: 'N',
+    name: 'Aulas Norte',
     floors: 2,
-    position: [-18, 0, 18],
-    size: [5, 4],
-    shape: 'U',
-    rotation: 0,
-    departments: ['Museo Universitario', 'Difusión Cultural'],
+    position: [-18.3, 0, 24.2],
+    size: [1.8, 1.7],
+    shape: 'rect',
+    departments: ['Aulas Generales Norte'],
     rooms: [],
-    street: 'Blvd. Luis Encinas Johnson',
-    landmark: 'Frente al Estadio Hodggers',
     phone: '(662) 259-2100',
-    hours: 'Lun–Vie: 9:00–18:00 | Sáb: 10:00–14:00',
-    description: 'Espacio cultural y de memoria histórica de la Universidad de Sonora.',
-  },
-  {
-    id: '1-B',
-    section: 1,
-    letter: 'B',
-    name: 'Rectoría',
-    floors: 5,
-    position: [-5, 0, 16],
-    size: [5, 6],
-    shape: 'complex',
-    departments: ['Rectoría', 'Administración Central', 'Dirección General'],
-    rooms: [],
-    color: '#fde600',
-    street: 'Blvd. Luis Encinas Johnson',
-    landmark: 'Edificio principal del campus',
-    phone: '(662) 259-2100',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Sede de la Rectoría y administración central de la Universidad de Sonora.',
-  },
-  {
-    id: '7-H',
-    section: 7,
-    letter: 'H',
-    name: 'Enfermería y Nutrición',
-    floors: 2,
-    position: [-22, 0, 16],
-    size: [2, 4],
-    shape: 'rect',
-    departments: ['Enfermería', 'Nutrición'],
-    rooms: [],
-    street: 'Blvd. Luis Encinas Johnson',
-    phone: '(662) 259-2183',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamento de Enfermería y Licenciatura en Nutrición.',
-  },
-  {
-    id: '3-N',
-    section: 3,
-    letter: 'N',
-    name: 'Comedor Universitario',
-    floors: 1,
-    position: [5, 0, 17],
-    size: [6, 3],
-    shape: 'rect',
-    departments: ['Comedor Universitario'],
-    rooms: [],
-    street: 'Blvd. Luis Encinas Johnson',
-    landmark: 'Centro del campus norte',
-    phone: '(662) 259-2100',
-    hours: 'Lun–Vie: 7:00–20:00 | Sáb: 8:00–14:00',
-    description: 'Servicio de alimentación para la comunidad universitaria.',
-  },
-  {
-    id: '3-H',
-    section: 3,
-    letter: 'H',
-    name: 'Arquitectura y Música',
-    floors: 2,
-    position: [16, 0, 17],
-    size: [4, 3],
-    shape: 'rect',
-    departments: ['Arquitectura', 'Música'],
-    rooms: [],
-    street: 'Blvd. Luis Encinas Johnson',
-    phone: '(662) 259-2293',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'División de Humanidades y Bellas Artes — Arquitectura y Artes Musicales.',
-  },
-  {
-    id: '3-K',
-    section: 3,
-    letter: 'K',
-    name: 'Talleres de Bellas Artes',
-    floors: 1,
-    position: [22, 0, 17],
-    size: [3, 3],
-    shape: 'rect',
-    departments: ['Bellas Artes', 'Diseño Gráfico'],
-    rooms: [],
-    street: 'Blvd. Luis Encinas Johnson',
-    phone: '(662) 259-2293',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Talleres prácticos del Departamento de Bellas Artes.',
-  },
-
-  // ═══════════════════════════════════════════════
-  // ZONA CENTRO — Núcleo histórico del campus
-  // ═══════════════════════════════════════════════
-
-  {
-    id: '2-A',
-    section: 2,
-    letter: 'A',
-    name: 'Edificio Principal — Rectoría Histórica',
-    floors: 5,
-    position: [-2, 0, 8],
-    size: [5, 7],
-    shape: 'complex',
-    departments: ['Rectoría', 'Administración Central'],
-    rooms: [],
-    color: '#fde600',
-    street: 'Blvd. Luis Encinas Johnson',
-    landmark: 'Edificio icónico del campus, centro histórico',
-    phone: '(662) 259-2100',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Edificio principal histórico de 5 pisos, referencia central del campus UNISON.',
-  },
-  {
-    id: '3-B',
-    section: 3,
-    letter: 'B',
-    name: 'Ciencias Sociales y Humanidades',
-    floors: 2,
-    position: [6, 0, 5],
-    size: [3, 6],
-    shape: 'rect',
-    departments: ['Sociología', 'Ciencias Sociales', 'Humanidades'],
-    rooms: [],
-    street: 'Blvd. Luis Encinas Johnson',
-    phone: '(662) 259-2176',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'División de Ciencias Sociales — Sociología, Historia y disciplinas afines.',
-  },
-  {
-    id: '3-A',
-    section: 3,
-    letter: 'A',
-    name: 'Letras y Lingüística',
-    floors: 2,
-    position: [11, 0, 5],
-    size: [4, 4],
-    shape: 'L',
-    departments: ['Letras y Lingüística', 'Literatura'],
-    rooms: [],
-    street: 'Blvd. Luis Encinas Johnson',
-    phone: '(662) 259-2277',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamento de Letras y Lingüística de la División de Humanidades.',
-  },
-  {
-    id: '3-C',
-    section: 3,
-    letter: 'C',
-    name: 'Aulas Generales y Laboratorios',
-    floors: 3,
-    position: [-2, 0, 3],
-    size: [5, 2],
-    shape: 'rect',
-    departments: ['Aulas Generales', 'Laboratorios de Idiomas'],
-    rooms: [],
-    phone: '(662) 259-2100 ext. 5401',
     hours: 'Lun–Vie: 7:00–21:00',
-    description: 'Bloque de aulas de uso general con laboratorios de cómputo e idiomas.',
   },
   {
-    id: '3-D',
-    section: 3,
-    letter: 'D',
-    name: 'Biblioteca Central — Ernesto Carpizo',
-    floors: 3,
-    position: [2, 0, 0],
-    size: [6, 6],
-    shape: 'complex',
-    departments: ['Biblioteca Central', 'Hemeroteca', 'Acervo Digital'],
+    id: '9-B', section: 9, letter: 'B',
+    name: 'Oficinas Administrativas Norte',
+    floors: 2,
+    position: [-17.0, 0, 24.2],
+    size: [1.8, 1.7],
+    shape: 'rect',
+    departments: ['Administración'],
     rooms: [],
-    street: 'Campus Central',
-    landmark: 'Centro del campus universitario',
+  },
+  {
+    id: '9-C', section: 9, letter: 'C',
+    name: 'Edificio de Aulas 9C',
+    floors: 3,
+    position: [-16.5, 0, 22.9],
+    size: [2.4, 1.3],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '9-D', section: 9, letter: 'D',
+    name: 'Edificio 9D',
+    floors: 5,
+    position: [-17.8, 0, 22.5],
+    size: [1.5, 1.3],
+    shape: 'rect',
+    departments: ['Administración'],
+    rooms: [],
+    color: '#fde600',
+  },
+  {
+    id: '10-A', section: 10, letter: 'A',
+    name: 'Edificio 10A',
+    floors: 1,
+    position: [-10.6, 0, 22.0],
+    size: [2.4, 1.5],
+    shape: 'rect',
+    departments: ['Oficinas'],
+    rooms: [],
+  },
+  {
+    id: '10-K', section: 10, letter: 'K',
+    name: 'Edificio 10K',
+    floors: 2,
+    position: [-8.0, 0, 22.0],
+    size: [1.8, 1.5],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '10-B', section: 10, letter: 'B',
+    name: 'Edificio 10B',
+    floors: 3,
+    position: [-9.5, 0, 20.2],
+    size: [2.2, 1.5],
+    shape: 'rect',
+    departments: ['Oficinas y Aulas'],
+    rooms: [],
+  },
+  {
+    id: '10-C', section: 10, letter: 'C',
+    name: 'Edificio 10C',
+    floors: 3,
+    position: [-6.9, 0, 18.7],
+    size: [2.6, 1.7],
+    shape: 'complex',
+    departments: ['Laboratorios', 'Investigación'],
+    rooms: [],
+  },
+  {
+    id: '10-D', section: 10, letter: 'D',
+    name: 'Edificio 10D',
+    floors: 2,
+    position: [-3.8, 0, 20.4],
+    size: [2.4, 1.7],
+    shape: 'rect',
+    departments: ['Oficinas'],
+    rooms: [],
+  },
+
+  // ═══ ZONA CENTRO — Av. Sonora / Av. Universidad ═══
+  {
+    id: '12-D', section: 12, letter: 'D',
+    name: 'Biblioteca Central',
+    floors: 3,
+    position: [-6.7, 0, 14.1],
+    size: [2.6, 2.1],
+    shape: 'complex',
+    departments: ['Biblioteca Central', 'Hemeroteca'],
+    rooms: [],
     phone: '(662) 259-2112',
     hours: 'Lun–Vie: 7:30–21:00 | Sáb: 8:00–14:00',
-    description: 'Principal repositorio bibliográfico de la universidad. Cuenta con más de 200,000 volúmenes físicos y acceso a bases de datos digitales.',
+    description: 'Biblioteca Central Universitaria.',
   },
   {
-    id: '3-F',
-    section: 3,
-    letter: 'F',
-    name: 'Centro de Cómputo General',
-    floors: 1,
-    position: [9, 0, 2],
-    size: [4, 2],
-    shape: 'rect',
-    departments: ['Centro de Cómputo', 'Servicios Digitales'],
-    rooms: [],
-    phone: '(662) 259-2100 ext. 5410',
-    hours: 'Lun–Vie: 7:00–21:00',
-    description: 'Sala de cómputo general con acceso libre a internet y software especializado.',
-  },
-  {
-    id: '3-E',
-    section: 3,
-    letter: 'E',
-    name: 'Centro de las Artes',
+    id: '2-A', section: 2, letter: 'A',
+    name: 'Edificio Principal — Rectoría',
     floors: 2,
-    position: [16, 0, 4],
-    size: [3, 3],
+    position: [-2.1, 0, 13.6],
+    size: [2.2, 2.5],
     shape: 'rect',
-    departments: ['Bellas Artes', 'Artes Plásticas', 'Diseño'],
+    departments: ['Rectoría', 'Administración Central'],
     rooms: [],
-    phone: '(662) 259-2293',
+    phone: '(662) 259-2100',
     hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Espacio de expresión artística, exposiciones y talleres de artes plásticas.',
+    description: 'Edificio principal de Rectoría.',
   },
   {
-    id: '3-G',
-    section: 3,
-    letter: 'G',
-    name: 'Ciencias de la Computación',
+    id: '12-C', section: 12, letter: 'C',
+    name: 'Edificio 12C',
     floors: 2,
-    position: [-6, 0, 3],
-    size: [2, 5],
+    position: [-6.9, 0, 11.8],
+    size: [2.0, 1.3],
     shape: 'rect',
-    departments: ['Ciencias de la Computación', 'Sistemas de Información'],
+    departments: ['Oficinas Administrativas'],
     rooms: [],
-    phone: '(662) 259-2197',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamento de Ciencias de la Computación. Licenciatura en Ciencias de la Computación.',
   },
   {
-    id: '3-I',
-    section: 3,
-    letter: 'I',
-    name: 'Física y Matemáticas',
+    id: '12-B', section: 12, letter: 'B',
+    name: 'Edificio 12B',
+    floors: 2,
+    position: [-6.9, 0, 10.3],
+    size: [2.4, 1.3],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '12-A', section: 12, letter: 'A',
+    name: 'Ing. Civil — Jefatura',
     floors: 3,
-    position: [-10, 0, 2],
-    size: [3, 3],
+    position: [-4.0, 0, 10.3],
+    size: [2.4, 1.5],
     shape: 'rect',
-    departments: ['Física', 'Matemáticas'],
+    departments: ['Ing. Civil', 'Jefatura'],
     rooms: [],
-    phone: '(662) 259-2155',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamentos de Física y Matemáticas de la División de Ciencias Exactas y Naturales.',
+    phone: '(662) 259-2265',
   },
   {
-    id: '13-A',
-    section: 13,
-    letter: 'A',
-    name: 'Lenguas Extranjeras — CUALE',
+    id: '12-E', section: 12, letter: 'E',
+    name: 'Edificio 12E',
     floors: 2,
-    position: [-10, 0, -3],
-    size: [2, 4],
+    position: [-9.3, 0, 11.8],
+    size: [1.8, 1.5],
     shape: 'rect',
-    departments: ['Centro Universitario de Lenguas Extranjeras'],
+    departments: ['Investigación'],
     rooms: [],
-    street: 'Campus Central',
-    phone: '(662) 259-2244',
-    hours: 'Lun–Vie: 7:00–21:00',
-    description: 'CUALE: Centro de Enseñanza de Lenguas Extranjeras. Cursos de inglés, francés, alemán y otros idiomas.',
   },
   {
-    id: '13-B',
-    section: 13,
-    letter: 'B',
-    name: 'Servicios Generales',
+    id: '8-A', section: 8, letter: 'A',
+    name: 'Servicios Escolares',
     floors: 1,
-    position: [10, 0, -2],
-    size: [2, 2],
+    position: [-13.0, 0, 10.7],
+    size: [2.0, 1.5],
     shape: 'rect',
-    departments: ['Servicios Generales', 'Mantenimiento'],
+    departments: ['Servicios Escolares'],
     rooms: [],
-    phone: '(662) 259-2100 ext. 5100',
-    hours: 'Lun–Vie: 7:00–16:00',
-    description: 'Coordinación de Mantenimiento y Servicios Generales del campus.',
+    phone: '(662) 259-2100',
+    hours: 'Lun–Vie: 8:00–15:00',
   },
   {
-    id: '9-I',
-    section: 9,
-    letter: 'I',
-    name: 'Ciencias Económico Administrativas',
+    id: '8-D', section: 8, letter: 'D',
+    name: 'Edificio 8D',
     floors: 2,
-    position: [16, 0, -1],
-    size: [5, 2],
+    position: [-12.6, 0, 12.8],
+    size: [2.0, 1.7],
     shape: 'rect',
-    departments: ['Contabilidad', 'Administración', 'Economía'],
+    departments: ['Oficinas'],
     rooms: [],
-    phone: '(662) 259-2216',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'División de Ciencias Económico Administrativas — Contabilidad, Administración y Economía.',
+  },
+  {
+    id: '8-C', section: 8, letter: 'C',
+    name: 'Edificio 8C',
+    floors: 2,
+    position: [-14.5, 0, 12.0],
+    size: [1.3, 1.9],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '11-A', section: 11, letter: 'A',
+    name: 'Seguridad Universitaria',
+    floors: 2,
+    position: [-2.5, 0, 16.2],
+    size: [2.0, 1.0],
+    shape: 'rect',
+    departments: ['Seguridad Universitaria', 'Vigilancia'],
+    rooms: [],
+    phone: '(662) 259-2101',
+  },
+  {
+    id: '11-C', section: 11, letter: 'C',
+    name: 'Edificio 11C',
+    floors: 1,
+    position: [4.1, 0, 16.4],
+    size: [1.5, 1.3],
+    shape: 'rect',
+    departments: ['Oficinas'],
+    rooms: [],
   },
 
-  // ═══════════════════════════════════════════════
-  // ZONA ESTE — Ingenierías
-  // ═══════════════════════════════════════════════
-
+  // ═══ ZONA NORESTE — Reformas ═══
   {
-    id: '5-A',
-    section: 5,
-    letter: 'A',
-    name: 'Ing. Química y Metalurgia',
+    id: '9-P', section: 9, letter: 'P',
+    name: 'Edificio 9P',
     floors: 2,
-    position: [28, 0, 8],
-    size: [5, 7],
+    position: [-21.1, 0, 16.6],
+    size: [2.2, 1.7],
     shape: 'rect',
-    departments: ['Ing. Química', 'Ing. en Metalurgia y Ciencias de Materiales'],
+    departments: ['Aulas'],
     rooms: [],
-    street: 'Calle Rosales Norte',
-    phone: '(662) 259-2300',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamento de Ingeniería Química y Metalurgia — laboratorios especializados.',
   },
   {
-    id: '5-B',
-    section: 5,
-    letter: 'B',
-    name: 'Auditorio Rivera Zamudio',
+    id: '9-K', section: 9, letter: 'K',
+    name: 'Edificio 9K',
+    floors: 2,
+    position: [-20.5, 0, 18.7],
+    size: [2.4, 1.9],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '9-H', section: 9, letter: 'H',
+    name: 'Edificio 9H',
+    floors: 2,
+    position: [-18.5, 0, 18.3],
+    size: [1.8, 1.5],
+    shape: 'rect',
+    departments: ['Oficinas'],
+    rooms: [],
+  },
+  {
+    id: '9-Q1', section: 9, letter: 'Q',
+    name: 'Edificio 9Q-1',
+    floors: 3,
+    position: [-17.4, 0, 16.4],
+    size: [2.0, 1.3],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '9-Q2', section: 9, letter: 'Q',
+    name: 'Edificio 9Q-2',
+    floors: 2,
+    position: [-17.8, 0, 14.5],
+    size: [2.2, 1.3],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '9-Q3', section: 9, letter: 'Q',
+    name: 'Edificio 9Q-3',
+    floors: 2,
+    position: [-15.2, 0, 15.1],
+    size: [2.0, 1.3],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+
+  // ═══ ZONA ESTE — Ingenierías y Ciencias ═══
+  {
+    id: '3-A', section: 3, letter: 'A',
+    name: 'Letras y Lingüística',
+    floors: 3,
+    position: [2.3, 0, 11.1],
+    size: [2.2, 1.9],
+    shape: 'L',
+    departments: ['Letras y Lingüística'],
+    rooms: [],
+    phone: '(662) 259-2277',
+  },
+  {
+    id: '3-B', section: 3, letter: 'B',
+    name: 'Edificio 3B',
+    floors: 1,
+    position: [6.0, 0, 9.0],
+    size: [1.8, 1.7],
+    shape: 'rect',
+    departments: ['Servicios'],
+    rooms: [],
+  },
+  {
+    id: '3-U', section: 3, letter: 'U',
+    name: 'Edificio 3U',
     floors: 5,
-    position: [35, 0, 8],
-    size: [6, 6],
-    shape: 'complex',
-    departments: ['Auditorio Rivera Zamudio', 'Oficinas División de Ingenierías'],
+    position: [7.1, 0, 10.7],
+    size: [1.1, 1.3],
+    shape: 'rect',
+    departments: ['Administración'],
     rooms: [],
     color: '#fde600',
-    street: 'Calle Rosales Norte',
-    landmark: 'Auditorio principal de ingenierías',
-    phone: '(662) 259-2300',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Auditorio principal de la División de Ingeniería. Capacidad para 500 personas.',
   },
   {
-    id: '5-D',
-    section: 5,
-    letter: 'D',
-    name: 'Ingeniería Industrial',
+    id: '3-Q', section: 3, letter: 'Q',
+    name: 'Edificio 3Q',
     floors: 3,
-    position: [-2, 0, -5],
-    size: [6, 2],
+    position: [3.6, 0, 9.9],
+    size: [1.3, 1.0],
     shape: 'rect',
-    departments: ['Ing. Industrial', 'Ing. de Sistemas'],
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '3-R', section: 3, letter: 'R',
+    name: 'Edificio 3R',
+    floors: 1,
+    position: [5.2, 0, 9.9],
+    size: [1.1, 1.0],
+    shape: 'rect',
+    departments: ['Oficinas'],
+    rooms: [],
+  },
+  {
+    id: '3-P', section: 3, letter: 'P',
+    name: 'Edificio 3P',
+    floors: 2,
+    position: [3.6, 0, 8.4],
+    size: [1.3, 1.0],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '3-C', section: 3, letter: 'C',
+    name: 'Aulas Generales 3C',
+    floors: 2,
+    position: [2.5, 0, 6.9],
+    size: [2.0, 1.5],
+    shape: 'rect',
+    departments: ['Aulas Generales'],
+    rooms: [],
+  },
+  {
+    id: '3-F', section: 3, letter: 'F',
+    name: 'Edificio 3F',
+    floors: 2,
+    position: [3.2, 0, 5.2],
+    size: [1.8, 1.3],
+    shape: 'rect',
+    departments: ['Oficinas'],
+    rooms: [],
+  },
+  {
+    id: '3-L', section: 3, letter: 'L',
+    name: 'Edificio 3L',
+    floors: 2,
+    position: [3.6, 0, 6.5],
+    size: [1.5, 1.0],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '3-M', section: 3, letter: 'M',
+    name: 'Edificio 3M',
+    floors: 1,
+    position: [1.4, 0, 6.5],
+    size: [1.5, 1.0],
+    shape: 'rect',
+    departments: ['Oficinas'],
+    rooms: [],
+  },
+  {
+    id: '3-H', section: 3, letter: 'H',
+    name: 'Edificio 3H',
+    floors: 5,
+    position: [5.0, 0, 8.2],
+    size: [1.3, 0.8],
+    shape: 'rect',
+    departments: ['Oficinas'],
+    rooms: [],
+    color: '#fde600',
+  },
+  {
+    id: '3-O', section: 3, letter: 'O',
+    name: 'Edificio 3O',
+    floors: 2,
+    position: [6.3, 0, 5.7],
+    size: [1.5, 1.3],
+    shape: 'rect',
+    departments: ['Aulas'],
+    rooms: [],
+  },
+  {
+    id: '3-K2', section: 3, letter: 'K',
+    name: 'Edificio 3K-2',
+    floors: 1,
+    position: [4.1, 0, 4.2],
+    size: [1.3, 1.0],
+    shape: 'rect',
+    departments: ['Laboratorios'],
+    rooms: [],
+  },
+  {
+    id: '3-K3', section: 3, letter: 'K',
+    name: 'Edificio 3K-3',
+    floors: 1,
+    position: [5.6, 0, 4.2],
+    size: [1.3, 1.0],
+    shape: 'rect',
+    departments: ['Laboratorios'],
+    rooms: [],
+  },
+  {
+    id: '3-K4', section: 3, letter: 'K',
+    name: 'Edificio 3K-4',
+    floors: 1,
+    position: [5.8, 0, 2.9],
+    size: [1.8, 1.3],
+    shape: 'rect',
+    departments: ['Laboratorios'],
+    rooms: [],
+  },
+
+  // ═══ Ingenierías Bloque 5 ═══
+  {
+    id: '5-K', section: 5, letter: 'K',
+    name: 'Edificio 5K',
+    floors: 1,
+    position: [-4.0, 0, 8.8],
+    size: [1.5, 1.0],
+    shape: 'rect',
+    departments: ['Ing. Industrial'],
+    rooms: [],
+  },
+  {
+    id: '5-M', section: 5, letter: 'M',
+    name: 'Edificio 5M',
+    floors: 2,
+    position: [-2.7, 0, 8.2],
+    size: [1.5, 1.0],
+    shape: 'rect',
+    departments: ['Ingenierías'],
+    rooms: [],
+  },
+  {
+    id: '5-B', section: 5, letter: 'B',
+    name: 'Ing. Química — Aulas',
+    floors: 2,
+    position: [-3.8, 0, 5.9],
+    size: [2.2, 1.5],
+    shape: 'rect',
+    departments: ['Ing. Química'],
+    rooms: [],
+    phone: '(662) 259-2300',
+  },
+  {
+    id: '5-C', section: 5, letter: 'C',
+    name: 'Ing. Química y Metalurgia — Taller',
+    floors: 5,
+    position: [-2.1, 0, 4.2],
+    size: [2.0, 1.3],
+    shape: 'rect',
+    departments: ['Ing. Química', 'Metalurgia'],
+    rooms: [],
+    color: '#fde600',
+  },
+  {
+    id: '5-D', section: 5, letter: 'D',
+    name: 'Ingeniería Industrial',
+    floors: 2,
+    position: [-3.8, 0, 4.2],
+    size: [1.8, 1.3],
+    shape: 'rect',
+    departments: ['Ing. Industrial'],
     rooms: [],
     phone: '(662) 259-2260',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamento de Ingeniería Industrial y de Sistemas.',
   },
   {
-    id: '5-E',
-    section: 5,
-    letter: 'E',
-    name: 'División de Ingenierías — Aulas',
-    floors: 3,
-    position: [20, 0, -4],
-    size: [3, 2],
-    shape: 'rect',
-    departments: ['Ing. Civil y Minas', 'Ing. Industrial'],
-    rooms: [],
-    phone: '(662) 259-2300',
-    hours: 'Lun–Vie: 7:00–21:00',
-    description: 'Aulas de la División de Ingeniería, uso compartido.',
-  },
-  {
-    id: '5-F',
-    section: 5,
-    letter: 'F',
-    name: 'Ing. Industrial y Ciencias Químico Biológicas',
-    floors: 3,
-    position: [27, 0, -3],
-    size: [4, 2],
-    shape: 'rect',
-    departments: ['Ing. Industrial', 'Ciencias Químico Biológicas'],
-    rooms: [],
-    phone: '(662) 259-2300',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Laboratorios y aulas de Ingeniería Industrial y Ciencias Químico Biológicas.',
-  },
-  {
-    id: '5-G',
-    section: 5,
-    letter: 'G',
-    name: 'Ing. Civil y Mecatrónica',
-    floors: 3,
-    position: [23, 0, -7],
-    size: [5, 2],
-    shape: 'rect',
-    departments: ['Ing. Civil', 'Mecatrónica', 'Electrónica'],
-    rooms: [],
-    phone: '(662) 259-2265',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Laboratorios de Mecatrónica e Ingeniería Civil.',
-  },
-  {
-    id: '9-C',
-    section: 9,
-    letter: 'C',
-    name: 'Ciencias de la Comunicación',
-    floors: 3,
-    position: [13, 0, -13],
-    size: [3, 2],
-    shape: 'rect',
-    departments: ['Ciencias de la Comunicación'],
-    rooms: [],
-    phone: '(662) 259-2229',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamento de Ciencias de la Comunicación.',
-  },
-  {
-    id: '9-D',
-    section: 9,
-    letter: 'D',
-    name: 'Ciencias Políticas y Administración Pública',
+    id: '5-A1', section: 5, letter: 'A',
+    name: 'Ing. Química y Metalurgia',
     floors: 1,
-    position: [30, 0, -5],
-    size: [3, 3],
+    position: [-0.7, 0, 2.3],
+    size: [2.6, 1.5],
     shape: 'rect',
-    departments: ['Ciencias Políticas', 'Administración Pública'],
+    departments: ['Ing. Química', 'Metalurgia'],
     rooms: [],
-    phone: '(662) 259-2221',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamento de Ciencias Políticas y Administración Pública.',
   },
   {
-    id: '9-E',
-    section: 9,
-    letter: 'E',
-    name: 'Trabajo Social',
+    id: '5-A2', section: 5, letter: 'A',
+    name: 'Laboratorios Ing. Química',
     floors: 1,
-    position: [30, 0, -14],
-    size: [2, 2],
+    position: [1.9, 0, 2.3],
+    size: [2.4, 1.5],
     shape: 'rect',
-    departments: ['Trabajo Social'],
+    departments: ['Laboratorios Ing. Química'],
     rooms: [],
-    phone: '(662) 259-2228',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamento de Trabajo Social.',
   },
   {
-    id: '9-F',
-    section: 9,
-    letter: 'F',
-    name: 'Sociología',
+    id: '5-Q', section: 5, letter: 'Q',
+    name: 'Edificio 5Q',
     floors: 2,
-    position: [34, 0, 1],
-    size: [3, 2],
+    position: [-9.3, 0, 4.0],
+    size: [2.0, 1.5],
     shape: 'rect',
-    departments: ['Sociología'],
+    departments: ['Aulas'],
     rooms: [],
-    phone: '(662) 259-2224',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamento de Sociología.',
   },
   {
-    id: '10-A',
-    section: 10,
-    letter: 'A',
-    name: 'Enfermería y Trabajo Social',
+    id: '5-P', section: 5, letter: 'P',
+    name: 'Edificio 5P',
     floors: 2,
-    position: [35, 0, -2],
-    size: [4, 2],
+    position: [-6.9, 0, 1.5],
+    size: [1.8, 1.3],
     shape: 'rect',
-    departments: ['Enfermería', 'Trabajo Social'],
+    departments: ['Aulas'],
     rooms: [],
-    phone: '(662) 259-2183',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamentos de Enfermería y Trabajo Social.',
   },
   {
-    id: '10-B',
-    section: 10,
-    letter: 'B',
-    name: 'Centro de Investigación en Alimentación y Desarrollo',
-    floors: 3,
-    position: [33, 0, -7],
-    size: [3, 4],
-    shape: 'rect',
-    departments: ['Investigación', 'CIAD'],
-    rooms: [],
-    phone: '(662) 289-2400',
-    hours: 'Lun–Vie: 8:00–18:00',
-    description: 'Centro de investigación en alimentación, nutrición y desarrollo.',
-  },
-  {
-    id: '10-C',
-    section: 10,
-    letter: 'C',
-    name: 'Facultad de Derecho',
+    id: '5-S', section: 5, letter: 'S',
+    name: 'Edificio 5S',
     floors: 2,
-    position: [24, 0, -11],
-    size: [5, 2],
+    position: [-4.3, 0, 0.6],
+    size: [2.2, 1.3],
     shape: 'rect',
-    departments: ['Derecho'],
+    departments: ['Aulas'],
     rooms: [],
-    phone: '(662) 259-2233',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Facultad de Derecho de la Universidad de Sonora.',
   },
   {
-    id: '12-A',
-    section: 12,
-    letter: 'A',
-    name: 'Ing. Civil — Jefatura y Laboratorios',
-    floors: 3,
-    position: [17, 0, -10],
-    size: [6, 2],
-    shape: 'rect',
-    departments: ['Ing. Civil', 'Geotecnia', 'Estructuras'],
-    rooms: [],
-    phone: '(662) 259-2265',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Jefatura y laboratorios de Ingeniería Civil.',
-  },
-  {
-    id: '12-F',
-    section: 12,
-    letter: 'F',
-    name: 'Biblioteca e Informática Sur',
-    floors: 3,
-    position: [14, 0, -7],
-    size: [4, 2],
-    shape: 'rect',
-    departments: ['Biblioteca Divisional', 'Laboratorio de Informática'],
-    rooms: [],
-    phone: '(662) 259-2300 ext. 3100',
-    hours: 'Lun–Vie: 7:30–20:00',
-    description: 'Biblioteca divisional de Ingenierías y laboratorio de informática.',
-  },
-  {
-    id: '12-G',
-    section: 12,
-    letter: 'G',
-    name: 'Aulas Sur — Ingenierías',
+    id: '5-T', section: 5, letter: 'T',
+    name: 'Edificio 5T',
     floors: 1,
-    position: [18, 0, -14],
-    size: [4, 2],
+    position: [-2.3, 0, 0.6],
+    size: [1.5, 0.8],
     shape: 'rect',
-    departments: ['Aulas Ingenierías Sur'],
+    departments: ['Oficinas'],
     rooms: [],
-    phone: '(662) 259-2300',
-    hours: 'Lun–Vie: 7:00–21:00',
-    description: 'Bloque de aulas sur de la División de Ingeniería.',
   },
 
-  // ═══════════════════════════════════════════════
-  // ZONA OESTE — Ciencias de la Salud
-  // ═══════════════════════════════════════════════
-
+  // ═══ ZONA Estadio / Centro ═══
   {
-    id: '7-A',
-    section: 7,
-    letter: 'A',
-    name: 'Unidad Deportiva y Granja Universitaria',
+    id: '6-F', section: 6, letter: 'F',
+    name: 'Edificio 6F',
     floors: 1,
-    position: [-25, 0, -8],
-    size: [4, 3],
+    position: [-12.1, 0, 8.0],
+    size: [1.3, 1.5],
     shape: 'rect',
-    departments: ['Granja Universitaria', 'Deportes'],
+    departments: ['Deportes'],
     rooms: [],
-    street: 'Calle Francisco Q. Salazar',
-    phone: '(662) 259-2100 ext. 4200',
+  },
+  {
+    id: '6-E', section: 6, letter: 'E',
+    name: 'Edificio 6E',
+    floors: 1,
+    position: [-10.6, 0, 7.3],
+    size: [1.3, 1.0],
+    shape: 'rect',
+    departments: ['Servicios'],
+    rooms: [],
+  },
+
+  // ═══ ZONA OESTE — Ciencias de la Salud ═══
+  {
+    id: '7-B', section: 7, letter: 'B',
+    name: 'Gimnasio Universitario',
+    floors: 2,
+    position: [-26.6, 0, 20.4],
+    size: [3.1, 2.1],
+    shape: 'rect',
+    departments: ['Cultura Física', 'Deporte'],
+    rooms: [],
+    phone: '(662) 259-2100',
     hours: 'Lun–Sáb: 6:00–22:00',
-    description: 'Granja experimental y unidad deportiva universitaria.',
   },
   {
-    id: '7-B',
-    section: 7,
-    letter: 'B',
-    name: 'Farmacia',
+    id: '7-M', section: 7, letter: 'M',
+    name: 'Gimnasio Universitario Anexo',
     floors: 1,
-    position: [-18, 0, -8],
-    size: [1, 3],
+    position: [-27.9, 0, 19.3],
+    size: [2.2, 1.7],
+    shape: 'rect',
+    departments: ['Deporte'],
+    rooms: [],
+  },
+  {
+    id: '7-C', section: 7, letter: 'C',
+    name: 'Facultad de Medicina',
+    floors: 3,
+    position: [-28.1, 0, 3.6],
+    size: [2.6, 2.3],
+    shape: 'complex',
+    departments: ['Medicina', 'Laboratorios Clínicos'],
+    rooms: [],
+    phone: '(662) 259-2180',
+    hours: 'Lun–Vie: 7:00–21:00',
+    description: 'Facultad de Medicina con laboratorios clínicos.',
+  },
+  {
+    id: '7-D', section: 7, letter: 'D',
+    name: 'DICTUS',
+    floors: 3,
+    position: [-24.4, 0, 6.1],
+    size: [1.8, 1.5],
+    shape: 'rect',
+    departments: ['DICTUS'],
+    rooms: [],
+  },
+  {
+    id: '7-K', section: 7, letter: 'K',
+    name: 'Facultad de Odontología',
+    floors: 3,
+    position: [-23.1, 0, 7.3],
+    size: [1.5, 1.3],
+    shape: 'rect',
+    departments: ['Odontología'],
+    rooms: [],
+    phone: '(662) 259-2186',
+  },
+  {
+    id: '7-H', section: 7, letter: 'H',
+    name: 'Edificio 7H',
+    floors: 3,
+    position: [-25.9, 0, 5.2],
+    size: [1.3, 1.5],
+    shape: 'rect',
+    departments: ['Ciencias de la Salud'],
+    rooms: [],
+  },
+  {
+    id: '7-I', section: 7, letter: 'I',
+    name: 'Edificio 7I',
+    floors: 1,
+    position: [-24.4, 0, 4.4],
+    size: [1.3, 1.0],
+    shape: 'rect',
+    departments: ['Laboratorios'],
+    rooms: [],
+  },
+  {
+    id: '7-G', section: 7, letter: 'G',
+    name: 'Farmacia',
+    floors: 3,
+    position: [-29.9, 0, 4.8],
+    size: [1.3, 1.3],
     shape: 'rect',
     departments: ['Farmacia'],
     rooms: [],
-    phone: '(662) 259-2100',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Departamento de Farmacia de la División de Ciencias Biológicas y de la Salud.',
   },
   {
-    id: '7-C',
-    section: 7,
-    letter: 'C',
-    name: 'Facultad de Medicina',
-    floors: 3,
-    position: [-28, 0, -5],
-    size: [5, 4],
-    shape: 'complex',
-    departments: ['Medicina', 'Laboratorios Clínicos', 'Residencias'],
-    rooms: [],
-    street: 'Calle Francisco Q. Salazar',
-    landmark: 'Zona de Salud del campus',
-    phone: '(662) 259-2180',
-    hours: 'Lun–Vie: 7:00–21:00',
-    description: 'Facultad de Medicina con aulas, laboratorios clínicos y área de residencias médicas.',
-  },
-  {
-    id: '7-D',
-    section: 7,
-    letter: 'D',
-    name: 'DICTUS — Deportes y Cultura',
-    floors: 3,
-    position: [-23, 0, -6],
-    size: [4, 2],
-    shape: 'rect',
-    departments: ['DICTUS', 'Actividades Deportivas', 'Cultura'],
-    rooms: [],
-    street: 'Calle Francisco Q. Salazar',
-    phone: '(662) 259-2194',
-    hours: 'Lun–Vie: 8:00–20:00',
-    description: 'Dirección de Cultura y Extensión Universitaria — DICTUS.',
-  },
-  {
-    id: '7-K',
-    section: 7,
-    letter: 'K',
-    name: 'Facultad de Odontología',
-    floors: 3,
-    position: [-19, 0, -5],
-    size: [3, 2],
-    shape: 'rect',
-    departments: ['Odontología', 'Clínica Dental'],
-    rooms: [],
-    street: 'Campus Salud',
-    phone: '(662) 259-2186',
-    hours: 'Lun–Vie: 8:00–18:00',
-    description: 'Facultad de Odontología con clínica dental abierta a la comunidad.',
-  },
-  {
-    id: '11-A',
-    section: 11,
-    letter: 'A',
-    name: 'Vicerrectoría General',
-    floors: 2,
-    position: [-13, 0, -12],
-    size: [5, 2],
-    shape: 'rect',
-    departments: ['Vicerrectoría General', 'Seguridad Campus'],
-    rooms: [],
-    phone: '(662) 259-2101',
-    hours: 'Lun–Vie: 8:00–18:00',
-    description: 'Oficinas de la Vicerrectoría General y Coordinación de Seguridad del Campus.',
-  },
-  {
-    id: '12-C',
-    section: 12,
-    letter: 'C',
-    name: 'Laboratorios Ciencias de la Salud',
+    id: '7-A', section: 7, letter: 'A',
+    name: 'Unidad de Posgrado',
     floors: 1,
-    position: [-16, 0, -4],
-    size: [2, 2],
+    position: [-22.7, 0, 1.9],
+    size: [2.2, 1.5],
     shape: 'rect',
-    departments: ['Laboratorios de Salud', 'Biología'],
+    departments: ['Posgrado'],
     rooms: [],
-    phone: '(662) 259-2180',
-    hours: 'Lun–Vie: 8:00–18:00',
-    description: 'Laboratorios especializados de Ciencias de la Salud.',
+    phone: '(662) 259-2100',
+  },
+
+  // ═══ EXTREMOS ═══
+  {
+    id: '14-A', section: 14, letter: 'A',
+    name: 'Promoción Financiera',
+    floors: 1,
+    position: [6.0, 0, 22.0],
+    size: [1.8, 1.5],
+    shape: 'rect',
+    departments: ['Promoción Financiera'],
+    rooms: [],
+  },
+  {
+    id: '1-A', section: 1, letter: 'A',
+    name: 'Museo y Biblioteca',
+    floors: 1,
+    position: [8.2, 0, 14.1],
+    size: [1.5, 1.9],
+    shape: 'rect',
+    departments: ['Museo Universitario', 'Biblioteca'],
+    rooms: [],
   },
 ];
 
-// Autogenerar salones para cada edificio
+// Generar salones automáticamente
 buildings.forEach((b) => {
   if (b.rooms.length === 0) {
     b.rooms = generateRooms(b);
@@ -780,150 +798,86 @@ buildings.forEach((b) => {
 });
 
 // ============================================================
-// CALLES — Polilíneas para renderizado 3D
+// CALLES — Posiciones calibradas desde el mapa
 // ============================================================
 export const campusStreets: Street[] = [
-  { name: 'Blvd. Navarrete', orientation: 'horizontal', z: 30, width: 60, color: '#555' },
-  { name: 'Blvd. Luis Encinas Johnson', orientation: 'horizontal', z: 10, width: 40, color: '#555' },
-  { name: 'Av. Luis Donaldo Colosio', orientation: 'horizontal', z: -12, width: 60, color: '#444' },
-  { name: 'Calle de la Reforma', orientation: 'vertical', x: 0, width: 45, color: '#555' },
-  { name: 'Calle Francisco Q. Salazar', orientation: 'vertical', x: -44, width: 45, color: '#555' },
-  { name: 'Calle Rosales', orientation: 'vertical', x: 44, width: 45, color: '#555' },
+  { name: 'Blvd. Navarrete', orientation: 'horizontal', z: 25.6, width: 60, color: '#555' },
+  { name: 'Av. Sonora', orientation: 'horizontal', z: 12.2, width: 40, color: '#555' },
+  { name: 'Av. Universidad', orientation: 'horizontal', z: 9.0, width: 40, color: '#555' },
+  { name: 'Av. Luis Donaldo Colosio', orientation: 'horizontal', z: -0.2, width: 60, color: '#444' },
+  { name: 'Calle de la Reforma', orientation: 'vertical', x: -20.7, width: 45, color: '#555' },
+  { name: 'Calle Francisco Q. Salazar', orientation: 'vertical', x: -36.9, width: 45, color: '#555' },
+  { name: 'Calle Rosales', orientation: 'vertical', x: 7.6, width: 45, color: '#555' },
 ];
 
 // ============================================================
-// ESTACIONAMIENTOS
+// ESTACIONAMIENTOS — Posiciones calibradas
 // ============================================================
 export const campusParking: Parking[] = [
-  { position: [-20, 0, 13], size: [6, 4], type: 'surface', spots: 20, name: 'EM-101' },
-  { position: [-8, 0, 13], size: [7, 4], type: 'surface', spots: 28, name: 'EM-102' },
-  { position: [2, 0, 13], size: [5, 3], type: 'surface', spots: 18, name: 'EM-103' },
-  { position: [28, 0, 14], size: [5, 4], type: 'surface', spots: 16, name: 'EM-104' },
-  { position: [38, 0, -1], size: [5, 5], type: 'surface', spots: 24, name: 'EM-105' },
-  { position: [30, 0, -11], size: [4, 4], type: 'surface', spots: 14, name: 'EM-106' },
-  { position: [-8, 0, -9], size: [4, 4], type: 'surface', spots: 12, name: 'EM-107' },
-  { position: [-33, 0, 5], size: [5, 8], type: 'surface', spots: 32, name: 'EM-108' },
+  { position: [-9.5, 0, 24.1], size: [3.5, 1.5], type: 'surface', spots: 20, name: '10-EM101' },
+  { position: [-6.0, 0, 22.5], size: [2.6, 1.5], type: 'surface', spots: 16, name: '10-EM102' },
+  { position: [-12.4, 0, 18.5], size: [2.4, 2.1], type: 'surface', spots: 18, name: '10-EM103' },
 ];
 
 // ============================================================
-// ÁRBOLES
+// ÁRBOLES — Reducidos para rendimiento
 // ============================================================
 export const campusTrees: Tree[] = [
-  // Zona norte — jardines
-  { position: [-10, 0, 12], scale: 0.9 },
-  { position: [-14, 0, 14], scale: 0.7 },
-  { position: [-6, 0, 13], scale: 0.8 },
-  { position: [0, 0, 14], scale: 0.6 },
-  { position: [10, 0, 14], scale: 0.7 },
-  { position: [20, 0, 13], scale: 0.8 },
-  { position: [25, 0, 14], scale: 0.6 },
-  // Centro — plazas
-  { position: [-4, 0, 7], scale: 0.7 },
-  { position: [4, 0, 7], scale: 0.8 },
-  { position: [14, 0, 7], scale: 0.6 },
-  { position: [-12, 0, 6], scale: 0.9 },
-  // Zona oeste — salud
-  { position: [-20, 0, -1], scale: 0.7 },
-  { position: [-16, 0, 0], scale: 0.6 },
-  { position: [-22, 0, 3], scale: 0.8 },
-  // Zona este — ingenierías
-  { position: [18, 0, -1], scale: 0.6 },
-  { position: [24, 0, 2], scale: 0.7 },
-  { position: [32, 0, 4], scale: 0.8 },
-  // Bordes perimetrales
-  { position: [-35, 0, 15], scale: 1.0 },
-  { position: [-35, 0, 5], scale: 0.9 },
-  { position: [-35, 0, -5], scale: 1.1 },
-  { position: [40, 0, 15], scale: 0.9 },
-  { position: [40, 0, 5], scale: 1.0 },
+  { position: [-15, 0, 20], scale: 0.7 },
+  { position: [-22, 0, 15], scale: 0.8 },
+  { position: [-28, 0, 12], scale: 0.9 },
+  { position: [-10, 0, 15], scale: 0.6 },
+  { position: [0, 0, 12], scale: 0.7 },
+  { position: [5, 0, 7], scale: 0.6 },
+  { position: [-5, 0, 6], scale: 0.8 },
+  { position: [-18, 0, 8], scale: 0.7 },
 ];
 
 // ============================================================
-// HITOS / LANDMARKS
+// HITOS — Calibrados desde el mapa
 // ============================================================
 export const campusLandmarks = [
-  {
-    name: 'Estadio Hodggers',
-    position: [-33, 0, 15] as [number, number, number],
-    type: 'stadium' as const,
-    size: 6,
-  },
-  {
-    name: 'Estadio Castro Servín',
-    position: [-5, 0, -16] as [number, number, number],
-    type: 'stadium' as const,
-    size: 5,
-  },
-  {
-    name: 'Plaza del Estudiante',
-    position: [2, 0, 10] as [number, number, number],
-    type: 'plaza' as const,
-    size: 4,
-  },
-  {
-    name: 'Gimnasio Universitario',
-    position: [-30, 0, 20] as [number, number, number],
-    type: 'gym' as const,
-    size: 4,
-  },
+  { name: 'Estadio Hodggers', position: [-28.3, 0, 14.5] as [number, number, number], type: 'stadium' as const, size: 5 },
+  { name: 'Estadio Castro Servín', position: [-14.3, 0, 5.5] as [number, number, number], type: 'stadium' as const, size: 4 },
+  { name: 'Plaza del Estudiante', position: [-3, 0, 10] as [number, number, number], type: 'plaza' as const, size: 2 },
 ];
 
 // ============================================================
-// NODOS DE CAMINOS PEATONALES — Para wayfinding visual
-// Cada nodo tiene posición [x, z] y conexiones (IDs de nodos vecinos)
-// Siguen los pasillos y aceras reales del campus
+// CAMINOS PEATONALES — Para wayfinding
 // ============================================================
 export const campusWaypoints: WaypointNode[] = [
-  // --- Eje horizontal norte (Blvd. Luis Encinas, Z≈10) ---
-  { id: 'N-W1', position: [-30, 10], connections: ['N-W2', 'CW-L'] },
-  { id: 'N-W2', position: [-20, 10], connections: ['N-W1', 'N-W3', 'W-N1'] },
-  { id: 'N-W3', position: [-10, 10], connections: ['N-W2', 'N-W4', 'C-N1'] },
-  { id: 'N-W4', position: [0, 10], connections: ['N-W3', 'N-W5', 'C-N2'] },
-  { id: 'N-W5', position: [10, 10], connections: ['N-W4', 'N-W6', 'C-N3'] },
-  { id: 'N-W6', position: [20, 10], connections: ['N-W5', 'N-W7', 'E-N1'] },
-  { id: 'N-W7', position: [30, 10], connections: ['N-W6', 'N-E1', 'E-N2'] },
-  { id: 'N-E1', position: [40, 10], connections: ['N-W7'] },
+  // Eje horizontal norte Z≈18
+  { id: 'HN-1', position: [-25, 18], connections: ['HN-2'] },
+  { id: 'HN-2', position: [-18, 18], connections: ['HN-1', 'HN-3', 'VC-1'] },
+  { id: 'HN-3', position: [-10, 18], connections: ['HN-2', 'HN-4'] },
+  { id: 'HN-4', position: [-3, 18], connections: ['HN-3', 'HN-5', 'VC-2'] },
+  { id: 'HN-5', position: [5, 18], connections: ['HN-4'] },
 
-  // --- Eje horizontal centro (Z≈0) ---
-  { id: 'C-W1', position: [-25, 0], connections: ['C-W2', 'W-C1'] },
-  { id: 'C-W2', position: [-15, 0], connections: ['C-W1', 'C-W3', 'W-C2'] },
-  { id: 'C-W3', position: [-8, 0], connections: ['C-W2', 'C-W4'] },
-  { id: 'C-W4', position: [0, 0], connections: ['C-W3', 'C-E1', 'C-N2'] },
-  { id: 'C-E1', position: [8, 0], connections: ['C-W4', 'C-E2'] },
-  { id: 'C-E2', position: [16, 0], connections: ['C-E1', 'C-E3', 'E-C1'] },
-  { id: 'C-E3', position: [24, 0], connections: ['C-E2', 'C-E4'] },
-  { id: 'C-E4', position: [32, 0], connections: ['C-E3', 'E-C2'] },
+  // Eje horizontal centro Z≈12
+  { id: 'HC-1', position: [-25, 12], connections: ['HC-2', 'HN-1'] },
+  { id: 'HC-2', position: [-18, 12], connections: ['HC-1', 'HC-3', 'VC-1'] },
+  { id: 'HC-3', position: [-10, 12], connections: ['HC-2', 'HC-4'] },
+  { id: 'HC-4', position: [-3, 12], connections: ['HC-3', 'HC-5', 'VC-2'] },
+  { id: 'HC-5', position: [5, 12], connections: ['HC-4', 'HC-6'] },
+  { id: 'HC-6', position: [8, 12], connections: ['HC-5'] },
 
-  // --- Eje horizontal sur (Av. Colosio, Z≈-12) ---
-  { id: 'S-W1', position: [-20, -12], connections: ['S-W2', 'W-S1'] },
-  { id: 'S-W2', position: [-10, -12], connections: ['S-W1', 'S-C'] },
-  { id: 'S-C', position: [0, -12], connections: ['S-W2', 'S-E1', 'C-N2'] },
-  { id: 'S-E1', position: [12, -12], connections: ['S-C', 'S-E2'] },
-  { id: 'S-E2', position: [22, -12], connections: ['S-E1', 'S-E3'] },
-  { id: 'S-E3', position: [32, -12], connections: ['S-E2'] },
+  // Eje horizontal sur Z≈5
+  { id: 'HS-1', position: [-28, 5], connections: ['HS-2'] },
+  { id: 'HS-2', position: [-20, 5], connections: ['HS-1', 'HS-3', 'VC-1'] },
+  { id: 'HS-3', position: [-10, 5], connections: ['HS-2', 'HS-4'] },
+  { id: 'HS-4', position: [-3, 5], connections: ['HS-3', 'HS-5', 'VC-2'] },
+  { id: 'HS-5', position: [3, 5], connections: ['HS-4', 'HS-6'] },
+  { id: 'HS-6', position: [7, 5], connections: ['HS-5'] },
 
-  // --- Eje vertical oeste (X≈-15) ---
-  { id: 'W-N1', position: [-15, 10], connections: ['N-W3', 'W-C1'] },
-  { id: 'W-C1', position: [-15, 0], connections: ['W-N1', 'C-W2', 'W-C2', 'W-S1'] },
-  { id: 'W-C2', position: [-15, -6], connections: ['W-C1', 'W-S1', 'C-W2'] },
-  { id: 'W-S1', position: [-15, -12], connections: ['W-C2', 'S-W1'] },
+  // Eje vertical izquierdo X≈-20
+  { id: 'VC-1', position: [-20, 18], connections: ['HN-2', 'HC-2', 'HS-2'] },
 
-  // --- Eje vertical central (X≈0) ---
-  { id: 'C-N1', position: [0, 10], connections: ['N-W4', 'C-N2'] },
-  { id: 'C-N2', position: [0, 0], connections: ['C-N1', 'C-W4', 'C-E1', 'S-C'] },
-
-  // --- Eje vertical este (X≈20) ---
-  { id: 'E-N1', position: [20, 10], connections: ['N-W6', 'E-C1'] },
-  { id: 'E-N2', position: [30, 10], connections: ['N-W7', 'E-C2'] },
-  { id: 'E-C1', position: [20, 0], connections: ['E-N1', 'C-E2', 'E-C2'] },
-  { id: 'E-C2', position: [30, 0], connections: ['E-C1', 'C-E4', 'E-N2'] },
-
-  // --- Conexión Estadio lado izquierdo ---
-  { id: 'CW-L', position: [-30, 18], connections: ['N-W1'] },
+  // Eje vertical central X≈-3
+  { id: 'VC-2', position: [-3, 18], connections: ['HN-4', 'HC-4', 'HS-4'] },
 ];
 
 // ============================================================
-// BÚSQUEDA DE EDIFICIOS
+// FUNCIONES DE BÚSQUEDA
 // ============================================================
 export function searchBuildings(query: string): Building[] {
   const q = query.toLowerCase().trim();
@@ -956,12 +910,8 @@ export function searchRooms(query: string): { building: Building; room: Room }[]
 }
 
 // ============================================================
-// WAYFINDING — Encuentra ruta entre dos puntos usando waypoints
+// WAYFINDING
 // ============================================================
-
-/**
- * Encuentra el waypoint más cercano a una posición [x, z] dada.
- */
 export function getNearestWaypoint(x: number, z: number): WaypointNode {
   let nearest = campusWaypoints[0];
   let minDist = Infinity;
@@ -977,26 +927,14 @@ export function getNearestWaypoint(x: number, z: number): WaypointNode {
   return nearest;
 }
 
-/**
- * BFS para encontrar la ruta más corta entre dos nodos de waypoints.
- * Retorna array de posiciones [x, z] que forman el camino.
- */
-export function findWaypointPath(
-  startId: string,
-  endId: string
-): [number, number][] {
+export function findWaypointPath(startId: string, endId: string): [number, number][] {
   const nodeMap = new Map<string, WaypointNode>();
   for (const node of campusWaypoints) {
     nodeMap.set(node.id, node);
   }
-
   if (!nodeMap.has(startId) || !nodeMap.has(endId)) return [];
-  if (startId === endId) {
-    const node = nodeMap.get(startId)!;
-    return [node.position];
-  }
+  if (startId === endId) return [nodeMap.get(startId)!.position];
 
-  // BFS
   const visited = new Set<string>();
   const queue: { id: string; path: string[] }[] = [{ id: startId, path: [startId] }];
   visited.add(startId);
@@ -1018,9 +956,6 @@ export function findWaypointPath(
   return [];
 }
 
-/**
- * Genera instrucciones de texto para la ruta entre dos edificios.
- */
 export function getDirections(from: string | null, to: Building): string[] {
   const fromBuilding = from ? buildings.find((b) => b.id === from) : null;
   const steps: string[] = [];
@@ -1033,15 +968,15 @@ export function getDirections(from: string | null, to: Building): string[] {
     } else {
       steps.push(dz > 0 ? '⬇️ Camina hacia el sur' : '⬆️ Camina hacia el norte');
     }
-    steps.push(`📏 Distancia aproximada: ${Math.round(distEstimate * 12)} metros`);
+    steps.push(`📏 Distancia aprox: ${Math.round(distEstimate * 12)} metros`);
   } else {
-    steps.push('📍 Ubícate en el campus central');
+    steps.push('📍 Ubícate en el campus');
   }
   if (to.street) steps.push(`🏠 Busca en ${to.street}`);
-  if (to.landmark) steps.push(`🏛️ Referencia: ${to.landmark}`);
+  if (to.landmark) steps.push(`🏛️ Cerca de: ${to.landmark}`);
   steps.push(`🏢 Edificio ${to.id}: ${to.name}`);
-  if (to.floors > 1) steps.push(`🏗️ Tiene ${to.floors} pisos.`);
+  if (to.floors > 1) steps.push(`🏗️ Tiene ${to.floors} pisos`);
   if (to.phone) steps.push(`📞 Tel: ${to.phone}`);
-  steps.push('✅ ¡Llegaste a tu destino!');
+  steps.push('✅ ¡Llegaste!');
   return steps;
 }
