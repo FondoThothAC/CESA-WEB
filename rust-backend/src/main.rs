@@ -62,8 +62,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .merge(modules::skills::router())
         .merge(modules::rag_admin::router())
         .merge(modules::publicidad::router())
+        .merge(modules::canva::router())
         .merge(modules::telegram::router())
-        .merge(modules::ocean::router());
+        .merge(modules::ocean::router())
+        .merge(modules::social_media::router());
 
     let app = Router::new()
         .nest("/api/v1", api_routes)

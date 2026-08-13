@@ -116,6 +116,7 @@ scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
     database/migrations/v7.3_seed_user_a221216515.sql \
     database/migrations/v7.4_seed_new_users.sql \
     database/migrations/v7.5_social_integrations.sql \
+    database/migrations/007_agentes_sesiones.sql \
     scripts/setup_telegram_webhook.php \
     scripts/install_zeroclaw.sh \
     $USER@$IP:/tmp/
@@ -303,6 +304,10 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     # Aplicar Integración Social Media v7.5
     echo "   - Aplicando v7.5_social_integrations.sql..."
     sudo mysql "$DB_NAME" -f < /tmp/v7.5_social_integrations.sql || true
+
+    # Aplicar Motor de Agentes IA v007 (Bob Agent Stack)
+    echo "   - Aplicando 007_agentes_sesiones.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/007_agentes_sesiones.sql || true
     
     # Configurar Webhook oficial de Telegram (@CesaUnisonBot)
     echo "   - Vinculando Webhook de Telegram (@CesaUnisonBot)..."
