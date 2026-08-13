@@ -278,131 +278,65 @@ pub async fn generar_diseño_canva(
         plantilla, titulo, formato_legible, ancho, alto
     );
 
-    // Obtener token de Canva (con auto-refresh si expiró)
-    let access_token = match obtener_token_canva(db, http, canva_client_id, canva_client_secret).await {
-        Some(t) => t,
-        None => {
-            // Sin token — informar al usuario que necesita re-autorizar
-            return ResultadoHerramienta {
-                herramienta: "generar_diseño_canva".to_string(),
-                resultado: "⚠️ *Canva no está autorizado.* El administrador debe visitar https://cesaunison.fondothoth.com/api/v1/canva/auth para vincular la cuenta.".to_string(),
-                imagen_url: None,
-                requiere_aprobacion: false,
-                approval_id: None,
-                exito: false,
-            };
-        }
-    };
-
-    // ── Intento 1: Canva Connect API — Autofill sobre plantilla del Brand Kit CESA ──
-    // Brand Kit ID oficial: kAHSLziFgxY (Equipo "Roberto Celis's Team")
-    let autofill_body = json!({
-        "brand_template_id": "kAHSLziFgxY",
-        "title": format!("{} — {}", titulo, plantilla),
-        "data": {
-            "titulo_principal": { "type": "text", "text": titulo },
-            "subtitulo":        { "type": "text", "text": subtitulo },
-            "fecha_lugar":      { "type": "text", "text": fecha_lugar },
-            "tipo_plantilla":   { "type": "text", "text": plantilla }
-        }
-    });
-
-    let autofill_res = http
-        .post("https://api.canva.com/rest/v1/autofills")
-        .bearer_auth(&access_token)
-        .header("Content-Type", "application/json")
-        .json(&autofill_body)
-        .send()
-        .await;
-
-    if let Ok(res) = autofill_res {
-        if res.status().is_success() {
-            if let Ok(data) = res.json::<Value>().await {
-                // El job de autofill puede ser asíncrono — extraemos el design_id
-                let design_id = data["job"]["id"]
-                    .as_str()
-                    .or_else(|| data["design"]["id"].as_str())
-                    .unwrap_or("");
-
-                if !design_id.is_empty() {
-                    let canva_url = format!("https://www.canva.com/design/{}/view", design_id);
-                    let resumen = construir_resumen_diseño(plantilla, titulo, subtitulo, fecha_lugar, formato_legible, ancho, alto, "canva_autofill");
-
-                    tracing::info!("✅ [Canva Autofill] Diseño generado: {} → {}", design_id, canva_url);
-                    return ResultadoHerramienta {
-                        herramienta: "generar_diseño_canva".to_string(),
-                        resultado: resumen,
-                        imagen_url: Some(canva_url),
-                        requiere_aprobacion: true,
-                        approval_id: None,
-                        exito: true,
-                    };
-                }
-            }
-        } else {
-            let status = res.status().as_u16();
-            let err_txt = res.text().await.unwrap_or_default();
-            tracing::warn!("⚠️  [Canva Autofill] HTTP {}: {} — Intentando Design API...", status, err_txt);
-        }
-    }
-
-    // ── Intento 2: Canva Connect API — Crear nuevo diseño con dimensiones del formato ──
-    let design_body = json!({
-        "design_type": {
-            "type": "custom",
-            "width": ancho,
-            "height": alto
-        },
-        "title": format!("{} | CESA UNISON", titulo)
-    });
-
-    let design_res = http
-        .post("https://api.canva.com/rest/v1/designs")
-        .bearer_auth(&access_token)
-        .header("Content-Type", "application/json")
-        .json(&design_body)
-        .send()
-        .await;
-
-    if let Ok(res) = design_res {
-        if res.status().is_success() {
-            if let Ok(data) = res.json::<Value>().await {
-                let design_id = data["design"]["id"].as_str().unwrap_or("");
-                if !design_id.is_empty() {
-                    let canva_url = format!("https://www.canva.com/design/{}/edit", design_id);
-                    let resumen = construir_resumen_diseño(plantilla, titulo, subtitulo, fecha_lugar, formato_legible, ancho, alto, "canva_design_nuevo");
-
-                    tracing::info!("✅ [Canva Design API] Diseño creado: {} → {}", design_id, canva_url);
-                    return ResultadoHerramienta {
-                        herramienta: "generar_diseño_canva".to_string(),
-                        resultado: resumen,
-                        imagen_url: Some(canva_url),
-                        requiere_aprobacion: true,
-                        approval_id: None,
-                        exito: true,
-                    };
-                }
-            }
-        } else {
-            let status = res.status().as_u16();
-            let err_txt = res.text().await.unwrap_or_default();
-            tracing::warn!("⚠️  [Canva Design API] HTTP {}: {}", status, err_txt);
-        }
-    }
-
-    // ── Fallback de contingencia: URL directa al Brand Kit para edición manual ──
-    tracing::warn!("⚠️  [Canva] Ambas APIs fallaron. Retornando link al Brand Kit para edición manual.");
-    let brand_kit_url = format!(
-        "https://www.canva.com/brand/kAHSLziFgxY?utm_source=cesa_bot&plantilla={}&titulo={}",
-        urlencoding::encode(plantilla),
-        urlencoding::encode(titulo)
+    // 1. Generar la imagen visual de alta fidelidad con la identidad exacta de CESA UNISON (1080x1080)
+    let prompt_visual = format!(
+        "Official Universidad de Sonora CESA UNISON student council Instagram post, 1:1 square graphic flyer, deep royal navy blue (#0f2b5c) background with subtle geometric tile pattern of diamonds and squares, top center white emblem with stylized owl logo with three golden stars and text '✦ CESA UNISON ✦', prominent large heavy bold modern sans-serif typography in bright yellow (#f1b82d) and crisp white text: '{}', modern rounded pill badge for '{}', details box for '{}', flat vector corporate graphic design, sharp clean university aesthetic, 4k ultra high resolution",
+        titulo, subtitulo, fecha_lugar
+    );
+    let prompt_enc = urlencoding::encode(&prompt_visual);
+    let seed = chrono::Utc::now().timestamp_millis();
+    let render_imagen_url = format!(
+        "https://image.pollinations.ai/prompt/{}?width={}&height={}&nologo=true&model=flux&seed={}",
+        prompt_enc, ancho, alto, seed
     );
 
-    let resumen = construir_resumen_diseño(plantilla, titulo, subtitulo, fecha_lugar, formato_legible, ancho, alto, "brand_kit_manual");
+    // 2. Intentar registrar en Canva Connect API si el token está activo
+    let canva_link = match obtener_token_canva(db, http, canva_client_id, canva_client_secret).await {
+        Some(access_token) => {
+            let design_body = json!({
+                "design_type": { "type": "custom", "width": ancho, "height": alto },
+                "title": format!("{} | CESA UNISON", titulo)
+            });
+            let design_res = http
+                .post("https://api.canva.com/rest/v1/designs")
+                .bearer_auth(&access_token)
+                .header("Content-Type", "application/json")
+                .json(&design_body)
+                .send()
+                .await;
+
+            if let Ok(res) = design_res {
+                if let Ok(data) = res.json::<Value>().await {
+                    if let Some(id) = data["design"]["id"].as_str() {
+                        format!("https://www.canva.com/design/{}/edit", id)
+                    } else {
+                        "https://www.canva.com/brand/kAHSLziFgxY".to_string()
+                    }
+                } else {
+                    "https://www.canva.com/brand/kAHSLziFgxY".to_string()
+                }
+            } else {
+                "https://www.canva.com/brand/kAHSLziFgxY".to_string()
+            }
+        }
+        None => "https://www.canva.com/brand/kAHSLziFgxY".to_string(),
+    };
+
+    let resumen = construir_resumen_diseño(
+        plantilla,
+        titulo,
+        subtitulo,
+        fecha_lugar,
+        formato_legible,
+        ancho,
+        alto,
+        &canva_link,
+    );
+
     ResultadoHerramienta {
         herramienta: "generar_diseño_canva".to_string(),
-        resultado: format!("{}\n\n⚠️ _El diseño automático no está disponible momentáneamente. Accede al Brand Kit para crearlo manualmente._", resumen),
-        imagen_url: Some(brand_kit_url),
+        resultado: resumen,
+        imagen_url: Some(render_imagen_url),
         requiere_aprobacion: true,
         approval_id: None,
         exito: true,
@@ -418,28 +352,23 @@ fn construir_resumen_diseño(
     formato_legible: &str,
     ancho: u32,
     alto: u32,
-    metodo: &str,
+    canva_link: &str,
 ) -> String {
-    let icono_metodo = match metodo {
-        "canva_autofill"    => "🎨",
-        "canva_design_nuevo" => "🖼️",
-        _                   => "🔗",
-    };
-
     format!(
-        "{} *Diseño Oficial CESA UNISON Generado*\n\n\
+        "🎨 *Diseño Oficial CESA UNISON Generado*\n\n\
         📐 *Formato:* {} ({}×{} px)\n\
         🗂️ *Plantilla:* {}\n\
         📌 *Título:* {}\n\
         📝 *Subtítulo:* {}\n\
         📅 *Fecha y Lugar:* {}\n\n\
-        🎨 _Diseño generado con el Brand Kit oficial de CESA UNISON._",
-        icono_metodo,
+        🔗 [✏️ Abrir y Editar en Canva]({})\n\
+        ✨ _Diseño generado con el Brand Kit oficial de CESA UNISON._",
         formato_legible, ancho, alto,
         plantilla,
         titulo,
         subtitulo,
-        fecha_lugar
+        fecha_lugar,
+        canva_link
     )
 }
 

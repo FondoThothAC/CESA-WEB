@@ -150,7 +150,6 @@ async fn enviar_telegram_con_botones(
     let _ = http.post(&url).json(&body_plain).send().await;
 }
 
-/// Envía una fotografía con pie de foto y botones opcionales
 async fn enviar_foto_con_botones(
     http: &reqwest::Client,
     bot_token: &str,
@@ -164,35 +163,59 @@ async fn enviar_foto_con_botones(
     }
 
     let url = format!("https://api.telegram.org/bot{}/sendPhoto", bot_token);
+
+    // 1. Descargar los bytes de la imagen para evitar que los servidores de Telegram den timeout al descargarla
+    tracing::info!("📥 Descargando imagen para envío a Telegram: {}", imagen_url);
+    if let Ok(resp) = http.get(imagen_url).send().await {
+        if resp.status().is_success() {
+            if let Ok(bytes) = resp.bytes().await {
+                let part = reqwest::multipart::Part::bytes(bytes.to_vec())
+                    .file_name("post_cesa_unison.png")
+                    .mime_str("image/png")
+                    .unwrap_or_else(|_| reqwest::multipart::Part::bytes(bytes.to_vec()));
+
+                let mut form = reqwest::multipart::Form::new()
+                    .text("chat_id", chat_id.to_string())
+                    .text("caption", caption.to_string())
+                    .part("photo", part);
+
+                if let Some(ref keyboard) = botones {
+                    form = form.text("reply_markup", keyboard.to_string());
+                }
+
+                if let Ok(r) = http.post(&url).multipart(form).send().await {
+                    if r.status().is_success() {
+                        tracing::info!("✅ Foto enviada como archivo multipart a Telegram chat_id={}", chat_id);
+                        return;
+                    } else {
+                        let err = r.text().await.unwrap_or_default();
+                        tracing::warn!("⚠️ Telegram rechazó sendPhoto multipart: {}", err);
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Intento secundario: Enviar URL directamente
     let mut body = json!({
         "chat_id": chat_id,
         "photo": imagen_url,
         "caption": caption,
-        "parse_mode": "Markdown"
     });
 
     if let Some(ref keyboard) = botones {
         body["reply_markup"] = keyboard.clone();
     }
 
-    let res = http.post(&url).json(&body).send().await;
-    match res {
-        Ok(r) if r.status().is_success() => {
-            tracing::info!("✅ Foto enviada a Telegram chat_id={}", chat_id);
+    if let Ok(r) = http.post(&url).json(&body).send().await {
+        if r.status().is_success() {
+            tracing::info!("✅ Foto enviada via URL a Telegram chat_id={}", chat_id);
             return;
-        }
-        Ok(r) => {
-            let err = r.text().await.unwrap_or_default();
-            tracing::warn!("⚠️  Telegram rechazó sendPhoto: {} — Enviando como mensaje con link...", err);
-        }
-        Err(e) => {
-            tracing::error!("❌ Error enviando foto a Telegram: {}", e);
         }
     }
 
-    // Fallback: Si la foto falla, enviar como mensaje de texto normal
-    let texto_alternativo = format!("{}\n\n🖼️ Ver imagen: {}", caption, imagen_url);
-    enviar_telegram_con_botones(http, bot_token, chat_id, &texto_alternativo, None, botones).await;
+    // 3. Fallback: Enviar texto limpio con botones sin URL cruda
+    enviar_telegram_con_botones(http, bot_token, chat_id, caption, None, botones).await;
 }
 
 /// Responde a un callback_query (click en botón de Telegram)
@@ -315,8 +338,14 @@ pub async fn handle_telegram_webhook(
         .send()
         .await;
 
-    // Limpiar menciones de texto para que el LLM reciba la instrucción limpia
-    let prompt_limpio = msg.texto
+    // 4. Identificar el agente usando el texto COMPLETO original (incluyendo menciones)
+    let agente_destinado = crate::modules::ai_engine::resolver_agente(&state.db, None, &msg.texto).await;
+    tracing::info!("🎯 Agente seleccionado para Telegram: {} (ID: {})", agente_destinado.nombre_agente, agente_destinado.id);
+
+    // Limpiar comillas externas y menciones para el prompt del LLM
+    let mut prompt_limpio = msg.texto
+        .trim_matches('"')
+        .trim_matches('\'')
         .replace("@CesaUnisonBot", "")
         .replace("@cesaunisonbot", "")
         .replace("@Bob", "")
@@ -330,21 +359,25 @@ pub async fn handle_telegram_webhook(
         .trim()
         .to_string();
 
+    if prompt_limpio.is_empty() {
+        prompt_limpio = "Hola".to_string();
+    }
+
     let session_id = format!("tg-{}", msg.chat_id);
 
-    // 4. Invocación al Swarm de Agentes
+    // 5. Invocación al Swarm de Agentes con el ID explícito del agente detectado
     let respuesta = orquestar_agente(
         &state,
         &session_id,
-        if prompt_limpio.is_empty() { "Hola" } else { &prompt_limpio },
+        &prompt_limpio,
         Some(msg.user_id),
         "telegram",
         Some(msg.chat_id),
-        None,
+        Some(agente_destinado.id),
     )
     .await;
 
-    // 5. Construir Botones de Aprobación si la acción lo amerita
+    // 6. Construir Botones de Aprobación si la acción lo amerita
     let botones_aprobacion = if respuesta.requiere_aprobacion {
         let app_id = respuesta.approval_id.unwrap_or(0);
         Some(json!({
@@ -359,7 +392,7 @@ pub async fn handle_telegram_webhook(
         None
     };
 
-    // 6. Enviar Respuesta
+    // 7. Enviar Respuesta
     if let Some(img_url) = &respuesta.imagen_url {
         enviar_foto_con_botones(
             &state.http_client,
