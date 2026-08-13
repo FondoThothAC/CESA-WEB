@@ -77,16 +77,27 @@ export default function Home() {
       fetch(`${baseUrl}/expediente`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setProfileData(data.data);
+      .then(async (res) => {
+        if (!res.ok) {
+          const phpRes = await fetch(`${API_URL}/perfil.php`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          return phpRes.json();
+        }
+        return res.json();
       })
-      .catch(e => console.error("Error perfil", e));
+      .then(data => {
+        if (data && data.success && data.data) {
+          setProfileData(data.data);
+        }
+      })
+      .catch(e => console.error("Error al obtener perfil/expediente:", e));
     }
   }, [token, activeTab, API_URL]);
 
   const effectiveProfile = profileData || (user ? {
-    nombre_completo: user.nombre_completo,
+    nombre_completo: (user as any).nombre_completo || (user as any).nombre || user.email?.split('@')[0] || "Estudiante UNISON",
+    nombre: (user as any).nombre || (user as any).nombre_completo || "Estudiante UNISON",
     expediente: user.expediente || user.matricula || "213203453",
     carrera: user.carrera || "Ingeniería en Sistemas de Información",
     progreso_academico: {

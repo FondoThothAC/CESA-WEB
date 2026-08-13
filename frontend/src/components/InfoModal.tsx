@@ -1,5 +1,7 @@
+'use client';
+
 import React from 'react';
-import { X, Shield, Book, Award, Users } from 'lucide-react';
+import { X, Shield, Book, Award, Users, Lock, CheckCircle, FileText, HelpCircle, Phone, Mail } from 'lucide-react';
 
 interface InfoModalProps {
   isOpen: boolean;
@@ -13,7 +15,7 @@ export default function InfoModal({ isOpen, type, onClose }: InfoModalProps) {
   const getTitle = () => {
     switch (type) {
       case 'privacidad':
-        return 'Aviso de Privacidad';
+        return 'Aviso de Privacidad Integral';
       case 'reglamento':
         return 'Reglamento General';
       case 'vinculacion':
@@ -24,15 +26,15 @@ export default function InfoModal({ isOpen, type, onClose }: InfoModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[100] flex items-center justify-center p-4 md:p-6 transition-all duration-300">
-      {/* Backdrop Click Dismiss */}
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 md:p-6 transition-all duration-300">
+      {/* Cierre al dar clic en el fondo */}
       <div className="absolute inset-0" onClick={onClose}></div>
 
-      {/* Modal Card */}
-      <div className="relative w-full max-w-4xl max-h-[85vh] bg-[#0c0d12]/95 border border-[#C5A059]/30 rounded-[32px] overflow-hidden flex flex-col shadow-[0_0_50px_rgba(197,160,89,0.15)] animate-in zoom-in-95 duration-200">
+      {/* Contenedor del Modal */}
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-[#0c0d12]/95 border border-[#C5A059]/30 rounded-[32px] overflow-hidden flex flex-col shadow-[0_0_50px_rgba(197,160,89,0.15)] animate-in zoom-in-95 duration-200">
         
-        {/* Header */}
-        <div className="flex justify-between items-center px-6 py-5 border-b border-[#C5A059]/20 bg-gradient-to-r from-[#002147]/40 to-transparent">
+        {/* Cabecera */}
+        <div className="flex justify-between items-center px-6 py-5 border-b border-[#C5A059]/20 bg-gradient-to-r from-[#002147]/60 to-transparent">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#C5A059]/10 border border-[#C5A059]/20 flex items-center justify-center text-[#C5A059]">
               {type === 'privacidad' && <Shield className="w-5 h-5" />}
@@ -41,7 +43,7 @@ export default function InfoModal({ isOpen, type, onClose }: InfoModalProps) {
             </div>
             <div>
               <h3 className="text-lg font-black uppercase tracking-wider text-white">{getTitle()}</h3>
-              <p className="text-[10px] text-[#C5A059] font-black uppercase tracking-widest">CESA UNISON 2026-2028</p>
+              <p className="text-[10px] text-[#C5A059] font-black uppercase tracking-widest">Consejo Estudiantil de Sociedades de Alumnos • UNISON</p>
             </div>
           </div>
           <button 
@@ -52,53 +54,134 @@ export default function InfoModal({ isOpen, type, onClose }: InfoModalProps) {
           </button>
         </div>
 
-        {/* Content Body */}
+        {/* Cuerpo del Contenido */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 text-sm text-slate-300 leading-relaxed scrollbar-thin scrollbar-thumb-white/10">
           
-          {/* PRIVACY POLICY */}
+          {/* AVISO DE PRIVACIDAD INTEGRAL */}
           {type === 'privacidad' && (
             <div className="space-y-6 font-medium">
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex gap-4 items-start">
-                <div className="text-2xl mt-1">🛡️</div>
+              
+              {/* Resumen Ejecutivo Destacado */}
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900/60 border border-indigo-500/20 flex flex-col md:flex-row gap-4 items-start">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center shrink-0 text-indigo-400">
+                  <Lock className="w-6 h-6" />
+                </div>
                 <div>
-                  <h4 className="font-black text-white uppercase text-xs tracking-wider mb-1">Compromiso CBIT-01</h4>
-                  <p className="text-xs text-slate-400">
-                    Nuestra plataforma opera bajo los estándares de auditoría de seguridad y anonimato **CBIT-01**, garantizando que tus datos personales e institucionales estén resguardados de forma cifrada en todo momento.
+                  <h4 className="font-black text-white uppercase text-xs tracking-wider mb-1">
+                    Compromiso Institucional de Protección de Datos Personales (CBIT-01)
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    El <strong>Consejo Estudiantil de Sociedades de Alumnos (CESA UNISON)</strong> opera esta plataforma digital bajo los más estrictos estándares de seguridad, confidencialidad y ética digital, en cumplimiento con la <em>Ley General de Protección de Datos Personales en Posesión de Sujetos Obligados</em> y la normativa universitaria de la Universidad de Sonora.
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-4 text-xs md:text-sm">
-                <h5 className="font-bold text-white uppercase tracking-wider text-xs">1. Información Recopilada</h5>
-                <p>
-                  Recopilamos únicamente tu nombre completo, correo institucional (`@unison.mx` u homólogos) y matrícula estudiantil al iniciar sesión mediante tokens de seguridad (JWT). Esto asegura la legitimidad de la representación y el acceso exclusivo a los estudiantes de la Universidad de Sonora.
-                </p>
+              <div className="space-y-6 text-xs md:text-sm text-slate-300">
+                
+                {/* 1. Responsable */}
+                <div className="border-l-2 border-[#C5A059] pl-4 space-y-1">
+                  <h5 className="font-black text-white uppercase tracking-wider text-xs">1. Identidad y Domicilio del Responsable</h5>
+                  <p>
+                    El <strong>Consejo Estudiantil de Sociedades de Alumnos (CESA)</strong>, con sede en el Campus Hermosillo de la Universidad de Sonora (Blvd. Luis Encinas y Rosales S/N, Col. Centro, C.P. 83000, Hermosillo, Sonora, México), es el responsable del tratamiento, uso y resguardo de los datos personales recabados en este portal web y sus servicios conexos.
+                  </p>
+                </div>
 
-                <h5 className="font-bold text-white uppercase tracking-wider text-xs">2. Anonimato en Reportes</h5>
-                <p>
-                  El Buzón Digital de Reportes cuenta con un motor de privacidad que elimina la traza de direcciones IP y metadatos de los estudiantes al momento del envío. El análisis de sentimiento se procesa de forma agregada sin asociar tu perfil.
-                </p>
+                {/* 2. Datos Recabados */}
+                <div className="border-l-2 border-[#C5A059] pl-4 space-y-2">
+                  <h5 className="font-black text-white uppercase tracking-wider text-xs">2. Datos Personales que se Recaban</h5>
+                  <p>Para la prestación de los servicios digitales universitarios, se recaban las siguientes categorías de datos:</p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-300 pl-2">
+                    <li><strong>Datos de Identificación y Acceso:</strong> Nombre completo, correo institucional (<code>@unison.mx</code> o <code>@fondothoth.com</code>), número de expediente/matrícula estudiantil, Clave Única de Registro de Población (CURP) y fotografía de perfil (opcional).</li>
+                    <li><strong>Datos de Contacto:</strong> Número de teléfono celular (utilizado como factor de doble autenticación e inicio de sesión sin contraseña).</li>
+                    <li><strong>Datos Académicos:</strong> Licenciatura o posgrado cursado, semestre calculado, créditos acumulados y estado de trayectoria académica.</li>
+                    <li><strong>Datos de Competencias y Evaluaciones:</strong> Respuestas y resultados de pruebas psicométricas, diagnósticos vocacionales y certificaciones digitales de habilidades (CBIT-01).</li>
+                    <li><strong>Datos de Emprendimiento (Bazar):</strong> Nombre comercial del emprendimiento, descripción de productos y ubicación asignada de stand dentro del campus.</li>
+                  </ul>
+                </div>
 
-                <h5 className="font-bold text-white uppercase tracking-wider text-xs">3. Bazar y Publicidad</h5>
-                <p>
-                  Los datos de geolocalización e información comercial del Bazar Estudiantil se publican únicamente bajo el consentimiento explícito de cada emprendedor registrado.
-                </p>
+                {/* 3. Finalidades del Tratamiento */}
+                <div className="border-l-2 border-[#C5A059] pl-4 space-y-2">
+                  <h5 className="font-black text-white uppercase tracking-wider text-xs">3. Finalidades del Tratamiento de Datos</h5>
+                  <p><strong>Finalidades Primarias (Necesarias para el servicio):</strong></p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-300 pl-2">
+                    <li>Autenticar de manera fehaciente la identidad del estudiante como alumno regular de la Universidad de Sonora.</li>
+                    <li>Generar el Carnet y Credencial Digital institucional con código QR dinámico y hash criptográfico verificable.</li>
+                    <li>Validar el padrón electoral estudiantil para garantizar votaciones electrónicas democráticas, únicas, transparentes y libres de duplicidad.</li>
+                    <li>Emitir constancias y micro-credenciales de competencias digitales con identificador UUID único.</li>
+                    <li>Gestionar reservas de puestos físicos en las ediciones oficiales del Bazar Emprendedor CESA.</li>
+                    <li>Permitir la postulación transparente a vacantes de prácticas profesionales y bolsa de trabajo.</li>
+                  </ul>
+                  <p className="mt-2"><strong>Finalidades Secundarias (Estadísticas y Mejora Comunitaria):</strong></p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-300 pl-2">
+                    <li>Generar indicadores globales y agregados de rendimiento y sentimiento estudiantil sin vincular perfiles individuales.</li>
+                    <li>Notificar sobre convocatorias, becas, eventos académicos y actividades de las Sociedades de Alumnos.</li>
+                  </ul>
+                </div>
 
-                <h5 className="font-bold text-white uppercase tracking-wider text-xs">4. Derechos ARCO</h5>
-                <p>
-                  Puedes solicitar la rectificación, cancelación o eliminación total de tu cuenta y datos asociados en cualquier momento a través de la pestaña de Perfil o contactando a la Mesa Directiva de CESA.
-                </p>
+                {/* 4. Anonimato y Voto Secreto */}
+                <div className="border-l-2 border-[#C5A059] pl-4 space-y-2">
+                  <h5 className="font-black text-white uppercase tracking-wider text-xs">4. Mecanismos de Anonimato y Urna Digital Cifrada</h5>
+                  <p>
+                    <strong>Buzón de Reportes Anónimos:</strong> Cuenta con una arquitectura de privacidad en capas que remueve automáticamente la dirección IP de origen, huella del navegador y metadatos del estudiante emisor antes de almacenar la denuncia.
+                  </p>
+                  <p>
+                    <strong>Votaciones Electrónicas Seguras:</strong> El sistema emplea un algoritmo de cifrado asimétrico/determinista (AES-256) que desvincula la identidad del votante de la opción elegida. Una vez emitido el voto, se registra un token criptográfico que impide votos duplicados garantizando el secreto universal del sufragio.
+                  </p>
+                </div>
+
+                {/* 5. Transferencias de Datos */}
+                <div className="border-l-2 border-[#C5A059] pl-4 space-y-1">
+                  <h5 className="font-black text-white uppercase tracking-wider text-xs">5. Transferencia de Datos a Terceros</h5>
+                  <p>
+                    El CESA <strong>no vende, renta ni comercializa</strong> tus datos personales con terceros. Los datos de contacto y CV solo serán compartidos con empresas y empleadores cuando el estudiante decida voluntariamente enviar su postulación a una vacante en la Bolsa de Trabajo.
+                  </p>
+                </div>
+
+                {/* 6. Derechos ARCO */}
+                <div className="border-l-2 border-[#C5A059] pl-4 space-y-2">
+                  <h5 className="font-black text-white uppercase tracking-wider text-xs">6. Ejercicio de Derechos ARCO (Acceso, Rectificación, Cancelación y Oposición)</h5>
+                  <p>
+                    Tienes el derecho inalienable de conocer qué datos personales tenemos registrados, rectificarlos en caso de ser inexactos, solicitar su cancelación definitiva de nuestras bases de datos u oponerte al tratamiento de los mismos.
+                  </p>
+                  <p>
+                    Para ejercer tus derechos ARCO, puedes:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-300 pl-2">
+                    <li>Actualizar tus datos directamente en la pestaña <strong>Expediente / Perfil</strong> de este portal.</li>
+                    <li>Enviar una solicitud formal al correo oficial de la Mesa Directiva: <code className="text-[#C5A059]">privacidad@cesaunison.fondothoth.com</code> indicando tu nombre, expediente y derecho que deseas ejercer.</li>
+                  </ul>
+                </div>
+
+                {/* 7. Seguridad Tecnológica */}
+                <div className="border-l-2 border-[#C5A059] pl-4 space-y-1">
+                  <h5 className="font-black text-white uppercase tracking-wider text-xs">7. Medidas de Seguridad Tecnológica</h5>
+                  <p>
+                    Toda la comunicación entre tu navegador y nuestros servidores viaja cifrada mediante certificados SSL/TLS 1.3 de alta graduación. Las contraseñas se almacenan procesadas mediante algoritmos de derivación de claves criptográficas Bcrypt (factor de costo 12) y las sesiones se protegen mediante JSON Web Tokens (JWT) con firma criptográfica.
+                  </p>
+                </div>
+
+                {/* 8. Actualizaciones */}
+                <div className="border-l-2 border-[#C5A059] pl-4 space-y-1">
+                  <h5 className="font-black text-white uppercase tracking-wider text-xs">8. Modificaciones al Presente Aviso</h5>
+                  <p>
+                    El CESA se reserva el derecho de actualizar este aviso de privacidad ante reformas estatutarias o adición de nuevos servicios universitarios. Las modificaciones estarán siempre publicadas y accesibles en este portal web.
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-2 font-mono">
+                    Última actualización: 13 de Agosto de 2026 • Versión 4.2 CBIT Integral
+                  </p>
+                </div>
+
               </div>
             </div>
           )}
 
-          {/* REGULATIONS */}
+          {/* REGLAMENTO GENERAL */}
           {type === 'reglamento' && (
             <div className="space-y-6 font-medium">
               <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex gap-4 items-start">
                 <div className="text-2xl mt-1">📜</div>
                 <div>
-                  <h4 className="font-black text-white uppercase text-xs tracking-wider mb-1">Estatuto de Representación</h4>
+                  <h4 className="font-black text-white uppercase text-xs tracking-wider mb-1">Estatuto de Representación Estudiantil</h4>
                   <p className="text-xs text-slate-400">
                     El CESA es el órgano de representación estudiantil democrático y legítimo ante las autoridades de la Universidad de Sonora. Este reglamento rige el uso y convivencia en nuestros espacios digitales.
                   </p>
@@ -124,14 +207,14 @@ export default function InfoModal({ isOpen, type, onClose }: InfoModalProps) {
             </div>
           )}
 
-          {/* VINCULACIÓN (COMMITTEES GRID MATCHING CANVA IMAGES) */}
+          {/* COMITÉS DE VINCULACIÓN */}
           {type === 'vinculacion' && (
             <div className="space-y-6">
               <p className="text-slate-400 text-xs md:text-sm font-medium">
-                Conoce los comités y áreas de trabajo que conforman el **Consejo Estudiantil de Sociedades de Alumnos (CESA)**. A través de ellos impulsamos el liderazgo, la inclusión, la diversidad y el talento de la comunidad estudiantil.
+                Conoce los comités y áreas de trabajo que conforman el <strong>Consejo Estudiantil de Sociedades de Alumnos (CESA)</strong>. A través de ellos impulsamos el liderazgo, la inclusión, la diversidad y el talento de la comunidad estudiantil.
               </p>
 
-              {/* Committees Grid */}
+              {/* Cuadrícula de Comités */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
                 {/* RAICES */}
@@ -258,13 +341,16 @@ export default function InfoModal({ isOpen, type, onClose }: InfoModalProps) {
 
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#C5A059]/20 bg-black/40 flex justify-end">
+        {/* Pie del Modal */}
+        <div className="px-6 py-4 border-t border-[#C5A059]/20 bg-black/40 flex justify-between items-center">
+          <p className="text-[10px] text-slate-500 font-mono">
+            CESA UNISON • Plataforma Institucional Segura
+          </p>
           <button 
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-wider transition-colors"
+            className="px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-[#C5A059]/20 hover:border-[#C5A059]/40 text-white text-xs font-bold uppercase tracking-wider transition-colors"
           >
-            Cerrar
+            Entendido
           </button>
         </div>
 

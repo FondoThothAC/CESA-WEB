@@ -17,6 +17,9 @@ USER="ubuntu"
 SSH_KEY="/Users/robertoeduardocelisrobles/Documents/FT Apps/Web/CESA-WEB/unison keys/ssh-key-2026-05-12.key"
 REMOTE_PATH="/var/www/cesa-web"
 
+# Asegurar permisos correctos de la llave SSH
+chmod 600 "$SSH_KEY" 2>/dev/null || true
+
 echo "🚀 Iniciando despliegue FULL STACK en Oracle VPS ($IP)..."
 
 # 1. Construir Frontend

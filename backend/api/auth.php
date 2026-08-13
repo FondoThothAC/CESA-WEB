@@ -122,11 +122,17 @@ try {
                 if ($user['email'] === 'software@fondothoth.com' || $user['email'] === 'a213203453@unison.mx') {
                     $role = 'admin';
                 }
+                $expedienteCode = $user['expediente'] ?: ($user['matricula'] ?: '');
                 $token = JWTHelper::create([
                     'id' => $user['id'],
                     'email' => $user['email'],
                     'rol' => $role,
-                    'nombre' => $user['nombre_completo']
+                    'nombre' => $user['nombre_completo'],
+                    'nombre_completo' => $user['nombre_completo'],
+                    'expediente' => $expedienteCode,
+                    'matricula' => $expedienteCode,
+                    'carrera' => $user['carrera'] ?? 'No especificada',
+                    'avatar_path' => $user['avatar_path'] ?? null
                 ]);
                 
                 // Guardar JWT en Cookie para portales PHP
@@ -144,6 +150,10 @@ try {
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['rol'] = $role;
                 $_SESSION['nombre'] = $user['nombre_completo'];
+                $_SESSION['nombre_completo'] = $user['nombre_completo'];
+                $_SESSION['expediente'] = $expedienteCode;
+                $_SESSION['matricula'] = $expedienteCode;
+                $_SESSION['carrera'] = $user['carrera'] ?? 'No especificada';
 
                 echo json_encode([
                     'success' => true,
@@ -151,8 +161,13 @@ try {
                     'user' => [
                         'id' => $user['id'],
                         'nombre' => $user['nombre_completo'],
+                        'nombre_completo' => $user['nombre_completo'],
                         'rol' => $role,
                         'email' => $user['email'],
+                        'expediente' => $expedienteCode,
+                        'matricula' => $expedienteCode,
+                        'carrera' => $user['carrera'] ?? 'No especificada',
+                        'avatar_path' => $user['avatar_path'] ?? null,
                         'telefono' => $user['telefono'] ?? '',
                         'curp' => $user['curp'] ?? ''
                     ]
@@ -240,6 +255,13 @@ try {
                 if (($decoded['email'] ?? '') === 'software@fondothoth.com' || ($decoded['email'] ?? '') === 'a213203453@unison.mx') {
                     $decoded['rol'] = 'admin';
                 }
+                // Asegurar simetría de nombre y nombre_completo
+                if (empty($decoded['nombre_completo']) && !empty($decoded['nombre'])) {
+                    $decoded['nombre_completo'] = $decoded['nombre'];
+                }
+                if (empty($decoded['nombre']) && !empty($decoded['nombre_completo'])) {
+                    $decoded['nombre'] = $decoded['nombre_completo'];
+                }
                 echo json_encode(['success' => true, 'user' => $decoded]);
                 exit;
             }
@@ -251,13 +273,18 @@ try {
             if (($_SESSION['email'] ?? '') === 'software@fondothoth.com' || ($_SESSION['email'] ?? '') === 'a213203453@unison.mx') {
                 $role = 'admin';
             }
+            $nombreVal = $_SESSION['nombre_completo'] ?? $_SESSION['nombre'] ?? 'Estudiante';
             echo json_encode([
                 'success' => true, 
                 'user' => [
                     'id' => $_SESSION['user_id'],
                     'email' => $_SESSION['email'],
                     'rol' => $role,
-                    'nombre' => $_SESSION['nombre']
+                    'nombre' => $nombreVal,
+                    'nombre_completo' => $nombreVal,
+                    'expediente' => $_SESSION['expediente'] ?? $_SESSION['matricula'] ?? '',
+                    'matricula' => $_SESSION['matricula'] ?? $_SESSION['expediente'] ?? '',
+                    'carrera' => $_SESSION['carrera'] ?? 'No especificada'
                 ]
             ]);
             exit;

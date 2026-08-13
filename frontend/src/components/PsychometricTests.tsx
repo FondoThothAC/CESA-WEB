@@ -25,19 +25,22 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
   }, [token]);
 
   const loadTests = async () => {
-    if (!token) return;
     setLoading(true);
     try {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const res = await fetch(`${API_URL}/tests.php?action=listar`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers
       });
       const data = await res.json();
-      if (data.success) {
-        setTests(data.tests || []);
+      if (data && data.success) {
+        setTests(Array.isArray(data.tests) ? data.tests : []);
         setResults(data.mis_resultados || {});
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error al cargar tests psicométricos:', e);
     } finally {
       setLoading(false);
     }
@@ -79,6 +82,20 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
   }
 
   if (viewState === 'result_details' && activeTest && selectedResult) {
+    // Parseo seguro de resultados_json ya sea objeto o string serializado
+    let parsedResultados: Record<string, any> = {};
+    if (typeof selectedResult.resultados_json === 'string') {
+      try {
+        parsedResultados = JSON.parse(selectedResult.resultados_json);
+      } catch (e) {
+        parsedResultados = {};
+      }
+    } else if (typeof selectedResult.resultados_json === 'object' && selectedResult.resultados_json !== null) {
+      parsedResultados = selectedResult.resultados_json;
+    }
+
+    const testColor = activeTest.color_hex || '#4F46E5';
+
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         <div className="flex items-center justify-between">
@@ -92,8 +109,8 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
 
         <div className="clean-card p-8 border border-border shadow-xl space-y-8">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg" style={{ backgroundColor: `${activeTest.color_hex}20`, color: activeTest.color_hex }}>
-              <i className={activeTest.icono}></i>
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg" style={{ backgroundColor: `${testColor}20`, color: testColor }}>
+              <i className={activeTest.icono || 'fas fa-brain'}></i>
             </div>
             <div>
               <h2 className="text-2xl font-black text-text-main">{activeTest.nombre}</h2>
@@ -105,7 +122,7 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
             <h3 className="text-sm font-black uppercase tracking-widest text-text-muted border-b border-border pb-2">Desglose Dimensional</h3>
             
             <div className="space-y-4">
-              {Object.entries(selectedResult.resultados_json).map(([dim, score]: [string, any], idx) => (
+              {Object.entries(parsedResultados).map(([dim, score]: [string, any], idx) => (
                 <div key={idx} className="space-y-2">
                   <div className="flex justify-between items-end">
                     <span className="font-bold text-text-main uppercase text-sm">{dim}</span>
@@ -115,8 +132,8 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
                     <div 
                       className="h-full rounded-full transition-all duration-1000" 
                       style={{ 
-                        width: `${score}%`, 
-                        backgroundColor: activeTest.color_hex || '#4F46E5' 
+                        width: `${Math.min(100, Math.max(0, Number(score) || 0))}%`, 
+                        backgroundColor: testColor
                       }}
                     ></div>
                   </div>
@@ -138,6 +155,8 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
     );
   }
 
+  const safeTests = Array.isArray(tests) ? tests : [];
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
@@ -149,15 +168,16 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {tests.map(test => {
-          const result = results[test.id];
+        {safeTests.map(test => {
+          const result = results ? results[test.id] : null;
           const hasResult = !!result;
+          const cardColor = test.color_hex || '#4F46E5';
 
           return (
             <div key={test.id} className="clean-card p-6 border border-border hover:border-primary/30 transition-all flex flex-col h-full group">
               <div className="flex items-start gap-4 flex-1">
-                <div className="w-14 h-14 rounded-2xl flex flex-shrink-0 items-center justify-center text-2xl shadow-inner" style={{ backgroundColor: `${test.color_hex}20`, color: test.color_hex }}>
-                  <i className={test.icono}></i>
+                <div className="w-14 h-14 rounded-2xl flex flex-shrink-0 items-center justify-center text-2xl shadow-inner" style={{ backgroundColor: `${cardColor}20`, color: cardColor }}>
+                  <i className={test.icono || 'fas fa-brain'}></i>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -177,7 +197,7 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
 
               <div className="mt-6 pt-4 border-t border-border flex items-center justify-between">
                 <div className="text-xs font-bold text-text-muted flex items-center gap-2">
-                  <i className="far fa-clock"></i> ~{test.duracion_estimada_minutos} min
+                  <i className="far fa-clock"></i> ~{test.duracion_estimada_minutos || 15} min
                 </div>
                 
                 {hasResult ? (

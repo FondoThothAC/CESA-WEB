@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/lib/useAuth';
 import { api } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import InfoModal from '@/components/InfoModal';
 
 const LoginPage = () => {
     const [isLogin, setIsLogin] = useState(true);
@@ -19,6 +20,7 @@ const LoginPage = () => {
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [activeModal, setActiveModal] = useState<'privacidad' | 'reglamento' | 'vinculacion' | null>(null);
     
     const { login } = useAuth();
     const router = useRouter();
@@ -78,7 +80,7 @@ const LoginPage = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center p-8 bg-black">
-            {/* Background Effects */}
+            {/* Fondo con degradado ambiental */}
             <div className="absolute inset-0 bg-gradient-to-tr from-blue-950/20 via-black to-indigo-950/20 pointer-events-none" />
 
             <div className="w-full max-w-md bg-slate-950/80 border border-white/10 p-8 rounded-3xl backdrop-blur-xl relative z-10 shadow-2xl">
@@ -238,7 +240,7 @@ const LoginPage = () => {
                     </button>
                 </form>
 
-                <div className="mt-8 text-center">
+                <div className="mt-8 text-center space-y-3">
                     <p className="text-[var(--text-muted)] text-xs">
                         {isLogin ? '¿Aún no tienes cuenta?' : '¿Ya eres parte de la comunidad?'}
                         <button 
@@ -248,8 +250,26 @@ const LoginPage = () => {
                             {isLogin ? 'Regístrate aquí' : 'Inicia sesión'}
                         </button>
                     </p>
+
+                    <p className="text-[11px] text-white/40">
+                        Al continuar, aceptas el{' '}
+                        <button 
+                            type="button"
+                            onClick={() => setActiveModal('privacidad')}
+                            className="text-[#C5A059] hover:underline font-semibold"
+                        >
+                            Aviso de Privacidad Institucional
+                        </button>
+                    </p>
                 </div>
             </div>
+
+            {/* Modal de Información / Privacidad */}
+            <InfoModal 
+                isOpen={activeModal !== null}
+                type={activeModal}
+                onClose={() => setActiveModal(null)}
+            />
         </div>
     );
 };
