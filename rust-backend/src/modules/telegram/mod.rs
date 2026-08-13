@@ -166,12 +166,17 @@ async fn enviar_foto_con_botones(
 
     // 1. Descargar los bytes de la imagen para evitar que los servidores de Telegram den timeout al descargarla
     tracing::info!("📥 Descargando imagen para envío a Telegram: {}", imagen_url);
-    if let Ok(resp) = http.get(imagen_url).send().await {
+    let download_res = http.get(imagen_url)
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await;
+
+    if let Ok(resp) = download_res {
         if resp.status().is_success() {
             if let Ok(bytes) = resp.bytes().await {
                 let part = reqwest::multipart::Part::bytes(bytes.to_vec())
-                    .file_name("post_cesa_unison.png")
-                    .mime_str("image/png")
+                    .file_name("post_cesa_unison.jpg")
+                    .mime_str("image/jpeg")
                     .unwrap_or_else(|_| reqwest::multipart::Part::bytes(bytes.to_vec()));
 
                 let mut form = reqwest::multipart::Form::new()
