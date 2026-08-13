@@ -414,22 +414,22 @@ pub async fn resolver_agente(
         }
     }
 
-    // 2. Detección por mención en el texto (@Aria, @Atlas, etc.)
-    let target_name = if lower.contains("@aria") || lower.contains("canva") || lower.contains("diseño") || lower.contains("flyer") {
+    // 2. Detección por mención en el texto (@Aria, @Atlas, etc.) o palabras clave
+    let target_name = if lower.contains("aria") || lower.contains("canva") || lower.contains("diseño") || lower.contains("diseno") || lower.contains("flyer") || lower.contains("post") || lower.contains("redes") || lower.contains("instagram") || lower.contains("cartel") || lower.contains("banner") {
         "Aria"
-    } else if lower.contains("@atlas") || lower.contains("bazar") || lower.contains("vender") || lower.contains("negocio") {
+    } else if lower.contains("atlas") || lower.contains("bazar") || lower.contains("vender") || lower.contains("negocio") || lower.contains("emprendimiento") {
         "Atlas"
-    } else if lower.contains("@minerva") || lower.contains("tutoría") || lower.contains("exani") || lower.contains("apuntes") {
+    } else if lower.contains("minerva") || lower.contains("tutoría") || lower.contains("tutoria") || lower.contains("exani") || lower.contains("apuntes") || lower.contains("materia") {
         "Minerva"
-    } else if lower.contains("@orion") || lower.contains("deporte") || lower.contains("torneo") {
+    } else if lower.contains("orion") || lower.contains("orión") || lower.contains("deporte") || lower.contains("torneo") || lower.contains("futbol") || lower.contains("basquet") {
         "Orión"
-    } else if lower.contains("@aurora") || lower.contains("salud") || lower.contains("bienestar") || lower.contains("beca") {
+    } else if lower.contains("aurora") || lower.contains("salud") || lower.contains("bienestar") || lower.contains("beca") || lower.contains("psicolog") {
         "Aurora"
-    } else if lower.contains("@lyra") || lower.contains("gaceta") || lower.contains("cultura") {
+    } else if lower.contains("lyra") || lower.contains("gaceta") || lower.contains("cultura") || lower.contains("evento") || lower.contains("musica") {
         "Lyra"
-    } else if lower.contains("@cleo") || lower.contains("finanzas") || lower.contains("tesoreria") {
+    } else if lower.contains("cleo") || lower.contains("finanzas") || lower.contains("tesoreria") || lower.contains("presupuesto") {
         "Cleo"
-    } else if lower.contains("@nova") || lower.contains("convenio") || lower.contains("descuento") {
+    } else if lower.contains("nova") || lower.contains("convenio") || lower.contains("descuento") || lower.contains("alianza") {
         "Nova"
     } else {
         "Bob Prime"
