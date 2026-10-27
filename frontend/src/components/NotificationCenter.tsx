@@ -19,8 +19,9 @@ export default function NotificationCenter() {
       });
       const data = await res.json();
       if (data.success) {
-        setNotifications(data.notifications);
-        setUnreadCount(data.notifications.filter((n: any) => !n.leido).length);
+        const list = Array.isArray(data.notifications) ? data.notifications : [];
+        setNotifications(list);
+        setUnreadCount(list.filter((n: any) => !n.leido).length);
       }
     } catch (err) {
       console.error("Error fetching notifications", err);
@@ -54,7 +55,7 @@ export default function NotificationCenter() {
   return (
     <div className="relative">
       <button 
-        onClick={() => { setIsOpen(!isOpen); if (!isOpen) markRead(); }}
+        onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 bg-slate-800 rounded-xl border border-slate-700 hover:border-indigo-500 transition-all text-slate-400 hover:text-white"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

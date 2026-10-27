@@ -23,17 +23,17 @@ interface CampusMap3DProps {
  */
 function CameraController({ selectedBuilding }: { selectedBuilding: Building | null }) {
   const { camera } = useThree();
-  const targetPos = useRef(new THREE.Vector3(0, 35, 40));
+  const targetPos = useRef(new THREE.Vector3(0, 45, 55));
   const targetLookAt = useRef(new THREE.Vector3(0, 0, 0));
 
   useFrame(() => {
     if (selectedBuilding) {
       const bp = selectedBuilding.position;
-      const bh = selectedBuilding.floors * 1.5;
-      targetPos.current.set(bp[0] + 5, bh + 10, bp[2] + 12);
+      const bh = selectedBuilding.floors * 1.6;
+      targetPos.current.set(bp[0] + 5, bh + 12, bp[2] + 14);
       targetLookAt.current.set(bp[0], bh / 2, bp[2]);
     } else {
-      targetPos.current.set(0, 35, 40);
+      targetPos.current.set(0, 45, 55);
       targetLookAt.current.set(0, 0, 0);
     }
     camera.position.lerp(targetPos.current, 0.04);
@@ -61,14 +61,14 @@ function CampusScene({
 }: CampusMap3DProps) {
   return (
     <>
-      <PerspectiveCamera makeDefault position={[0, 35, 40]} fov={45} />
+      <PerspectiveCamera makeDefault position={[0, 45, 55]} fov={45} />
       <OrbitControls
         enablePan
         enableZoom
         enableRotate
         maxPolarAngle={Math.PI / 2.1}
         minDistance={8}
-        maxDistance={100}
+        maxDistance={140}
         target={[0, 0, 0]}
         enableDamping
         dampingFactor={0.05}
@@ -77,7 +77,7 @@ function CampusScene({
 
       {/* Fondo del cielo nocturno universitario */}
       <color attach="background" args={['#1a2744']} />
-      <fog attach="fog" args={['#1a2744', 60, 120]} />
+      <fog attach="fog" args={['#1a2744', 80, 160]} />
 
       {/* Estrellas de fondo */}
       <Stars radius={80} depth={40} count={800} factor={3} saturation={0.2} fade />

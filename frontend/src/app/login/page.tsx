@@ -33,11 +33,16 @@ const LoginPage = () => {
 
         try {
             if (isLogin) {
-                const val = password || telefono;
-                const res = await login(identifier, val, curp, val);
-                if (res.success) {
-                    window.location.href = '/';
-                } else {
+                // Modo contraseña o modo celular: se envía solo el campo correspondiente
+                const res = await login(
+                    identifier,
+                    usePassword ? password : undefined,
+                    undefined,
+                    usePassword ? undefined : telefono
+                );
+                if (res.success && res.redirectUrl) {
+                    router.replace(res.redirectUrl);
+                } else if (!res.success) {
                     setError(res.error || 'Número de expediente, correo o celular incorrectos.');
                 }
             } else {
@@ -48,9 +53,15 @@ const LoginPage = () => {
                     return;
                 }
 
+                if (!password || password.length < 8) {
+                    setError('La contraseña debe tener al menos 8 caracteres');
+                    setIsSubmitting(false);
+                    return;
+                }
+
                 const res = await api.signup({
                     email: identifier,
-                    password: password || 'Unison2026!',
+                    password,
                     nombre_completo: nombre,
                     matricula,
                     telefono,
@@ -61,11 +72,12 @@ const LoginPage = () => {
 
                 if (res.success) {
                     setSuccessMsg('¡Cuenta registrada exitosamente con perfil ' + rol.toUpperCase() + '! Iniciando sesión...');
-                    const loginRes = await login(identifier, password, curp, telefono);
-                    if (loginRes.success) {
-                        setTimeout(() => router.push('/'), 1000);
+                    const loginRes = await login(identifier, password);
+                    if (loginRes.success && loginRes.redirectUrl) {
+                        router.replace(loginRes.redirectUrl);
                     } else {
                         setIsLogin(true);
+                        setSuccessMsg('Cuenta creada. Ahora inicia sesión.');
                     }
                 } else {
                     setError(res.error || 'Error al completar el registro.');
@@ -124,11 +136,10 @@ const LoginPage = () => {
                                     onChange={(e) => setRol(e.target.value)}
                                     className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs font-bold"
                                 >
-                                    <option value="estudiante">🎓 Estudiante UNISON</option>
-                                    <option value="empresa">🏢 Empresa / Empleador</option>
-                                    <option value="sociedad">🏛️ Sociedad de Alumnos</option>
-                                    <option value="mesa_directiva">⭐ Mesa Directiva CESA</option>
-                                </select>
+                                <option value="estudiante">🎓 Estudiante UNISON</option>
+                                <option value="empresa">🏢 Empresa / Empleador</option>
+                                <option value="sociedad">🏛️ Sociedad de Alumnos</option>
+                            </select>
                             </div>
 
                             <div>
@@ -206,6 +217,21 @@ const LoginPage = () => {
                         />
                     </div>
 
+                    {!isLogin && (
+                        <div>
+                            <label className="text-[10px] uppercase font-black text-white/40 mb-1 block ml-2">Contraseña (mínimo 8 caracteres)</label>
+                            <input 
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs"
+                                placeholder="••••••••"
+                                minLength={8}
+                                required={!isLogin}
+                            />
+                        </div>
+                    )}
+
                     {isLogin && (
                         <div>
                             <div className="flex items-center justify-between mb-1 ml-2">
@@ -222,8 +248,8 @@ const LoginPage = () => {
                             </div>
                             <input 
                                 type={usePassword ? "password" : "tel"}
-                                value={password || telefono}
-                                onChange={(e) => { setPassword(e.target.value); setTelefono(e.target.value); }}
+                                value={usePassword ? password : telefono}
+                                onChange={(e) => { if (usePassword) setPassword(e.target.value); else setTelefono(e.target.value); }}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--primary)] transition-all text-xs"
                                 placeholder={usePassword ? "••••••••" : "Ej: 6624102866"}
                                 required

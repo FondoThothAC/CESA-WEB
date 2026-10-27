@@ -10,6 +10,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../lib/Auth.php';
 require_once __DIR__ . '/../lib/AdminHelper.php';
 require_once __DIR__ . '/../lib/NotificationManager.php';
+require_once __DIR__ . '/../lib/BazarEvents.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -155,6 +156,7 @@ try {
             $newId = $pdo->lastInsertId();
 
             AdminHelper::logAction($pdo, $user['id'], 'bazar_crear_edicion', "Nueva edición '$nombre' ($mapa_tipo) creada");
+            bazarEmitEvent($pdo, 'edicion_creada', ['id' => (int)$newId, 'nombre' => $nombre, 'mapa_tipo' => $mapa_tipo]);
             echo json_encode(['success' => true, 'id' => $newId, 'message' => 'Edición del Bazar activada con éxito.']);
             break;
 
@@ -169,18 +171,23 @@ try {
             $stmt->execute([$edicionId]);
 
             AdminHelper::logAction($pdo, $user['id'], 'bazar_archivar_edicion', "Edición ID $edicionId archivada");
+            bazarEmitEvent($pdo, 'edicion_archivada', ['id' => $edicionId]);
             echo json_encode(['success' => true, 'message' => 'Edición congelada y enviada al historial permanente.']);
             break;
 
         case 'aprobar':
             $id = (int)($_POST['id'] ?? 0);
-            $stmt = $pdo->prepare("UPDATE emprendimientos SET verificado = 1, active = 1 WHERE id = ?");
-            $stmt->execute([$id]);
+            $stmt = $pdo->prepare("UPDATE emprendimientos SET verificado = 1, active = 1, verificado_por = ?, fecha_verificacion = NOW() WHERE id = ?");
+            $stmt->execute([(int)$user['id'], $id]);
             $owner = $pdo->prepare("SELECT usuario_id, nombre_negocio FROM emprendimientos WHERE id = ?");
             $owner->execute([$id]); $owner = $owner->fetch(PDO::FETCH_ASSOC);
             if ($owner) (new NotificationManager($pdo))->createNotification((int)$owner['usuario_id'], 'sistema', 'Reserva de Bazar aprobada', 'Tu reserva de ' . $owner['nombre_negocio'] . ' fue aprobada.', '#bazar');
-            
+
             AdminHelper::logAction($pdo, $user['id'], 'bazar_aprobar', "Negocio ID $id aprobado");
+            $reserva = bazarReservaEmitible($pdo, $id);
+            bazarEmitEvent($pdo, 'reserva_aprobada', bazarEventoReserva($reserva, 'APROBADA', [
+                'sms' => ($owner['nombre_negocio'] ?? 'Un negocio') . ' apareció en el Bazar',
+            ]));
             echo json_encode(['success' => true]);
             break;
 
@@ -194,6 +201,7 @@ try {
             if ($owner) (new NotificationManager($pdo))->createNotification((int)$owner['usuario_id'], 'sistema', 'Reserva de Bazar rechazada', 'Tu reserva de ' . $owner['nombre_negocio'] . ' fue rechazada. Consulta tu Perfil.', '#perfil');
             
             AdminHelper::logAction($pdo, $user['id'], 'bazar_rechazar', "Negocio ID $id rechazado", ['razon' => $razon]);
+            bazarEmitEvent($pdo, 'reserva_rechazada', bazarEventoReserva(bazarReservaEmitible($pdo, $id), 'RECHAZADA'));
             echo json_encode(['success' => true]);
             break;
 
@@ -222,6 +230,10 @@ try {
             $stmt->execute([$puesto_id, $id]);
 
             AdminHelper::logAction($pdo, $user['id'], 'bazar_asignar_puesto', "Negocio ID $id puesto reubicado a: " . ($puesto_id ?? 'Sin Puesto'));
+            $reserva = bazarReservaEmitible($pdo, $id);
+            bazarEmitEvent($pdo, 'puesto_asignado', bazarEventoReserva($reserva, 'REASIGNADO', [
+                'puesto_previo' => null, 'sms' => 'Administración reubicó el puesto #' . ($puesto_id ?? '-') . ': ' . ($reserva['nombre_negocio'] ?? ''),
+            ]));
             echo json_encode(['success' => true, 'message' => 'Ubicación de puesto actualizada correctamente.']);
             break;
 
@@ -231,6 +243,7 @@ try {
                 $stmt = $pdo->prepare("UPDATE emprendimientos SET puesto_id = NULL WHERE puesto_id = ?");
                 $stmt->execute([$puesto_id]);
                 AdminHelper::logAction($pdo, $user['id'], 'bazar_liberar_puesto', "Puesto ID $puesto_id liberado");
+                bazarEmitEvent($pdo, 'puesto_liberado', ['puesto_id' => $puesto_id, 'sms' => 'Libraron el puesto #' . $puesto_id]);
             }
             echo json_encode(['success' => true, 'message' => 'Puesto liberado con éxito.']);
             break;

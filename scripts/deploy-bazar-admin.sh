@@ -8,7 +8,7 @@ set -e
 REMOTE_USER="ubuntu"
 REMOTE_HOST="129.146.150.123"
 REMOTE_PATH="/var/www/cesa-web"
-SSH_KEY="/Users/robertoeduardocelisrobles/Documents/FT Apps/Web/CESA-WEB/unison keys/ssh-key-2026-05-12.key"
+SSH_KEY="$HOME/.ssh/unison_keys/ssh-key-2026-05-12.key"
 SSH_OPTS=(-o StrictHostKeyChecking=no -i "$SSH_KEY")
 
 echo "🚀 Iniciando despliegue de CESA Bazar (Full Logic)..."

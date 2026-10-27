@@ -1,8 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/lib/useAuth';
 import BazarSchematicMap from '../BazarSchematicMap';
+import {
+  useBazarTema,
+  useBazarStream,
+  iconoEventoBazar,
+  textoEventoBazar,
+  type BazarEventoBus,
+} from '@/lib/bazarTema';
 
 interface SpotData {
   puesto_id: number;
@@ -44,7 +51,7 @@ interface BazarLog {
 export default function AdminBazarDashboardTab() {
   const { token, user } = useAuth();
   const isMaster = user?.email === 'software@fondothoth.com' || user?.email === 'a213203453@unison.mx';
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
   // Estados de Publicidad (Ads)
   const [adConfig, setAdConfig] = useState<AdConfig>({
@@ -96,11 +103,22 @@ export default function AdminBazarDashboardTab() {
   const [bazarLogs, setBazarLogs] = useState<BazarLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
+  // Tiempo real: toasts, estado del stream y puestos recién ocupados
+  const tema = useBazarTema();
+  const [toasts, setToasts] = useState<{ id: number; icono: string; texto: string }[]>([]);
+  const [recientes, setRecientes] = useState<number[]>([]);
+
+  const toastAdmin = (texto: string, icono = '✨') => {
+    const id = Date.now() + Math.random();
+    setToasts((ts) => [...ts.slice(-3), { id, icono, texto }]);
+    setTimeout(() => setToasts((ts) => ts.filter((t) => t.id !== id)), 5200);
+  };
+
   // 1. Cargar Configuración de Publicidad
   const fetchAdConfig = async () => {
     setAdLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/publicidad.php`, {
+      const res = await fetch(`${API_URL}/admin/publicidad.php`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const data = await res.json();
@@ -126,7 +144,7 @@ export default function AdminBazarDashboardTab() {
     setAdSaving(true);
     setAdMessage(null);
     try {
-      const res = await fetch(`${API_URL}/api/admin/publicidad.php`, {
+      const res = await fetch(`${API_URL}/admin/publicidad.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,8 +171,8 @@ export default function AdminBazarDashboardTab() {
     try {
       const targetId = edId !== undefined ? edId : selectedEdicionId;
       const url = targetId 
-        ? `${API_URL}/api/bazar-admin.php?action=puestos_status&edicion_id=${targetId}`
-        : `${API_URL}/api/bazar-admin.php?action=puestos_status`;
+        ? `${API_URL}/bazar-admin.php?action=puestos_status&edicion_id=${targetId}`
+        : `${API_URL}/bazar-admin.php?action=puestos_status`;
 
       const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
@@ -175,7 +193,7 @@ export default function AdminBazarDashboardTab() {
   // 3b. Cargar Lista de Ediciones (Histórico & Activas)
   const fetchEdiciones = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/bazar-admin.php?action=ediciones_list`, {
+      const res = await fetch(`${API_URL}/bazar-admin.php?action=ediciones_list`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const data = await res.json();
@@ -196,23 +214,23 @@ export default function AdminBazarDashboardTab() {
       fd.append('fecha_inicio', newEditionForm.fecha_inicio);
       fd.append('fecha_fin', newEditionForm.fecha_fin);
 
-      const res = await fetch(`${API_URL}/api/bazar-admin.php`, {
+      const res = await fetch(`${API_URL}/bazar-admin.php`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd
       });
       const data = await res.json();
       if (data.success) {
-        alert('¡Nueva Edición activada correctamente con el mapa elegido!');
+        toastAdmin('¡Nueva Edición activada correctamente con el mapa elegido!', '🆕');
         setShowNewEditionModal(false);
         setSelectedEdicionId(data.id);
         fetchEdiciones();
         fetchPuestos(data.id);
       } else {
-        alert(data.error || 'Error al activar edición');
+        toastAdmin(data.error || 'Error al activar edición', '⚠️');
       }
     } catch (e) {
-      alert('Error de conexión');
+      toastAdmin('Error de conexión', '📡');
     }
   };
 
@@ -224,14 +242,14 @@ export default function AdminBazarDashboardTab() {
       fd.append('action', 'archivar_edicion');
       fd.append('edicion_id', String(edId));
 
-      const res = await fetch(`${API_URL}/api/bazar-admin.php`, {
+      const res = await fetch(`${API_URL}/bazar-admin.php`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd
       });
       const data = await res.json();
       if (data.success) {
-        alert('Edición congelada y guardada en el Historial Permanente.');
+        toastAdmin('Edición congelada y guardada en el Historial Permanente.', '🗄️');
         fetchEdiciones();
         fetchPuestos();
       }
@@ -241,7 +259,7 @@ export default function AdminBazarDashboardTab() {
   // 4. Cargar Emprendimientos Registrados
   const fetchBusinesses = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/bazar-admin.php?action=listar`, {
+      const res = await fetch(`${API_URL}/bazar-admin.php?action=listar`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const data = await res.json();
@@ -257,7 +275,7 @@ export default function AdminBazarDashboardTab() {
   const fetchBazarLogs = async () => {
     setLoadingLogs(true);
     try {
-      const res = await fetch(`${API_URL}/api/bazar-admin.php?action=logs`, {
+      const res = await fetch(`${API_URL}/bazar-admin.php?action=logs`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const data = await res.json();
@@ -279,6 +297,39 @@ export default function AdminBazarDashboardTab() {
     fetchBazarLogs();
   }, [token]);
 
+  // ============ STREAM EN TIEMPO REAL (SSE + fallback polling) ============
+  const comandosRef = useRef<() => void>(() => {});
+  comandosRef.current = () => {
+    fetchPuestos();
+    fetchBusinesses();
+    fetchBazarLogs();
+  };
+
+  const colaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const agendaRefresco = useCallback(() => {
+    if (colaRef.current) return;
+    colaRef.current = setTimeout(() => { colaRef.current = null; comandosRef.current(); }, 1200);
+  }, []);
+
+  const marcarReciente = (pid: number) => {
+    setRecientes((r) => (r.includes(pid) ? r : [...r, pid]));
+    setTimeout(() => setRecientes((r) => r.filter((x) => x !== pid)), 60000);
+  };
+
+  const handleEventoStream = (ev: BazarEventoBus) => {
+    if (ev.tipo === 'poll') { agendaRefresco(); return; }
+    agendaRefresco();
+    const texto = textoEventoBazar(ev);
+    if (texto) toastAdmin(texto, iconoEventoBazar(ev.tipo));
+    const pid = Number(ev.payload?.puesto_id);
+    if (ev.tipo === 'reserva_creada' && pid > 0) marcarReciente(pid);
+    if (ev.tipo === 'reserva_aprobada' && Number(ev.payload?.id) > 0) marcarReciente(Number(ev.payload?.puesto_id));
+    if (ev.tipo === 'edicion_creada' || ev.tipo === 'edicion_archivada') fetchEdiciones();
+  };
+
+  const estadoStream = useBazarStream(API_URL, handleEventoStream, !!token);
+  // ========================================================================
+
   // 6. Asignar puesto
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -290,7 +341,7 @@ export default function AdminBazarDashboardTab() {
       formData.append('id', selectedBusinessId);
       formData.append('puesto_id', assigningPuestoId.toString());
 
-      const res = await fetch(`${API_URL}/api/bazar-admin.php`, {
+      const res = await fetch(`${API_URL}/bazar-admin.php`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData
@@ -303,7 +354,7 @@ export default function AdminBazarDashboardTab() {
         fetchBusinesses();
         fetchBazarLogs();
       } else {
-        alert(data.error || 'Error al asignar puesto');
+        toastAdmin(data.error || 'Error al asignar puesto', '⚠️');
       }
     } catch (e) {
       console.error('Error al asignar puesto:', e);
@@ -319,7 +370,7 @@ export default function AdminBazarDashboardTab() {
       formData.append('action', 'liberar_puesto');
       formData.append('puesto_id', puestoId.toString());
 
-      const res = await fetch(`${API_URL}/api/bazar-admin.php`, {
+      const res = await fetch(`${API_URL}/bazar-admin.php`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData
@@ -330,7 +381,7 @@ export default function AdminBazarDashboardTab() {
         fetchBusinesses();
         fetchBazarLogs();
       } else {
-        alert(data.error || 'Error al liberar puesto');
+        toastAdmin(data.error || 'Error al liberar puesto', '⚠️');
       }
     } catch (e) {
       console.error('Error al liberar puesto:', e);
@@ -381,7 +432,21 @@ export default function AdminBazarDashboardTab() {
   });
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500">
+    <div className="space-y-10 animate-in fade-in duration-500 transition-colors duration-700" style={tema.vars} data-tema={tema.paleta.id} data-modo={tema.modo}>
+      {/* TOASTS EN TIEMPO REAL */}
+      <div className="fixed bottom-6 right-6 z-[110] flex flex-col gap-2 w-[min(92vw,340px)]">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="bazar-toast flex items-start gap-3 rounded-2xl p-4 shadow-2xl border border-amber-500/30 backdrop-blur-xl"
+            style={{ background: 'var(--b-card, rgba(11,17,32,0.88))', color: 'var(--b-text, #f1f5f9)' }}
+          >
+            <span className="text-xl leading-none mt-0.5">{t.icono}</span>
+            <p className="text-[11px] leading-relaxed font-semibold">{t.texto}</p>
+          </div>
+        ))}
+      </div>
+
       {/* HEADER PRINCIPAL */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
         <div>
@@ -392,21 +457,56 @@ export default function AdminBazarDashboardTab() {
                 Dashboard de Bazar & Publicidad (Ads)
               </h3>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-                Gestión en tiempo real de los 72 lugares de la Calle de la Cultura y Auditoría CESA
+                {tema.paleta.emoji} {tema.paleta.nombre} • Gestión en tiempo real de los 72 lugares de la Calle de la Cultura y Auditoría CESA
               </p>
             </div>
           </div>
         </div>
 
-        {edicionActiva && (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 px-4 py-2 rounded-2xl flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <div>
-              <p className="text-[9px] uppercase font-black text-emerald-400 tracking-widest">Edición Activa</p>
-              <p className="text-xs font-black text-white">{edicionActiva.nombre}</p>
-            </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Estado del streaming en vivo */}
+          <span
+            className="flex items-center gap-1.5 text-[9px] uppercase font-black px-3 py-1.5 rounded-xl tracking-widest border"
+            style={{
+              borderColor: estadoStream === 'vivo' ? 'rgba(34,197,94,0.4)' : 'rgba(245,158,11,0.4)',
+              color: estadoStream === 'vivo' ? '#22c55e' : '#f59e0b',
+              background: estadoStream === 'vivo' ? 'rgba(34,197,94,0.08)' : 'rgba(245,158,11,0.08)',
+            }}
+            title={estadoStream === 'vivo' ? 'Bus de eventos conectado' : 'Respaldo: refresco automático cada 30 s'}
+          >
+            <span className={`w-2 h-2 rounded-full ${estadoStream === 'vivo' ? 'bg-emerald-500 bazar-live-dot' : 'bg-amber-500 animate-pulse'}`}></span>
+            {estadoStream === 'vivo' ? 'EN VIVO' : estadoStream === 'polling' ? 'SINCRONIZANDO' : 'CONECTANDO'}
+          </span>
+
+          {/* Selector de tema estacional (propagación instantánea al mapa público) */}
+          <select
+            value={tema.paleta.id}
+            onChange={(e) => tema.setTema(e.target.value === 'institucional' ? null : e.target.value)}
+            className="bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-amber-500 font-bold"
+            title="Tema del Bazar (se guarda para todos los visitantes calificados)"
+          >
+            {tema.listaTemas.map((t) => (
+              <option key={t.id} value={t.id}>{t.emoji} {t.nombre}</option>
+            ))}
+          </select>
+
+          {/* Modo día/noche */}
+          <div className="flex items-center rounded-xl border border-white/10 overflow-hidden bg-black/60">
+            <button onClick={() => tema.setModo('dia')} className={`px-2.5 py-1.5 text-xs transition-all ${tema.modo === 'dia' ? 'bg-amber-500/20 opacity-100' : 'opacity-40 hover:opacity-70'}`} title="Tema claro diurno">☀️</button>
+            <button onClick={() => tema.setModo('noche')} className={`px-2.5 py-1.5 text-xs transition-all ${tema.modo === 'noche' ? 'bg-amber-500/20 opacity-100' : 'opacity-40 hover:opacity-70'}`} title="Modo noche">🌙</button>
+            <button onClick={() => tema.setModo('auto')} className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${tema.autoModo ? 'bg-amber-500/20 opacity-100' : 'opacity-40 hover:opacity-70'}`} title="Automático por hora">Auto</button>
           </div>
-        )}
+
+          {edicionActiva && (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 px-4 py-2 rounded-2xl flex items-center gap-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <div>
+                <p className="text-[9px] uppercase font-black text-emerald-400 tracking-widest">Edición Activa</p>
+                <p className="text-xs font-black text-white">{edicionActiva.nombre}</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* TARJETAS DE KPIS */}
@@ -687,6 +787,7 @@ export default function AdminBazarDashboardTab() {
             mapType={mapTypeOverride || edicionActiva?.mapa_tipo || 'radial_base'}
             isArchived={edicionActiva?.estado === 'archivada'}
             editionTitle={edicionActiva?.nombre}
+            recientes={recientes}
             onSelectSpot={(puesto) => {
               const full = puestosData.find((p) => p.puesto_id === puesto.id);
               if (full) setSelectedSpot(full);

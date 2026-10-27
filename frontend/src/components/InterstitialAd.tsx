@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/useAuth';
 import { useInterstitialAd } from '@/hooks/useInterstitialAd';
 
@@ -37,7 +37,7 @@ export default function InterstitialAd({ show = false, onClose }: Props) {
     fetch(`${API_URL}/publicidad/adsense`, {
       headers
     })
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : { success: false }))
       .then((data) => {
         if (data.success && data.data) {
           setConfig({
@@ -56,24 +56,34 @@ export default function InterstitialAd({ show = false, onClose }: Props) {
       });
   }, [user, token, API_URL]);
 
+  const triggeredRef = useRef(false);
+
   useEffect(() => {
-    if (show) {
-      if (user || token) {
-        onClose?.();
-        return;
-      }
-      if (!loading) {
-        if (config) {
-          const shown = showInterstitial(config, onClose);
-          if (!shown) {
-            onClose?.();
-          }
-        } else {
+    if (!show) {
+      // Reiniciar al ocultarse para permitir una nueva impresión en la siguiente señal
+      triggeredRef.current = false;
+      return;
+    }
+    if (triggeredRef.current) return;
+
+    if (user || token) {
+      triggeredRef.current = true;
+      onClose?.();
+      return;
+    }
+    if (!loading) {
+      triggeredRef.current = true;
+      if (config) {
+        const shown = showInterstitial(config, onClose);
+        if (!shown) {
           onClose?.();
         }
+      } else {
+        onClose?.();
       }
     }
-  }, [show, config, loading, showInterstitial, onClose, user, token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, config, loading, user, token]);
 
   return null; // Componente que maneja la renderización de anuncios programáticamente en el DOM.
 }

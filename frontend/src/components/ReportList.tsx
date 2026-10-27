@@ -22,8 +22,10 @@ const ReportList = () => {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cesaunison.fondothoth.com/api';
 
   useEffect(() => {
+    if (!token) return; // Esperar a que el token esté disponible
     fetchReportes();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const fetchReportes = async () => {
     try {
@@ -32,7 +34,7 @@ const ReportList = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success && data.data) setReportes(data.data);
+      if (data.success && Array.isArray(data.data)) setReportes(data.data);
     } catch (e) {
       console.error("Error fetching reportes", e);
     } finally {

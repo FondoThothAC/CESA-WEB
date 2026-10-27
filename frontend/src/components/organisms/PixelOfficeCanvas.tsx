@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/lib/useAuth';
 
 interface AgentSprite {
   id: number;
@@ -27,9 +28,15 @@ interface PixelOfficeCanvasProps {
 
 export default function PixelOfficeCanvas({ agentsList = [], onSelectAgent, onTriggerMeeting }: PixelOfficeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { token } = useAuth();
   const [selectedAgent, setSelectedAgent] = useState<AgentSprite | null>(null);
   const [isMeetingActive, setIsMeetingActive] = useState(false);
   const [meetingStep, setMeetingStep] = useState<string>('');
+  const [isRealMeeting, setIsRealMeeting] = useState(false);
+  const [meetingError, setMeetingError] = useState<string | null>(null);
+  const [meetingModel, setMeetingModel] = useState<string | null>(null);
+  const [meetingDuration, setMeetingDuration] = useState<number | null>(null);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
   // Configuración de avatares predeterminados en el mapa 2D
   const defaultSprites: AgentSprite[] = [
@@ -241,10 +248,14 @@ export default function PixelOfficeCanvas({ agentsList = [], onSelectAgent, onTr
     };
   }, [isMeetingActive]);
 
-  // Iniciar Simulación de Reunión de Mesa de Expertos (Martes y Jueves)
-  const handleStartMeeting = () => {
+  // Iniciar Reunión de Mesa de Expertos — intenta backend real (Rust), si falla hace simulación visual
+  const handleStartMeeting = async () => {
+    setMeetingError(null);
     setIsMeetingActive(true);
     setMeetingStep('Iniciando Mesa de Expertos...');
+    setIsRealMeeting(false);
+    setMeetingModel(null);
+    setMeetingDuration(null);
 
     // Mover todos los agentes alrededor de la mesa central
     const meetingPositions = [
@@ -277,7 +288,46 @@ export default function PixelOfficeCanvas({ agentsList = [], onSelectAgent, onTr
       { agent: 'Bob Prime', text: 'Generando minuta y notificando por Telegram...' }
     ];
 
-    dialogueSequence.forEach((step, index) => {
+    // Intentar ejecutar junta real en Rust backend (LLMs reales + minuta + Telegram)
+    let realInteractions: { agent: string; text: string }[] | null = null;
+    let realResumen: string | null = null;
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_URL}/v1/meeting/run`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ tipo_sesion: 'martes_sincro' })
+      });
+      const data = await res.json();
+      const result = data.data || data;
+      if (result.success && Array.isArray(result.interactions) && result.interactions.length > 0) {
+        realInteractions = result.interactions.map((it: any) => ({ agent: it.agent || it.nombre_agente || 'Agente', text: it.text || it.contenido || '' }));
+        realResumen = result.resumen || null;
+        setIsRealMeeting(true);
+        if (result.model_used) setMeetingModel(result.model_used);
+        if (result.duration_ms) setMeetingDuration(result.duration_ms);
+      }
+    } catch {
+      // Rust backend no disponible → intentar PHP como fallback
+      try {
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`${API_URL}/admin/zeroclaw_swarm.php?action=run_meeting`, { method: 'POST', headers });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.interactions) && data.interactions.length > 0) {
+          realInteractions = data.interactions.map((it: any) => ({ agent: it.agent || it.nombre_agente || 'Agente', text: it.text || it.contenido || '' }));
+          realResumen = data.resumen || null;
+          setIsRealMeeting(true);
+        }
+      } catch {
+        // ambos backends no disponibles → modo simulación
+      }
+    }
+
+    const activeDialogue = realInteractions ?? dialogueSequence;
+
+    activeDialogue.forEach((step, index) => {
       setTimeout(() => {
         setMeetingStep(`[${step.agent}]: ${step.text}`);
         const sp = spritesRef.current.find((s) => s.name === step.agent);
@@ -295,9 +345,16 @@ export default function PixelOfficeCanvas({ agentsList = [], onSelectAgent, onTr
         sp.statusText = 'En escritorio';
       });
       setIsMeetingActive(false);
-      setMeetingStep('Reunión finalizada. Minuta enviada por Telegram (CCO Admin).');
+      if (realResumen) {
+        setMeetingStep(`Reunión finalizada. ${realResumen}`);
+      } else if (realInteractions) {
+        setMeetingStep('Reunión finalizada. Minuta enviada por Telegram (CCO Admin).');
+      } else {
+        setMeetingStep('Reunión finalizada — SIMULACIÓN VISUAL (sin minuta real en el servidor).');
+        setMeetingError('Backend no disponible: se mostró simulación local.');
+      }
       if (onTriggerMeeting) onTriggerMeeting();
-    }, (dialogueSequence.length + 1) * 2000);
+    }, (activeDialogue.length + 1) * 2000);
   };
 
   // Manejar clic en el canvas para seleccionar agente
@@ -332,6 +389,19 @@ export default function PixelOfficeCanvas({ agentsList = [], onSelectAgent, onTr
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-full border ${isRealMeeting ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-white/5 text-slate-400 border-white/10'}`} title={isRealMeeting ? `Última junta: ${meetingModel || 'LLM real'} (${meetingDuration || 0}ms)` : 'Modo simulación hasta conectar backend'}>
+            {isRealMeeting ? '● En vivo — servidor' : '○ Simulación visual'}
+          </span>
+          {isRealMeeting && meetingModel && (
+            <span className="text-[9px] bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full border border-blue-500/30 font-mono" title={`Modelo: ${meetingModel}`}>
+              {meetingModel.includes('groq') ? '⚡' : '🔮'} {meetingModel.split('/').pop()}
+            </span>
+          )}
+          {isRealMeeting && meetingDuration && (
+            <span className="text-[9px] bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full border border-purple-500/30 font-mono">
+              {meetingDuration}ms
+            </span>
+          )}
           <button
             onClick={handleStartMeeting}
             disabled={isMeetingActive}
@@ -341,17 +411,26 @@ export default function PixelOfficeCanvas({ agentsList = [], onSelectAgent, onTr
                 : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
             }`}
           >
-            <span>💬</span> {isMeetingActive ? 'Mesa de Expertos en Curso...' : 'Simular Junta de Agentes (Martes/Jueves)'}
+            <span>💬</span> {isMeetingActive ? 'Mesa de Expertos en Curso...' : 'Ejecutar Junta de Agentes'}
           </button>
         </div>
       </div>
 
       {/* DETALLE DE PASO DE REUNIÓN SI ESTÁ ACTIVA */}
       {meetingStep && (
-        <div className="bg-indigo-950/40 border border-indigo-500/30 p-3 rounded-xl text-xs text-indigo-300 font-mono flex items-center gap-3 animate-in fade-in duration-300">
-          <span>🧠</span>
+        <div className={`p-3 rounded-xl text-xs font-mono flex items-center gap-3 animate-in fade-in duration-300 border ${isRealMeeting ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300' : 'bg-indigo-950/40 border-indigo-500/30 text-indigo-300'}`}>
+          <span>{isRealMeeting ? '✅' : '🧠'}</span>
           <span className="flex-1 font-bold">{meetingStep}</span>
+          {!isRealMeeting && isMeetingActive && <span className="text-[9px] bg-white/10 px-2 py-1 rounded-full font-black uppercase">Simulación</span>}
+          {isRealMeeting && !isMeetingActive && meetingModel && (
+            <span className="text-[9px] bg-emerald-500/20 px-2 py-1 rounded-full font-black uppercase">
+              {meetingModel} • {meetingDuration}ms
+            </span>
+          )}
         </div>
+      )}
+      {meetingError && !isMeetingActive && (
+        <div className="bg-amber-950/30 border border-amber-500/30 p-2 rounded-xl text-[11px] text-amber-300">{meetingError}</div>
       )}
 
       {/* LIENZO 2D INTERACTIVO */}

@@ -228,7 +228,7 @@ export default function NewsFeed() {
     if (!confirm("¿Eliminar noticia?")) return;
 
     try {
-      const res = await fetch(`${API_URL}/api/noticias.php?action=delete`, {
+      const res = await fetch(`${API_URL}/noticias.php?action=delete`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,

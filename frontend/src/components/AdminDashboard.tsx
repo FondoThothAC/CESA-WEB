@@ -11,7 +11,7 @@ import AdminSentimentDashboardTab from './organisms/AdminSentimentDashboardTab';
 import AdminBazarDashboardTab from './organisms/AdminBazarDashboardTab';
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'kpis' | 'bazar_ads' | 'moderacion' | 'directorio' | 'ia_config' | 'social' | 'invitaciones' | 'acceso' | 'modo_dios' | 'vacantes' | 'padron' | 'votaciones' | 'auditoria' | 'rag_knowledge' | 'sentimiento'>('kpis');
+   const [activeTab, setActiveTab] = useState<'kpis' | 'bazar_ads' | 'moderacion' | 'directorio' | 'ia_config' | 'social' | 'invitaciones' | 'acceso' | 'modo_dios' | 'vacantes' | 'practicas' | 'padron' | 'votaciones' | 'auditoria' | 'rag_knowledge' | 'sentimiento'>('kpis');
   const [stats, setStats] = useState<any>({
     total_usuarios: 156,
     total_noticias: 24,
@@ -33,9 +33,12 @@ const AdminDashboard = () => {
   const [pendingBazar, setPendingBazar] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [directory, setDirectory] = useState<any[]>([]);
-  const [pendingVacancies, setPendingVacancies] = useState<any[]>([]);
+   const [pendingVacancies, setPendingVacancies] = useState<any[]>([]);
+   const [pendingPracticas, setPendingPracticas] = useState<any[]>([]);
+   const [pendingUnidades, setPendingUnidades] = useState<any[]>([]);
   const [iaConfigs, setIaConfigs] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   
   // Perfil Holístico
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
@@ -44,7 +47,7 @@ const AdminDashboard = () => {
   const { token, user } = useAuth();
   const isMaster = user?.email === 'software@fondothoth.com' || user?.email === 'a213203453@unison.mx';
   
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
   // Estados del Panel Social
   const [socialConfig, setSocialConfig] = useState<any>(null);
@@ -134,6 +137,11 @@ const AdminDashboard = () => {
   }, []);
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
     if (token) {
       if (activeTab === 'kpis') {
          fetchStats();
@@ -144,6 +152,9 @@ const AdminDashboard = () => {
          fetchDirectory();
       } else if (activeTab === 'vacantes') {
          fetchVacancies();
+      } else if (activeTab === 'practicas') {
+         fetchPendientesPracticas();
+         fetchBolsaFlag();
       } else if (activeTab === 'ia_config') {
          fetchIaConfig();
       } else if (activeTab === 'social') {
@@ -155,12 +166,13 @@ const AdminDashboard = () => {
          fetchMensajesHistory();
       }
     }
-  }, [token, activeTab, searchQuery, chatPage, mensajesPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, activeTab, debouncedSearch, chatPage, mensajesPage]);
 
   const fetchAdConfig = async () => {
     setAdLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/publicidad.php`, {
+      const res = await fetch(`${API_URL}/admin/publicidad.php`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -184,7 +196,7 @@ const AdminDashboard = () => {
     e.preventDefault();
     setAdLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/publicidad.php`, {
+      const res = await fetch(`${API_URL}/admin/publicidad.php`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -209,7 +221,7 @@ const AdminDashboard = () => {
   const fetchSocialConfig = async () => {
     setSocialLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/social/config`, {
+      const res = await fetch(`${API_URL}/social/config`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -241,7 +253,7 @@ const AdminDashboard = () => {
 
   const handleSaveSocial = async (platform: 'instagram' | 'whatsapp', data: any) => {
     try {
-      const res = await fetch(`${API_URL}/api/social/config`, {
+      const res = await fetch(`${API_URL}/social/config`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -266,7 +278,7 @@ const AdminDashboard = () => {
     if (!testPostData.image_url) return alert('Por favor ingresa la URL de la imagen.');
     setTestPublishing(true);
     try {
-      const res = await fetch(`${API_URL}/api/social/instagram/post`, {
+      const res = await fetch(`${API_URL}/social/instagram/post`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -310,7 +322,7 @@ const AdminDashboard = () => {
 
   const fetchHealth = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/health.php`, {
+      const res = await fetch(`${API_URL}/admin/health.php`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -329,7 +341,7 @@ const AdminDashboard = () => {
         start_date: chatStartDate,
         end_date: chatEndDate
       });
-      const res = await fetch(`${API_URL}/api/admin/chat-history.php?${params.toString()}`, {
+      const res = await fetch(`${API_URL}/admin/chat-history.php?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -355,7 +367,7 @@ const AdminDashboard = () => {
         start_date: mensajesStartDate,
         end_date: mensajesEndDate
       });
-      const res = await fetch(`${API_URL}/api/admin/mensajes-history.php?${params.toString()}`, {
+      const res = await fetch(`${API_URL}/admin/mensajes-history.php?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -378,10 +390,10 @@ const AdminDashboard = () => {
       start_date: chatStartDate,
       end_date: chatEndDate
     });
-    fetch(`${API_URL}/api/admin/chat-history.php?${params.toString()}`, {
+    fetch(`${API_URL}/admin/chat-history.php?${params.toString()}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(data => {
         if (data.success && data.data) {
           const headers = ['ID', 'Fecha', 'Usuario ID', 'Nombre Usuario', 'Mensaje', 'Respuesta', 'Proveedor', 'Latencia (ms)', 'Accion Detectada', 'IP', 'Dispositivo', 'Ciudad', 'Pais'];
@@ -410,7 +422,12 @@ const AdminDashboard = () => {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+          URL.revokeObjectURL(url);
         }
+      })
+      .catch(e => {
+        console.error("Error exporting chat CSV", e);
+        alert("Error de red al exportar la auditoría del chatbot.");
       });
   };
 
@@ -439,6 +456,7 @@ const AdminDashboard = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const exportMensajesCSV = () => {
@@ -449,10 +467,10 @@ const AdminDashboard = () => {
       start_date: mensajesStartDate,
       end_date: mensajesEndDate
     });
-    fetch(`${API_URL}/api/admin/mensajes-history.php?${params.toString()}`, {
+    fetch(`${API_URL}/admin/mensajes-history.php?${params.toString()}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(data => {
         if (data.success && data.data) {
           const headers = ['ID', 'Fecha', 'Emisor ID', 'Nombre Emisor', 'Receptor ID', 'Nombre Receptor', 'Contenido', 'Leido', 'IP', 'Dispositivo', 'Ciudad', 'Pais'];
@@ -480,13 +498,18 @@ const AdminDashboard = () => {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+          URL.revokeObjectURL(url);
         }
+      })
+      .catch(e => {
+        console.error("Error exporting mensajes CSV", e);
+        alert("Error de red al exportar la auditoría de mensajes.");
       });
   };
 
   const exportTelemetriaCSV = () => {
     setAuditLoading(true);
-    fetch(`${API_URL}/api/admin/telemetria.php`, {
+    fetch(`${API_URL}/admin/telemetria.php`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(r => r.json())
@@ -534,6 +557,7 @@ const AdminDashboard = () => {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+          URL.revokeObjectURL(url);
         } else {
           alert(data.error || "No se pudieron obtener los datos de telemetría.");
         }
@@ -549,13 +573,13 @@ const AdminDashboard = () => {
 
   const fetchModerationData = async () => {
      try {
-        const resB = await fetch(`${API_URL}/api/admin/bazar.php?action=listar`, {
+        const resB = await fetch(`${API_URL}/admin/bazar.php?action=listar`, {
            headers: { 'Authorization': `Bearer ${token}` }
         });
         const dataB = await resB.json();
         if (dataB.success) setPendingBazar(dataB.data);
 
-        const resR = await fetch(`${API_URL}/api/reportes.php?action=moderacion`, {
+        const resR = await fetch(`${API_URL}/reportes.php?action=moderacion`, {
            headers: { 'Authorization': `Bearer ${token}` }
         });
         const dataR = await resR.json();
@@ -610,7 +634,7 @@ const AdminDashboard = () => {
 
   const fetchDirectory = async () => {
      try {
-        const res = await fetch(`${API_URL}/api/admin/usuarios.php?q=${searchQuery}`, {
+        const res = await fetch(`${API_URL}/admin/usuarios.php?q=${searchQuery}`, {
            headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -620,7 +644,7 @@ const AdminDashboard = () => {
 
   const fetchVacancies = async () => {
      try {
-        const res = await fetch(`${API_URL}/api/admin/empleos.php?action=listar`, {
+        const res = await fetch(`${API_URL}/admin/empleos.php?action=listar`, {
            headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -628,11 +652,72 @@ const AdminDashboard = () => {
      } catch (e) {}
   };
 
+  const fetchPendientesPracticas = async () => {
+     try {
+        const res = await fetch(`${API_URL}/practicas.php?action=pendientes_aprobacion`, {
+           headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+           setPendingPracticas(data.proyectos || []);
+           setPendingUnidades(data.unidades || []);
+        }
+     } catch (e) {}
+  };
+
+  const handleAprobacionPracticas = async (target: 'unidad' | 'proyecto', id: number, aprobar: boolean) => {
+     try {
+        const res = await fetch(`${API_URL}/practicas.php?action=${target === 'unidad' ? 'aprobar_unidad' : 'aprobar_proyecto'}`, {
+           method: 'POST',
+           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+           body: JSON.stringify({ [target === 'unidad' ? 'unidad_id' : 'proyecto_id']: id, aprobar })
+        });
+        const data = await res.json();
+        if (data.success) {
+           alert(data.message);
+           fetchPendientesPracticas();
+        } else {
+           alert(data.error || 'Error');
+        }
+     } catch (e) {
+        alert('Error de red');
+     }
+  };
+
+  const [bolsaActiva, setBolsaActiva] = useState(false);
+
+  const fetchBolsaFlag = async () => {
+     try {
+        const res = await fetch(`${API_URL}/site_config.php?action=get`);
+        const data = await res.json();
+        if (data.success && data.config) setBolsaActiva(data.config.bolsa_trabajo_activa === '1');
+     } catch (e) {}
+  };
+
+  const handleToggleBolsa = async () => {
+     const nuevo = !bolsaActiva;
+     try {
+        const res = await fetch(`${API_URL}/site_config.php?action=set`, {
+           method: 'POST',
+           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+           body: JSON.stringify({ clave: 'bolsa_trabajo_activa', valor: nuevo ? '1' : '0' })
+        });
+        const data = await res.json();
+        if (data.success) {
+           setBolsaActiva(nuevo);
+        } else {
+           alert(data.error || 'Error al actualizar');
+        }
+     } catch (e) {
+        alert('Error de red');
+     }
+  };
+
   const fetchProfile = async (id: number) => {
     setSelectedProfileId(id);
     setProfileLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/perfil_holistico.php?id=${id}`, {
+      const res = await fetch(`${API_URL}/admin/perfil_holistico.php?id=${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -655,7 +740,7 @@ const AdminDashboard = () => {
     formData.append('csv_file', csvFile);
 
     try {
-      const res = await fetch(`${API_URL}/api/admin/usuarios.php`, {
+      const res = await fetch(`${API_URL}/admin/usuarios.php`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -676,7 +761,7 @@ const AdminDashboard = () => {
 
   const fetchIaConfig = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/config.php`, {
+      const res = await fetch(`${API_URL}/admin/config.php`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -687,7 +772,7 @@ const AdminDashboard = () => {
   const handleAccessValidation = async (qrData: string) => {
     setAccessLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/acceso.php`, {
+      const res = await fetch(`${API_URL}/admin/acceso.php`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -729,7 +814,7 @@ const AdminDashboard = () => {
 
   const saveIaConfig = async (config: any) => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/config.php`, {
+      const res = await fetch(`${API_URL}/admin/config.php`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -784,6 +869,7 @@ const AdminDashboard = () => {
             { id: 'bazar_ads', label: '🏪 Bazar & Anuncios', color: 'bg-amber-600' },
             { id: 'moderacion', label: `Moderación (${reports.length + pendingBazar.length})`, color: 'bg-red-600' },
             { id: 'vacantes', label: `Bolsa (${pendingVacancies.length})`, color: 'bg-green-600' },
+            { id: 'practicas', label: `Prácticas FP1 (${pendingPracticas.length + pendingUnidades.length})`, color: 'bg-teal-600' },
             { id: 'directorio', label: 'Usuarios', color: 'bg-slate-700' },
             { id: 'ia_config', label: 'Agente BOB', color: 'bg-emerald-600' },
             { id: 'rag_knowledge', label: '📚 Conocimiento RAG (.md)', color: 'bg-emerald-600' },
@@ -1010,6 +1096,92 @@ const AdminDashboard = () => {
          </div>
        )}
 
+      {activeTab === 'practicas' && (
+         <div className="space-y-12 animate-in slide-in-from-right-10 duration-500">
+            <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+               <div>
+                  <h3 className="text-white font-black text-lg uppercase tracking-tight">Bolsa de Trabajo</h3>
+                  <p className="text-slate-400 text-xs mt-1">Actívala cuando haya vacantes con contacto real (empresas registradas). Actualmente apagada — el foco es el banco de proyectos de Prácticas y Servicio Social.</p>
+               </div>
+               <button onClick={handleToggleBolsa}
+                  className={`relative w-16 h-9 rounded-full transition-colors shrink-0 ${bolsaActiva ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                  aria-label="Activar/Desactivar Bolsa de Trabajo">
+                  <span className={`absolute top-1 w-7 h-7 rounded-full bg-white shadow transition-all ${bolsaActiva ? 'left-8' : 'left-1'}`} />
+               </button>
+            </div>
+
+            <div className="space-y-6">
+               <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Unidades Receptoras Pendientes</h3>
+               <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden">
+                  <table className="w-full text-left">
+                     <thead>
+                        <tr className="bg-slate-950 border-b border-white/5">
+                           <th className="px-8 py-6 text-[9px] uppercase text-slate-500 font-black">Razón Social</th>
+                           <th className="px-8 py-6 text-[9px] uppercase text-slate-500 font-black">RFC / Responsable</th>
+                           <th className="px-8 py-6 text-[9px] uppercase text-slate-500 font-black">Contacto</th>
+                           <th className="px-8 py-6 text-[9px] uppercase text-slate-500 font-black text-right">Acción</th>
+                        </tr>
+                     </thead>
+                     <tbody className="divide-y divide-white/5">
+                        {pendingUnidades.map((u) => (
+                           <tr key={u.id} className="hover:bg-white/5 transition-colors">
+                              <td className="px-8 py-6">
+                                 <p className="text-white font-black text-sm">{u.razon_social}</p>
+                                 <p className="text-slate-500 text-[10px] uppercase font-black">{u.giro_sector || '—'}</p>
+                              </td>
+                              <td className="px-8 py-6 text-slate-300 text-xs">
+                                 <p>{u.rfc || '—'}</p>
+                                 <p className="text-slate-500">{u.responsable_nombre} {u.responsable_puesto ? `(${u.responsable_puesto})` : ''}</p>
+                              </td>
+                              <td className="px-8 py-6 text-slate-300 text-xs">
+                                 <p>{u.responsable_email || '—'}</p>
+                                 <p className="text-slate-500">{u.telefono || '—'}</p>
+                              </td>
+                              <td className="px-8 py-6 text-right">
+                                 <div className="flex gap-2 justify-end">
+                                    <button onClick={() => handleAprobacionPracticas('unidad', u.id, true)} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase">Aprobar</button>
+                                    <button onClick={() => handleAprobacionPracticas('unidad', u.id, false)} className="bg-red-600/10 text-red-500 px-4 py-2 rounded-xl text-[9px] font-black uppercase border border-red-500/20">Rechazar</button>
+                                 </div>
+                              </td>
+                           </tr>
+                        ))}
+                        {pendingUnidades.length === 0 && (
+                           <tr><td colSpan={4} className="px-8 py-10 text-center text-white/20 text-[9px] uppercase font-black tracking-widest">No hay unidades receptoras pendientes</td></tr>
+                        )}
+                     </tbody>
+                  </table>
+               </div>
+            </div>
+
+            <div className="space-y-6">
+               <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Proyectos FP1 Pendientes de Aprobación</h3>
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {pendingPracticas.map((p) => (
+                     <div key={p.id} className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 space-y-3">
+                        <div className="flex justify-between items-start gap-3">
+                           <h4 className="text-white font-black text-base leading-tight">{p.nombre_programa}</h4>
+                           <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase bg-amber-500/20 text-amber-500 border border-amber-500/50 whitespace-nowrap">pendiente</span>
+                        </div>
+                        <p className="text-indigo-400 text-xs font-bold uppercase">{p.razon_social || 'Unidad sin registrar'}</p>
+                        <div className="text-slate-400 text-xs space-y-1">
+                           <p>🎯 {p.licenciatura_target || 'Todas'} • Cupo: {p.num_practicantes} practicante(s)</p>
+                           {p.programa && <p>Área: {p.programa}</p>}
+                           {p.objetivo && <p className="line-clamp-2 italic text-slate-500">"{p.objetivo}"</p>}
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                           <button onClick={() => handleAprobacionPracticas('proyecto', p.id, true)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 rounded-xl text-white text-[10px] font-black uppercase">Aprobar</button>
+                           <button onClick={() => handleAprobacionPracticas('proyecto', p.id, false)} className="flex-1 bg-red-600/10 hover:bg-red-600/30 text-red-500 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase border border-red-500/20">Rechazar</button>
+                        </div>
+                     </div>
+                  ))}
+                  {pendingPracticas.length === 0 && (
+                     <div className="lg:col-span-2 text-center py-10 text-white/20 text-[9px] uppercase font-black tracking-widest">No hay proyectos FP1 pendientes</div>
+                  )}
+               </div>
+            </div>
+         </div>
+       )}
+
       {activeTab === 'ia_config' && (
         <AdminIAConfigTab />
       )}
@@ -1059,8 +1231,8 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-white/5">
                      {directory.map((u) => {
-                        const isMaster = u.email === 'software@fondothoth.com';
-                        const isEditingDisabled = user?.email !== 'software@fondothoth.com' || isMaster;
+                        const isMasterRow = u.email === 'software@fondothoth.com' || u.email === 'a213203453@unison.mx';
+                        const isEditingDisabled = !isMaster || isMasterRow;
                         
                         return (
                            <tr key={u.id} className={`hover:bg-white/[0.01] transition-all ${u.activo == 0 ? 'opacity-30' : ''}`}>
@@ -1221,19 +1393,23 @@ const AdminDashboard = () => {
                     <p className="text-slate-500 text-xs">Pega el código QR dinámico o usa la cámara (vía PWA en móvil) para validar al alumno.</p>
                  </div>
                  
-                 <div className="space-y-4">
-                    <textarea 
-                       placeholder="Ingresa los datos del QR aquí..."
-                       className="w-full bg-black/50 border border-white/10 rounded-2xl p-6 text-xs text-white h-40 focus:border-emerald-500 outline-none font-mono"
-                       onBlur={(e) => e.target.value && handleAccessValidation(e.target.value)}
-                    ></textarea>
-                    <button 
-                       disabled={accessLoading}
-                       className="w-full bg-emerald-600 hover:bg-white hover:text-black text-white py-4 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all"
-                    >
-                       {accessLoading ? 'Sincronizando con CESA...' : 'Validar Identidad Manualmente'}
-                    </button>
-                 </div>
+                  <div className="space-y-4">
+                     <textarea 
+                        placeholder="Ingresa los datos del QR aquí..."
+                        className="w-full bg-black/50 border border-white/10 rounded-2xl p-6 text-xs text-white h-40 focus:border-emerald-500 outline-none font-mono"
+                        onBlur={(e) => e.target.value && handleAccessValidation(e.target.value)}
+                     ></textarea>
+                     <button 
+                        disabled={accessLoading}
+                        onClick={(e) => {
+                          const textarea = (e.currentTarget.previousElementSibling as HTMLTextAreaElement);
+                          if (textarea?.value) handleAccessValidation(textarea.value);
+                        }}
+                        className="w-full bg-emerald-600 hover:bg-white hover:text-black text-white py-4 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all"
+                     >
+                        {accessLoading ? 'Sincronizando con CESA...' : 'Validar Identidad Manualmente'}
+                     </button>
+                  </div>
               </div>
 
               {accessResult && (
@@ -1438,7 +1614,7 @@ const AdminDashboard = () => {
                      {[
                        { key: 'publicar_anuncios', label: 'Publicar Anuncios (Ads)' },
                        { key: 'bazar_y_reservaciones', label: 'Bazar y Reservaciones' },
-                       { key: 'bolsa_trabajo', label: 'Bolsa de Trabajo' },
+                        { key: 'bolsa_trabajo', label: 'Prácticas, Servicio Social y Bolsa' },
                        { key: 'roles_social', label: 'Ecosistema Social' },
                        { key: 'ver_denuncias', label: 'Ver e Investigar Denuncias' },
                        { key: 'rol_comunicacion', label: 'Comunicación y Noticias' },
@@ -1653,7 +1829,7 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                     <button 
-                      onClick={() => { setChatPage(0); fetchChatHistory(); }}
+                      onClick={() => { if (chatPage === 0) fetchChatHistory(); else setChatPage(0); }}
                       className="w-full bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
                     >
                       Buscar / Filtrar Chatbot
@@ -1773,7 +1949,7 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                     <button 
-                      onClick={() => { setMensajesPage(0); fetchMensajesHistory(); }}
+                      onClick={() => { if (mensajesPage === 0) fetchMensajesHistory(); else setMensajesPage(0); }}
                       className="w-full bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
                     >
                       Buscar / Filtrar Mensajes

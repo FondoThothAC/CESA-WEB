@@ -30,4 +30,34 @@ scratch/
 scratch_*
 *.key
 
+# Legacy Vite app (reemplazada por frontend/) y artefactos de build
+/dist/
+/build_log.txt
+/vite.config.js
+/index.html
+/identidad junio 2026/
+
 rust-backend/target/
+
+# Archivo local de material historico (nunca se versiona)
+/_legacy/
+
+# Artefactos de build y temporales
+*.tsbuildinfo
+*.bak
+*.log
+cesa.db
+extract_*.py
+
+# Runtime local (rate limits, uploads, dumps)
+/storage/
+/uploads/
+backend/storage/
+backend/logs/
+*.sql.gz
+*.dump
+
+# Entornos (cualquier nivel)
+.env.*
+!**/.env.example
+

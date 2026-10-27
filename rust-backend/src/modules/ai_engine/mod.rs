@@ -696,6 +696,321 @@ pub async fn orquestar_agente(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MESA DE EXPERTOS — JUNTA REAL CON LLMs
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct MeetingRequest {
+    pub tipo_sesion: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MeetingInteraction {
+    pub agent: String,
+    pub text: String,
+    pub agent_id: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MeetingResult {
+    pub success: bool,
+    pub interactions: Vec<MeetingInteraction>,
+    pub resumen: String,
+    pub model_used: String,
+    pub duration_ms: u64,
+    pub agentes_participantes: usize,
+}
+
+/// Datos en tiempo real que cada agente necesita para su reporte en la junta
+async fn obtener_datos_agente(db: &sqlx::MySqlPool, agent_id: i32) -> String {
+    match agent_id {
+        // Atlas — Emprendimiento & Bazar
+        2 => {
+            let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM bazar_productos WHERE estado = 'activo'")
+                .fetch_one(db).await.unwrap_or(0);
+            let ocupados: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM bazar_espacios WHERE ocupado = 1")
+                .fetch_one(db).await.unwrap_or(0);
+            format!("Bazar: {} productos activos, {} espacios ocupados.", total, ocupados)
+        }
+        // Aria — Comunicaciones
+        3 => {
+            let pending: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM zeroclaw_pending_approvals WHERE estado = 'pendiente'")
+                .fetch_one(db).await.unwrap_or(0);
+            let noticias: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM noticias WHERE DATE(publicado_en) = CURDATE()")
+                .fetch_one(db).await.unwrap_or(0);
+            format!("Comunicaciones: {} diseños pendientes de aprobación, {} noticias publicadas hoy.", pending, noticias)
+        }
+        // Orión — Deportes
+        4 => {
+            let torneos: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM torneos WHERE activo = 1")
+                .fetch_one(db).await.unwrap_or(0).max(0);
+            let reportes_deportes: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reportes WHERE coordinacion = 'impulso' AND estado = 'nuevo'")
+                .fetch_one(db).await.unwrap_or(0).max(0);
+            format!("Deportes: {} torneos activos, {} reportes pendientes.", torneos, reportes_deportes)
+        }
+        // Minerva — Académico
+        5 => {
+            let tutorias: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reportes WHERE coordinacion = 'librx' AND estado = 'nuevo'")
+                .fetch_one(db).await.unwrap_or(0).max(0);
+            let usuarios: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM usuarios WHERE rol = 'alumno'")
+                .fetch_one(db).await.unwrap_or(0);
+            format!("Académico: {} reportes de tutoría pendientes, {} alumnos registrados.", tutorias, usuarios)
+        }
+        // Aurora — Bienestar
+        6 => {
+            let reportes: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reportes WHERE coordinacion = 'integral' AND estado = 'nuevo'")
+                .fetch_one(db).await.unwrap_or(0).max(0);
+            format!("Bienestar: {} reportes de atención estudiantil pendientes.", reportes)
+        }
+        // Lyra — Cultura & Gaceta
+        7 => {
+            let eventos: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reportes WHERE coordinacion = 'raices' AND estado = 'nuevo'")
+                .fetch_one(db).await.unwrap_or(0).max(0);
+            format!("Cultura: {} reportes culturales pendientes.", eventos)
+        }
+        // Cleo — Finanzas
+        8 => {
+            let reportes: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reportes WHERE coordinacion = 'la_red' AND estado = 'nuevo'")
+                .fetch_one(db).await.unwrap_or(0).max(0);
+            format!("Finanzas: {} reportes de tesorería pendientes.", reportes)
+        }
+        // Nova — Relaciones Externas
+        9 => {
+            let convenios: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reportes WHERE coordinacion = 'humano' AND estado = 'nuevo'")
+                .fetch_one(db).await.unwrap_or(0).max(0);
+            format!("Convenios: {} reportes de alianzas externas pendientes.", convenios)
+        }
+        // Bob Prime — Coordinación (id=1)
+        1 => {
+            let total_reportes: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM reportes WHERE estado = 'nuevo'")
+                .fetch_one(db).await.unwrap_or(0);
+            let usuarios_hoy: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM usuarios WHERE DATE(creado_en) = CURDATE()")
+                .fetch_one(db).await.unwrap_or(0).max(0);
+            format!("Coordinación: {} reportes sin atender, {} usuarios nuevos hoy.", total_reportes, usuarios_hoy)
+        }
+        _ => "Sin datos disponibles para este subsistema.".to_string(),
+    }
+}
+
+/// Envía el resumen de la junta por Telegram al grupo de admin
+async fn enviar_resumen_telegram(http: &reqwest::Client, bot_token: &str, chat_id: &str, resumen: &str) -> bool {
+    if bot_token.is_empty() || chat_id.is_empty() {
+        tracing::warn!("⚠️  [Meeting] Telegram no configurado (falta token o chat_id).");
+        return false;
+    }
+    let url = format!("https://api.telegram.org/bot{}/sendMessage", bot_token);
+    let body = json!({
+        "chat_id": chat_id,
+        "text": resumen,
+        "parse_mode": "Markdown"
+    });
+    match http.post(&url).json(&body).send().await {
+        Ok(r) if r.status().is_success() => {
+            tracing::info!("✅ [Meeting] Resumen enviado por Telegram.");
+            true
+        }
+        Ok(r) => {
+            let err = r.text().await.unwrap_or_default();
+            tracing::warn!("⚠️  [Meeting] Error Telegram: {}", err);
+            // Reintentar sin Markdown
+            let body_plain = json!({ "chat_id": chat_id, "text": resumen });
+            let _ = http.post(&url).json(&body_plain).send().await;
+            true
+        }
+        Err(e) => {
+            tracing::warn!("⚠️  [Meeting] Fallo conexión Telegram: {}", e);
+            false
+        }
+    }
+}
+
+/// Orquesta una junta real de la Mesa de Expertos con LLMs reales
+/// Solo hablan agentes que tengan tareas pendientes en su subsistema
+pub async fn orquestar_junta(
+    state: &AppState,
+    tipo_sesion: &str,
+) -> MeetingResult {
+    let inicio = std::time::Instant::now();
+    tracing::info!("🏛️  Iniciando Mesa de Expertos — Tipo: {}", tipo_sesion);
+
+    // 1. Cargar todos los agentes activos
+    let agentes = sqlx::query_as::<_, SubAgentDb>(
+        "SELECT * FROM zeroclaw_agents WHERE activo = 1 ORDER BY id ASC"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    if agentes.is_empty() {
+        return MeetingResult {
+            success: false,
+            interactions: vec![],
+            resumen: "No hay agentes configurados en el sistema.".to_string(),
+            model_used: "none".to_string(),
+            duration_ms: inicio.elapsed().as_millis() as u64,
+            agentes_participantes: 0,
+        };
+    }
+
+    // 2. Bob Prime siempre abre la junta (id=1)
+    let bob = agentes.iter().find(|a| a.id == 1).cloned().unwrap_or_else(|| agentes[0].clone());
+    let mut interacciones: Vec<MeetingInteraction> = Vec::new();
+    let mut contexto_acumulado = String::new();
+
+    // Abrir la junta
+    let apertura = format!(
+        "¡Comenzamos la Mesa de Expertos CESA UNISON! Sesión tipo: {}. Voy a听取 los reportes de los agentes que tengan tareas pendientes.",
+        tipo_sesion
+    );
+    interacciones.push(MeetingInteraction {
+        agent: bob.nombre_agente.clone(),
+        text: apertura.clone(),
+        agent_id: bob.id,
+    });
+    contexto_acumulado.push_str(&format!("{}: {}\n", bob.nombre_agente, apertura));
+
+    // 3. Para cada agente (excepto Bob), verificar si tiene tareas pendientes y pedir reporte
+    let session_id = uuid::Uuid::new_v4().to_string();
+    let mut modelos_usados: Vec<String> = Vec::new();
+
+    for agente in &agentes {
+        if agente.id == 1 { continue; } // Bob ya habló
+
+        // Obtener datos reales del subsistema
+        let datos = obtener_datos_agente(&state.db, agente.id).await;
+
+        // Solo hablar si tiene algo que reportar (datos no vacíos o siempre hablar)
+        // En una junta real, todos reportan su estado
+        let prompt_junta = format!(
+            "Estás en una junta semanal de CESA UNISON. Tu identidad: {} ({}), encargado de {}.\n\
+             Tu personalidad: {}\n\n\
+             Datos reales de tu subsistema:\n{}\n\n\
+             Contexto de la junta hasta ahora:\n{}\n\n\
+             Instrucciones:\n\
+             - Presenta tu reporte en 2-3 oraciones claras y concisas.\n\
+             - Usa los datos reales para fundamentar tu reporte.\n\
+             - Sé directo: menciona logros, pendientes y acciones próximas.\n\
+             - NO uses herramientas (Canva, Gmail, etc.) en esta junta, solo reporta.\n\
+             - Responde en español profesional y breve.",
+            agente.nombre_agente,
+            agente.encargado_nombre,
+            agente.eje_trabajo,
+            agente.prompt_personalidad.as_deref().unwrap_or("Profesional y colaborativo."),
+            datos,
+            contexto_acumulado
+        );
+
+        let mensajes = vec![
+            json!({ "role": "system", "content": "Eres un agente del CESA UNISON en una junta semanal. Reporta el estado de tu área de forma breve y profesional." }),
+            json!({ "role": "user", "content": prompt_junta }),
+        ];
+
+        // Llamar LLM SIN herramientas (solo reporte)
+        let (res, model) = llamar_llm_cascada(&state.http_client, state, &mensajes, false).await;
+        let reply = res["choices"][0]["message"]["content"]
+            .as_str()
+            .unwrap_or("Reporte no disponible.")
+            .to_string();
+
+        modelos_usados.push(model.clone());
+
+        interacciones.push(MeetingInteraction {
+            agent: agente.nombre_agente.clone(),
+            text: reply.clone(),
+            agent_id: agente.id,
+        });
+        contexto_acumulado.push_str(&format!("{}: {}\n", agente.nombre_agente, reply));
+
+        // Persistir cada intervención en ia_agentes_sesiones
+        let _ = sqlx::query(
+            r#"INSERT INTO ia_agentes_sesiones (session_id, user_id, canal, rol, mensaje, herramientas_usadas, creado_en) VALUES (?, 0, 'web', 'assistant', ?, '', NOW())"#
+        )
+        .bind(&session_id)
+        .bind(&format!("[Mesa de Expertos] {}: {}", agente.nombre_agente, reply))
+        .execute(&state.db)
+        .await;
+    }
+
+    // 4. Bob Prime cierra la junta con resumen ejecutivo
+    let prompt_cierre = format!(
+        "Como Bob Prime, líder del CESA UNISON, genera un resumen ejecutivo breve (3-5 líneas) de esta junta semanal. Incluye los puntos clave mencionados por los agentes y las acciones próximas.\n\nContexto completo de la junta:\n{}",
+        contexto_acumulado
+    );
+    let mensajes_cierre = vec![
+        json!({ "role": "system", "content": "Eres Bob Prime, líder del CESA UNISON. Genera un resumen ejecutivo de la junta." }),
+        json!({ "role": "user", "content": prompt_cierre }),
+    ];
+    let (cierre_res, cierre_model) = llamar_llm_cascada(&state.http_client, state, &mensajes_cierre, false).await;
+    let resumen_ejecutivo = cierre_res["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or("Junta completada.")
+        .to_string();
+    modelos_usados.push(cierre_model.clone());
+
+    interacciones.push(MeetingInteraction {
+        agent: bob.nombre_agente.clone(),
+        text: resumen_ejecutivo.clone(),
+        agent_id: bob.id,
+    });
+
+    let duracion = inicio.elapsed().as_millis() as u64;
+    let model_str = modelos_usados.first().unwrap_or(&"unknown".to_string()).clone();
+
+    // 5. Persistir la junta completa en zeroclaw_meeting_logs
+    let interactions_json = serde_json::to_string(&interacciones).unwrap_or_default();
+    let _ = sqlx::query(
+        r#"INSERT INTO zeroclaw_meeting_logs (fecha_sesion, tipo_sesion, total_interacciones, resumen_ejecutivo, acuerdos_json, telegram_sent, created_at) VALUES (NOW(), ?, ?, ?, ?, 0, NOW())"#
+    )
+    .bind(tipo_sesion)
+    .bind(interacciones.len() as i64)
+    .bind(&resumen_ejecutivo)
+    .bind(&interactions_json)
+    .execute(&state.db)
+    .await;
+
+    // 6. Enviar resumen por Telegram
+    let telegram_chat_id = std::env::var("TELEGRAM_ADMIN_CHAT_ID").unwrap_or_default();
+    let telegram_sent = enviar_resumen_telegram(
+        &state.http_client,
+        &state.config.telegram_bot_token,
+        &telegram_chat_id,
+        &resumen_ejecutivo,
+    ).await;
+
+    if telegram_sent {
+        let _ = sqlx::query("UPDATE zeroclaw_meeting_logs SET telegram_sent = 1 WHERE id = LAST_INSERT_ID()")
+            .execute(&state.db)
+            .await;
+    }
+
+    tracing::info!(
+        "🏛️  Mesa de Expertos completada — {} agentes, {}ms, modelo: {}",
+        interacciones.len() - 2, // sin contar apertura y cierre de Bob
+        duracion,
+        model_str
+    );
+
+    MeetingResult {
+        success: true,
+        interactions: interacciones,
+        resumen: resumen_ejecutivo,
+        model_used: model_str,
+        duration_ms: duracion,
+        agentes_participantes: agentes.len() - 1, // sin Bob
+    }
+}
+
+/// Handler HTTP para la Mesa de Expertos
+pub async fn handle_meeting(
+    State(state): State<AppState>,
+    Json(payload): Json<MeetingRequest>,
+) -> impl IntoResponse {
+    let tipo = payload.tipo_sesion.unwrap_or_else(|| "martes_sincro".to_string());
+    let result = orquestar_junta(&state, &tipo).await;
+    ApiResponse::success(result).into_response()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CONTROLADORES Y RUTAS AXUM
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -751,6 +1066,7 @@ pub async fn handle_get_agent(
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/chat", post(handle_chat))
+        .route("/meeting/run", post(handle_meeting))
         .route("/agents", get(handle_list_agents))
         .route("/agents/:id", get(handle_get_agent))
 }

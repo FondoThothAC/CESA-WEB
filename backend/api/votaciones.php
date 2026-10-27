@@ -37,10 +37,13 @@ function decryptExpediente($encrypted, $votacion_id) {
 
 function getClientIp() {
     $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $ip = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
+    // Solo confiar en X-Forwarded-For si REMOTE_ADDR es un proxy inverso declarado en TRUSTED_PROXIES
+    $trustedProxies = array_filter(array_map('trim', explode(',', getenv('TRUSTED_PROXIES') ?: '')));
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR']) && in_array($ip, $trustedProxies, true)) {
+        $candidates = array_map('trim', explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
+        $ip = $candidates[0];
     }
-    return trim($ip);
+    return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '0.0.0.0';
 }
 
 function isIpAllowed($ip, $allowed_networks_json) {
@@ -185,7 +188,7 @@ switch ($action) {
 
             echo json_encode(['success' => true, 'data' => $candidatos]);
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
@@ -260,13 +263,13 @@ switch ($action) {
 
             // Actualizar Caché de Votos
             $stmtUpdateCand = $pdo->prepare("UPDATE votacion_candidatos SET votos_recibidos = votos_recibidos + 1 WHERE id = ?");
-            $stmtUpdateCand->execute([candidato_id]);
+            $stmtUpdateCand->execute([$candidato_id]);
 
             $pdo->commit();
             echo json_encode(['success' => true, 'message' => 'Voto encriptado registrado con éxito.']);
 
-        } catch (Exception $e) {
-            $pdo->rollBack();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
@@ -291,7 +294,7 @@ switch ($action) {
         if (!$votacion) exit;
 
         $esConsejoOAdmin = isAdminOrCouncil();
-        $esMaster = ($user['email'] === 'software@fondothoth.com');
+        $esMaster = Auth::isMasterEmail($user['email'] ?? null);
         $publicos = ($votacion['fecha_publicacion_resultados'] && strtotime($votacion['fecha_publicacion_resultados']) <= time());
 
         // Solo Master, Consejo/Admins o Estudiantes (si ya se publicó) pueden ver
@@ -312,9 +315,9 @@ switch ($action) {
         echo json_encode(['success' => true, 'data' => $candidatos]);
         break;
 
-    // 4. Data Science Decrypt (Solo software@fondothoth.com)
+    // 4. Data Science Decrypt (Solo Master Admin)
     case 'datascience_decrypt':
-        if (!$isLoggedIn || $user['email'] !== 'software@fondothoth.com') {
+        if (!$isLoggedIn || !Auth::isMasterEmail($user['email'] ?? null)) {
             http_response_code(403);
             echo json_encode(['success' => false, 'error' => 'Acceso restringido nivel Dios (Data Science).']);
             exit;
@@ -348,6 +351,76 @@ switch ($action) {
         }
 
         echo json_encode(['success' => true, 'mensaje' => '¡PRECAUCIÓN! Datos sensibles.', 'data_science' => $decrypted_data]);
+        break;
+
+    // 5. Crear Votación (Solo Consejo/Admin)
+    case 'create':
+        if (!$isLoggedIn) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'No autorizado']);
+            exit;
+        }
+        if (!isAdminOrCouncil()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Solo el Consejo de Elecciones puede crear votaciones.']);
+            exit;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $titulo = trim($input['titulo'] ?? '');
+        $descripcion = trim($input['descripcion'] ?? '') ?: null;
+        $carreraObjetivo = trim($input['carrera_objetivo'] ?? '') ?: null;
+        $fechaInicio = trim($input['fecha_inicio'] ?? '');
+        $fechaFin = trim($input['fecha_fin'] ?? '');
+        $fechaPublicacion = trim($input['fecha_publicacion_resultados'] ?? '') ?: null;
+        $redesIp = trim($input['redes_ip_permitidas'] ?? '');
+
+        if ($titulo === '' || $fechaInicio === '' || $fechaFin === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Título y fechas de inicio/fin son obligatorios.']);
+            exit;
+        }
+        if (strtotime($fechaFin) <= strtotime($fechaInicio)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'La fecha de fin debe ser posterior a la de inicio.']);
+            exit;
+        }
+        if ($redesIp !== '' && json_decode($redesIp) === null) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Las redes IP permitidas deben ser un JSON válido.']);
+            exit;
+        }
+        if ($redesIp !== '') {
+            // Validación ligera del formato del array
+            $decodedRedes = json_decode($redesIp, true);
+            if (!is_array($decodedRedes)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Formato de redes IP inválido (se espera JSON array).']);
+                exit;
+            }
+        } else {
+            $redesIp = null;
+        }
+
+        try {
+            $stmt = $pdo->prepare("
+                INSERT INTO votaciones (titulo, descripcion, carrera_objetivo, fecha_inicio, fecha_fin, fecha_publicacion_resultados, estado, redes_ip_permitidas)
+                VALUES (?, ?, ?, ?, ?, ?, 'activa', ?)
+            ");
+            $stmt->execute([
+                $titulo,
+                $descripcion,
+                $carreraObjetivo,
+                date('Y-m-d H:i:s', strtotime($fechaInicio)),
+                date('Y-m-d H:i:s', strtotime($fechaFin)),
+                $fechaPublicacion ? date('Y-m-d H:i:s', strtotime($fechaPublicacion)) : null,
+                $redesIp ?: null
+            ]);
+            echo json_encode(['success' => true, 'id' => (int)$pdo->lastInsertId(), 'message' => 'Votación creada y activada.']);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al crear la votación.']);
+        }
         break;
 
     default:

@@ -155,6 +155,9 @@ export function useInterstitialAd() {
     }, 1000);
 
     const closeAd = () => {
+      if (container.dataset.closed === 'true') return;
+      container.dataset.closed = 'true';
+      clearTimeout(autoCloseTimeout);
       clearInterval(interval);
       container.style.opacity = '0';
       setTimeout(() => {

@@ -26,13 +26,13 @@ Z_PORT=42617
 Z_DB_HOST=localhost
 Z_DB_NAME=cesa_web
 Z_DB_USER=cesa_admin
-Z_DB_PASS=cesa_pw_20ff8077e040
-Z_SECRET_KEY=REDACTED
+Z_DB_PASS=${Z_DB_PASS:?Z_DB_PASS no configurada}
+Z_SECRET_KEY=${Z_SECRET_KEY:?Z_SECRET_KEY no configurada}
 
 # APIS Externas (Modo Sandbox Inicial)
 GOOGLE_WORKSPACE_SA_JSON_PATH=/opt/zeroclaw/google_sa.json
-CANVA_API_KEY=mock_canva_key
-META_API_KEY=mock_meta_key
+CANVA_API_KEY=${CANVA_API_KEY:-}
+META_API_KEY=${META_API_KEY:-}
 EOF
 
 # 4. Crear Servicio Systemd para ZeroClaw

@@ -69,7 +69,7 @@ const JobsBoard = () => {
       if (tipoFilter) params.append('tipo', tipoFilter);
       const res = await fetch(`${API_URL}/empleos.php?${params}`);
       const data = await res.json();
-      if (data.success) setVacantes(data.vacantes);
+      if (data.success) setVacantes(Array.isArray(data.vacantes) ? data.vacantes : []);
     } catch (e) { console.error('Error empleos', e); }
     finally { setLoading(false); }
   };
@@ -126,7 +126,7 @@ const JobsBoard = () => {
             <button key={mod}
               onClick={() => setFilter(mod)}
               className={`px-5 py-2.5 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                filter === mod ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' : 'border-white/10 text-white/40 hover:text-white hover:border-white/20'
+                filter === mod ? 'bg-indigo-600 border-indigo-500 text-text-main shadow-lg shadow-indigo-600/20' : 'border-border text-text-main/40 hover:text-text-main hover:border-white/20'
               }`}
             >{mod}</button>
           ))}
@@ -136,7 +136,7 @@ const JobsBoard = () => {
           <select
             value={tipoFilter}
             onChange={(e) => setTipoFilter(e.target.value)}
-            className="bg-black/40 border border-white/10 text-[9px] font-black uppercase text-white rounded-xl px-4 py-3 outline-none"
+            className="bg-black/40 border border-border text-[9px] font-black uppercase text-text-main rounded-xl px-4 py-3 outline-none"
           >
             <option value="">Todos los tipos</option>
             <option value="tiempo_completo">Tiempo Completo</option>
@@ -147,7 +147,7 @@ const JobsBoard = () => {
           {isAdmin && (
             <button
               onClick={() => setShowPublish(true)}
-              className="bg-indigo-600 hover:bg-white hover:text-black text-white px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2"
+              className="bg-indigo-600 hover:bg-white hover:text-black text-text-main px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2"
             >
               <i className="fas fa-plus-circle"></i> Publicar Vacante
             </button>
@@ -161,10 +161,10 @@ const JobsBoard = () => {
           <span className="bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
             Convocatoria Estatal 2026
           </span>
-          <h2 className="text-white text-2xl font-black uppercase tracking-tighter">
+          <h2 className="text-text-main text-2xl font-black uppercase tracking-tighter">
             Banco de Talento Sonorense
           </h2>
-          <p className="text-white/50 text-xs max-w-xl">
+          <p className="text-text-main/50 text-xs max-w-xl">
             Sube tu currículum al banco oficial del estado de Sonora y vincúlate con las mejores empresas de la región. Consulta la guía oficial de registro elaborada por la DAE.
           </p>
         </div>
@@ -173,7 +173,7 @@ const JobsBoard = () => {
             href="https://dae.unison.mx/CONVOCATORIAS/Gui%CC%81a_Completa_de_Registro_Banco_de_Talento_Sonorense_2026.pdf"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-center transition-all"
+            className="px-6 py-4 rounded-2xl bg-white/5 border border-border text-text-main hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-center transition-all"
           >
             <i className="fas fa-file-pdf mr-2 text-red-500"></i> Descargar Guía PDF
           </a>
@@ -181,7 +181,7 @@ const JobsBoard = () => {
             href="https://dae.unison.mx/bolsadetrabajo.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-8 py-4 rounded-2xl bg-amber-500 hover:bg-white hover:text-black text-white text-[9px] font-black uppercase tracking-widest text-center shadow-lg shadow-amber-500/20 transition-all"
+            className="px-8 py-4 rounded-2xl bg-amber-500 hover:bg-white hover:text-black text-text-main text-[9px] font-black uppercase tracking-widest text-center shadow-lg shadow-amber-500/20 transition-all"
           >
             Registrarme Ahora
           </a>
@@ -190,11 +190,11 @@ const JobsBoard = () => {
 
       {/* Vacantes Counter */}
       <div className="flex justify-between items-center px-2">
-        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-main/20">
           {loading ? 'Cargando...' : `${vacantes.length} Vacante${vacantes.length !== 1 ? 's' : ''} Activa${vacantes.length !== 1 ? 's' : ''}`}
         </h3>
         {!isAdmin && (
-          <p className="text-[9px] text-white/20 uppercase font-black tracking-widest">Comité Conecta-T CESA • Vinculación 2026</p>
+          <p className="text-[9px] text-text-main/20 uppercase font-black tracking-widest">Comité Conecta-T CESA • Vinculación 2026</p>
         )}
       </div>
 
@@ -208,8 +208,8 @@ const JobsBoard = () => {
       ) : vacantes.length === 0 ? (
         <div className="py-24 text-center space-y-4">
           <div className="text-5xl opacity-20">💼</div>
-          <p className="text-white/20 font-black uppercase tracking-widest text-[10px]">No hay vacantes en esta categoría.</p>
-          <p className="text-white/10 text-[9px] italic">Revisa más tarde o activa todas las modalidades.</p>
+          <p className="text-text-main/20 font-black uppercase tracking-widest text-[10px]">No hay vacantes en esta categoría.</p>
+          <p className="text-text-main/10 text-[9px] italic">Revisa más tarde o activa todas las modalidades.</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -243,16 +243,16 @@ const JobsBoard = () => {
                   {/* Company & Title */}
                   <div className="flex items-start gap-5 mb-6">
                     <div className="w-14 h-14 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-xl text-indigo-400 font-black flex-shrink-0">
-                      {job.empresa_nombre[0].toUpperCase()}
+                      {(job.empresa_nombre || '?')[0]?.toUpperCase() || '?'}
                     </div>
                     <div>
-                      <h3 className="text-white font-black text-xl leading-tight uppercase tracking-tighter">{job.titulo}</h3>
+                      <h3 className="text-text-main font-black text-xl leading-tight uppercase tracking-tighter">{job.titulo}</h3>
                       <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest mt-1">{job.empresa_nombre}</p>
                     </div>
                   </div>
 
                   {/* Description */}
-                  <div className="text-white/50 text-xs leading-relaxed mb-6 space-y-4">
+                  <div className="text-text-main/50 text-xs leading-relaxed mb-6 space-y-4">
                     <p className={expandedJobs[job.id] ? "whitespace-pre-line" : "line-clamp-3"}>
                       {job.descripcion}
                     </p>
@@ -263,7 +263,7 @@ const JobsBoard = () => {
                     )}
                     <button
                       onClick={() => toggleExpandJob(job.id)}
-                      className="text-indigo-400 hover:text-white font-bold text-[9px] uppercase tracking-widest block transition-colors mt-2"
+                      className="text-indigo-400 hover:text-text-main font-bold text-[9px] uppercase tracking-widest block transition-colors mt-2"
                     >
                       {expandedJobs[job.id] ? "Ver menos" : "Leer descripción completa y contacto"}
                     </button>
@@ -274,7 +274,7 @@ const JobsBoard = () => {
                     <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase border ${MODALIDAD_COLORS[job.modalidad]}`}>
                       <i className="fas fa-map-marker-alt mr-1"></i>{job.modalidad}
                     </span>
-                    <span className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase text-white/40">
+                    <span className="bg-white/5 border border-border px-3 py-1.5 rounded-xl text-[9px] font-black uppercase text-text-main/40">
                       <i className="fas fa-clock mr-1"></i>{TIPO_LABELS[job.tipo]}
                     </span>
                     {job.sueldo_rango && (
@@ -283,7 +283,7 @@ const JobsBoard = () => {
                       </span>
                     )}
                     {job.carreras_target && job.carreras_target !== 'todas' && (
-                      <span className="bg-white/5 border border-white/5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase text-white/20">
+                      <span className="bg-white/5 border border-white/5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase text-text-main/20">
                         <i className="fas fa-graduation-cap mr-1"></i>{job.carreras_target}
                       </span>
                     )}
@@ -293,9 +293,9 @@ const JobsBoard = () => {
                 {/* Action Area */}
                 <div className="flex flex-col justify-between items-end gap-4 md:min-w-[160px]">
                   <div className="text-right">
-                    <p className="text-[8px] font-mono text-white/20 italic">{new Date(job.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</p>
+                    <p className="text-[8px] font-mono text-text-main/20 italic">{new Date(job.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</p>
                     {job.postulaciones_count > 0 && (
-                      <p className="text-[8px] font-black uppercase text-white/20 tracking-widest mt-1">
+                      <p className="text-[8px] font-black uppercase text-text-main/20 tracking-widest mt-1">
                         <i className="fas fa-users mr-1"></i>{job.postulaciones_count} postulante{job.postulaciones_count !== 1 ? 's' : ''}
                       </p>
                     )}
@@ -305,14 +305,14 @@ const JobsBoard = () => {
                       href={job.enlace_externo}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full bg-amber-500 hover:bg-white hover:text-black text-white px-8 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center shadow-lg shadow-amber-500/20 transition-all"
+                      className="w-full bg-amber-500 hover:bg-white hover:text-black text-text-main px-8 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest text-center shadow-lg shadow-amber-500/20 transition-all"
                     >
                       Ver Oferta Original
                     </a>
                   ) : !job.ya_postulado ? (
                     <button
                       onClick={() => setShowApplyModal(job)}
-                      className="w-full bg-indigo-600 hover:bg-white hover:text-black text-white px-8 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all"
+                      className="w-full bg-indigo-600 hover:bg-white hover:text-black text-text-main px-8 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all"
                     >
                       Postularme
                     </button>
@@ -331,30 +331,30 @@ const JobsBoard = () => {
       {/* APPLY MODAL */}
       {showApplyModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-10 max-w-lg w-full space-y-8 shadow-2xl">
+          <div className="bg-slate-900 border border-border rounded-[2.5rem] p-10 max-w-lg w-full space-y-8 shadow-2xl">
             <div>
-              <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{showApplyModal.titulo}</h3>
+              <h3 className="text-2xl font-black text-text-main uppercase tracking-tighter">{showApplyModal.titulo}</h3>
               <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest mt-1">{showApplyModal.empresa_nombre}</p>
             </div>
 
             <div className="space-y-4">
-              <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Mensaje de Presentación (Opcional)</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-text-main/30">Mensaje de Presentación (Opcional)</label>
               <textarea
                 value={applyMsg}
                 onChange={(e) => setApplyMsg(e.target.value)}
                 placeholder="Cuéntale a la empresa por qué eres el candidato ideal..."
-                className="w-full bg-black/40 border border-white/10 rounded-2xl p-5 text-sm text-white h-36 outline-none focus:border-indigo-500 resize-none transition-all"
+                className="w-full bg-black/40 border border-border rounded-2xl p-5 text-sm text-text-main h-36 outline-none focus:border-indigo-500 resize-none transition-all"
               />
             </div>
 
             <div className="flex gap-4">
-              <button onClick={() => setShowApplyModal(null)} className="flex-1 py-4 rounded-2xl bg-white/5 text-white/40 text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+              <button onClick={() => setShowApplyModal(null)} className="flex-1 py-4 rounded-2xl bg-white/5 text-text-main/40 text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
                 Cancelar
               </button>
               <button
                 onClick={handleApply}
                 disabled={applyingId !== null}
-                className="flex-1 py-4 rounded-2xl bg-indigo-600 hover:bg-white hover:text-black text-white text-[9px] font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 transition-all disabled:opacity-50"
+                className="flex-1 py-4 rounded-2xl bg-indigo-600 hover:bg-white hover:text-black text-text-main text-[9px] font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 transition-all disabled:opacity-50"
               >
                 {applyingId ? 'Enviando...' : 'Confirmar Postulación'}
               </button>
@@ -366,8 +366,8 @@ const JobsBoard = () => {
       {/* PUBLISH MODAL (Admin only) */}
       {showPublish && isAdmin && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200 overflow-y-auto">
-          <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-10 max-w-2xl w-full space-y-6 shadow-2xl my-8">
-            <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Publicar Vacante</h3>
+          <div className="bg-slate-900 border border-border rounded-[2.5rem] p-10 max-w-2xl w-full space-y-6 shadow-2xl my-8">
+            <h3 className="text-2xl font-black text-text-main uppercase tracking-tighter">Publicar Vacante</h3>
 
             <div className="grid grid-cols-2 gap-4">
               {([
@@ -378,33 +378,33 @@ const JobsBoard = () => {
                 ['skill_id', 'ID Skill Recomendada (opcional)', 'text'],
               ] as const).map(([key, label, type]) => (
                 <div key={key} className="space-y-2">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-white/30">{label}</label>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-text-main/30">{label}</label>
                   <input
                     type="text"
                     value={newVacante[key]}
                     onChange={(e) => setNewVacante((prev: any) => ({ ...prev, [key]: e.target.value }))}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-indigo-500 transition-all"
+                    className="w-full bg-black/40 border border-border rounded-xl px-4 py-3 text-sm text-text-main outline-none focus:border-indigo-500 transition-all"
                   />
                 </div>
               ))}
             </div>
 
             <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Descripción del Puesto</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-text-main/30">Descripción del Puesto</label>
               <textarea
                 value={newVacante.descripcion}
                 onChange={(e) => setNewVacante((prev: any) => ({ ...prev, descripcion: e.target.value }))}
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-sm text-white h-28 outline-none focus:border-indigo-500 resize-none"
+                className="w-full bg-black/40 border border-border rounded-xl px-4 py-4 text-sm text-text-main h-28 outline-none focus:border-indigo-500 resize-none"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Modalidad</label>
+                <label className="text-[9px] font-black uppercase tracking-widest text-text-main/30">Modalidad</label>
                 <select
                   value={newVacante.modalidad}
                   onChange={(e) => setNewVacante((prev: any) => ({ ...prev, modalidad: e.target.value as any }))}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none"
+                  className="w-full bg-black/40 border border-border rounded-xl px-4 py-3 text-sm text-text-main outline-none"
                 >
                   <option value="presencial">Presencial</option>
                   <option value="remoto">Remoto</option>
@@ -412,11 +412,11 @@ const JobsBoard = () => {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Tipo de Empleo</label>
+                <label className="text-[9px] font-black uppercase tracking-widest text-text-main/30">Tipo de Empleo</label>
                 <select
                   value={newVacante.tipo}
                   onChange={(e) => setNewVacante((prev: any) => ({ ...prev, tipo: e.target.value as any }))}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none"
+                  className="w-full bg-black/40 border border-border rounded-xl px-4 py-3 text-sm text-text-main outline-none"
                 >
                   <option value="tiempo_completo">Tiempo Completo</option>
                   <option value="medio_tiempo">Medio Tiempo</option>
@@ -426,13 +426,13 @@ const JobsBoard = () => {
             </div>
 
             <div className="flex gap-4 pt-4 border-t border-white/5">
-              <button onClick={() => setShowPublish(false)} className="flex-1 py-4 rounded-2xl bg-white/5 text-white/40 text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+              <button onClick={() => setShowPublish(false)} className="flex-1 py-4 rounded-2xl bg-white/5 text-text-main/40 text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
                 Cancelar
               </button>
               <button
                 onClick={handlePublish}
                 disabled={publishing || !newVacante.titulo || !newVacante.empresa_nombre}
-                className="flex-1 py-4 rounded-2xl bg-indigo-600 hover:bg-white hover:text-black text-white text-[9px] font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 transition-all disabled:opacity-40"
+                className="flex-1 py-4 rounded-2xl bg-indigo-600 hover:bg-white hover:text-black text-text-main text-[9px] font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 transition-all disabled:opacity-40"
               >
                 {publishing ? 'Publicando...' : 'Publicar Vacante'}
               </button>

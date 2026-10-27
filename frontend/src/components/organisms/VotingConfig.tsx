@@ -45,10 +45,53 @@ export default function VotingConfig() {
 
   const createVotacion = async (e: React.FormEvent) => {
     e.preventDefault();
-    // This connects to a hypothetical creation endpoint which we'll handle in backend later if needed,
-    // For now this serves as the UI requested by the user.
-    alert("Función para insertar nueva votación en desarrollo. Las IPs configuradas son: " + formData.redes_ip_permitidas);
-    setShowForm(false);
+    try {
+      const res = await fetch(`${API_URL}/votaciones.php?action=create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowForm(false);
+        setFormData({
+          titulo: '',
+          descripcion: '',
+          carrera_objetivo: '',
+          fecha_inicio: '',
+          fecha_fin: '',
+          fecha_publicacion_resultados: '',
+          redes_ip_permitidas: '["148.225."]'
+        });
+        fetchVotaciones();
+      } else {
+        alert(data.error || "Error al crear la votación.");
+      }
+    } catch (err) {
+      alert("Error de red al crear la votación.");
+    }
+  };
+
+  const fetchResultados = async (votacionId: number) => {
+    try {
+      const res = await fetch(`${API_URL}/votaciones.php?action=resultados&votacion_id=${votacionId}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        const resumen = data.data
+          .map((c: any) => `${c.nombre_candidato}: ${c.votos} votos`)
+          .join('\n');
+        alert(`Resultados parciales:\n\n${resumen || 'Sin votos registrados aún.'}`);
+      } else {
+        alert(data.error || "Los resultados aún no están disponibles.");
+      }
+    } catch (err) {
+      alert("Error de red al consultar resultados.");
+    }
   };
 
   const fetchDecryptLogs = async (votacion_id: number) => {
@@ -102,6 +145,14 @@ export default function VotingConfig() {
               <input type="text" value={formData.carrera_objetivo} onChange={e => setFormData({...formData, carrera_objetivo: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white" />
             </div>
             <div>
+              <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 block">Fecha de Inicio</label>
+              <input type="datetime-local" value={formData.fecha_inicio} onChange={e => setFormData({...formData, fecha_inicio: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white" required />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 block">Fecha de Cierre</label>
+              <input type="datetime-local" value={formData.fecha_fin} onChange={e => setFormData({...formData, fecha_fin: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white" required />
+            </div>
+            <div>
               <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 block">Fecha de Publicación de Resultados</label>
               <input type="datetime-local" value={formData.fecha_publicacion_resultados} onChange={e => setFormData({...formData, fecha_publicacion_resultados: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white" required />
             </div>
@@ -126,7 +177,10 @@ export default function VotingConfig() {
               <p className="text-xs text-slate-500">{v.estado} • Inicia: {new Date(v.fecha_inicio).toLocaleDateString()}</p>
             </div>
             <div className="flex gap-2">
-              <button className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest">Ver Resultados Parciales</button>
+              <button 
+                onClick={() => fetchResultados(v.id)}
+                className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest"
+              >Ver Resultados Parciales</button>
               {isMaster && (
                 <button 
                   onClick={() => fetchDecryptLogs(v.id)}

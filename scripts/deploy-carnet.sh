@@ -5,7 +5,7 @@
 IP="129.146.150.123"
 USER="ubuntu"
 REMOTE_PATH="/var/www/cesa-web"
-SSH_KEY="/Users/robertoeduardocelisrobles/Documents/FT Apps/Web/CESA-WEB/unison keys/ssh-key-2026-05-12.key"
+SSH_KEY="$HOME/.ssh/unison_keys/ssh-key-2026-05-12.key"
 
 echo "🚀 Desplegando Módulo de Carnet Digital a Oracle VPS..."
 

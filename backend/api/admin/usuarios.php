@@ -88,7 +88,7 @@ try {
                 break;
                 
             case 'toggle_active':
-                if ($userAdmin['email'] !== 'software@fondothoth.com') {
+                if (!Auth::isMasterEmail($userAdmin['email'] ?? null)) {
                     throw new Exception('No autorizado. Solo el Administrador Maestro puede activar o desactivar usuarios.');
                 }
                 $status = (int)($_POST['activo'] ?? 0);
@@ -97,7 +97,7 @@ try {
                 break;
                 
             case 'update_permissions':
-                if ($userAdmin['email'] !== 'software@fondothoth.com') {
+                if (!Auth::isMasterEmail($userAdmin['email'] ?? null)) {
                     throw new Exception('No autorizado. Solo el Administrador Maestro puede cambiar permisos.');
                 }
                 $pub = (int)($_POST['publicar_anuncios'] ?? 0);
@@ -134,7 +134,7 @@ try {
                 break;
 
             case 'upload_padron':
-                if ($userAdmin['email'] !== 'software@fondothoth.com' && $userAdmin['email'] !== 'a213203453@unison.mx') {
+                if (!Auth::isMasterEmail($userAdmin['email'] ?? null)) {
                     throw new Exception('No autorizado para subir padrón electoral.');
                 }
                 

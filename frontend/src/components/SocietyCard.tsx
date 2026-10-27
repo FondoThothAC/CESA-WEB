@@ -121,7 +121,7 @@ export default function SocietyCard({ society }: { society: Society }) {
       fd.append('carrera', society.Carrera);
       fd.append('motivo', requestReason || "Crear Sociedad de Alumnos");
 
-      const res = await fetch(`${API_URL}/api/solicitudes_elecciones.php`, {
+      const res = await fetch(`${API_URL}/solicitudes_elecciones.php`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: fd

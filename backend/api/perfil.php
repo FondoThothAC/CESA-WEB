@@ -31,7 +31,8 @@ try {
     if ($method === 'GET') {
         // Datos básicos del perfil
         $stmt = $pdo->prepare("
-            SELECT id, nombre_completo, email, rol, expediente, carrera, semestre_ingreso, avatar_path, bio 
+            SELECT id, nombre_completo, email, rol, expediente, carrera, semestre_ingreso, avatar_path, bio,
+                   celular, creditos_acumulados, seguro_social_tipo, seguro_social_num, disponibilidad_horario
             FROM usuarios 
             WHERE id = ?
         ");
@@ -63,7 +64,13 @@ try {
             $bio = trim(strip_tags((string)($input['bio'] ?? '')));
             $carrera = isset($input['carrera']) ? trim(strip_tags((string)$input['carrera'])) : null;
             $avatar_path = isset($input['avatar_path']) ? trim(strip_tags((string)$input['avatar_path'])) : null;
-            
+            $expediente = isset($input['expediente']) ? trim(strip_tags((string)$input['expediente'])) : null;
+            $celular = isset($input['celular']) ? trim(strip_tags((string)$input['celular'])) : null;
+            $creditos = isset($input['creditos_acumulados']) ? (int)$input['creditos_acumulados'] : null;
+            $seguroTipo = isset($input['seguro_social_tipo']) ? trim(strip_tags((string)$input['seguro_social_tipo'])) : null;
+            $seguroNum = isset($input['seguro_social_num']) ? trim(strip_tags((string)$input['seguro_social_num'])) : null;
+            $disponibilidad = isset($input['disponibilidad_horario']) ? trim(strip_tags((string)$input['disponibilidad_horario'])) : null;
+
             $updates = ["bio = ?"];
             $params = [$bio];
 
@@ -74,6 +81,30 @@ try {
             if ($avatar_path !== null) {
                 $updates[] = "avatar_path = ?";
                 $params[] = $avatar_path;
+            }
+            if ($expediente !== null) {
+                $updates[] = "expediente = ?";
+                $params[] = $expediente;
+            }
+            if ($celular !== null) {
+                $updates[] = "celular = ?";
+                $params[] = $celular;
+            }
+            if ($creditos !== null) {
+                $updates[] = "creditos_acumulados = ?";
+                $params[] = $creditos;
+            }
+            if ($seguroTipo !== null) {
+                $updates[] = "seguro_social_tipo = ?";
+                $params[] = in_array($seguroTipo, ['IMSS', 'ISSSTE', 'ISSSTESON', 'OTRO']) ? $seguroTipo : null;
+            }
+            if ($seguroNum !== null) {
+                $updates[] = "seguro_social_num = ?";
+                $params[] = $seguroNum;
+            }
+            if ($disponibilidad !== null) {
+                $updates[] = "disponibilidad_horario = ?";
+                $params[] = $disponibilidad;
             }
 
             $params[] = $user['id'];

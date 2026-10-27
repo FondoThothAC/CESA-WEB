@@ -44,7 +44,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("Error al crear pool diferido")
         });
 
-    let app_state = AppState::new(pool, config.clone());
+    // Bus de eventos del Bazar en tiempo real (SSE)
+    let (bazar_tx, _) = tokio::sync::broadcast::channel::<modules::bazar_stream::BazarEvento>(256);
+    modules::bazar_stream::start_poller(pool.clone(), bazar_tx.clone());
+    let app_state = AppState::new(pool.clone(), config.clone(), bazar_tx);
 
     // 3. Configurar Rutas de la API v1 (100% de la plataforma en Rust)
     let api_routes = Router::new()
@@ -54,6 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .merge(modules::ai_engine::router())
         .merge(modules::votaciones::router())
         .merge(modules::bazar::router())
+        .merge(modules::bazar_stream::router())
         .merge(modules::expedientes::router())
         .merge(modules::empleos::router())
         .merge(modules::reportes::router())

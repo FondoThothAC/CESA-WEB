@@ -25,7 +25,7 @@ const orgData = {
     },
     {
       name: "Coordinación de Relaciones Corporativas",
-      head: "Coordinador de Bolsa de Trabajo",
+      head: "Coordinador de Servicio Social y Prácticas Profesionales",
       responsibilities: ["Auditoría de Vacantes", "Contacto con Empresas", "Simuladores de Entrevistas"]
     },
     {

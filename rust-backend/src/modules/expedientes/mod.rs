@@ -35,6 +35,9 @@ pub struct ExpedienteDb {
     pub matricula: Option<String>,
     pub carrera: Option<String>,
     pub avatar_path: Option<String>,
+    pub creditos_acumulados: Option<i32>,
+    pub creditos_totales_carrera: Option<i32>,
+    pub semestre_calculado: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -88,7 +91,8 @@ pub async fn get_expediente(
 
     let res = sqlx::query_as::<_, ExpedienteDb>(
         r#"
-        SELECT id, nombre_completo, expediente, matricula, carrera, avatar_path
+        SELECT id, nombre_completo, expediente, matricula, carrera, avatar_path,
+               creditos_acumulados, creditos_totales_carrera, semestre_calculado
         FROM usuarios
         WHERE id = ? AND activo = 1
         "#,
@@ -99,8 +103,18 @@ pub async fn get_expediente(
 
     match res {
         Ok(Some(u)) => {
-            let exp_code = u.expediente.or(u.matricula).unwrap_or_else(|| "213203453".to_string());
-            let carrera_name = u.carrera.unwrap_or_else(|| "Ingeniería en Sistemas de Información".to_string());
+            let exp_code = u.expediente.clone().or(u.matricula.clone()).unwrap_or_else(|| "213203453".to_string());
+            let carrera_name = u.carrera.clone().unwrap_or_else(|| "Ingeniería en Sistemas de Información".to_string());
+            let creditos = u.creditos_acumulados.unwrap_or(0);
+            let total = u.creditos_totales_carrera.unwrap_or(400);
+            let semestre = u.semestre_calculado.unwrap_or_else(|| {
+                if total > 0 { ((creditos as f64 / total as f64) * 8.0).floor() as i32 + 1 } else { 1 }
+            }).clamp(1, 8);
+            let faltantes = (total - creditos).max(0);
+            // Porcentaje dentro del semestre actual (aprox. 50 créditos por semestre si total 400)
+            let creditos_por_sem = if total > 0 { total as f64 / 8.0 } else { 50.0 };
+            let creditos_en_sem = creditos as f64 - ((semestre - 1) as f64 * creditos_por_sem);
+            let porcentaje = ((creditos_en_sem / creditos_por_sem) * 100.0).clamp(0.0, 100.0) as i32;
 
             let response_data = ExpedienteResponse {
                 id: u.id,
@@ -109,10 +123,10 @@ pub async fn get_expediente(
                 carrera: carrera_name,
                 avatar_path: u.avatar_path,
                 progreso_academico: ProgresoAcademico {
-                    semestre_real: 6,
-                    creditos_acumulados: 240,
-                    porcentaje_semestre_actual: 85,
-                    creditos_faltantes_siguiente_sem: 20,
+                    semestre_real: semestre,
+                    creditos_acumulados: creditos,
+                    porcentaje_semestre_actual: porcentaje,
+                    creditos_faltantes_siguiente_sem: faltantes.min(50),
                     es_irregular: false,
                 },
                 skills: vec![],

@@ -54,14 +54,8 @@ switch ($action) {
         ]);
         break;
 
-    // === INICIAR TEST (OBTENER PREGUNTAS) ===
+    // === INICIAR TEST (OBTENER PREGUNTAS) — PUBLICO ===
     case 'iniciar':
-        if (!$isLoggedIn) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Inicia sesión para realizar un test']);
-            exit;
-        }
-        
         $testId = (int)($_GET['test_id'] ?? $_POST['test_id'] ?? 0);
         
         $testStmt = $pdo->prepare("SELECT * FROM tests_psicometricos WHERE id = ? AND activo = 1");
@@ -74,7 +68,7 @@ switch ($action) {
             exit;
         }
         
-        // Obtener preguntas en orden del ID (para mantener el cuestionario organizado según la estructura dada)
+        // Obtener preguntas en orden del ID
         $pregStmt = $pdo->prepare("SELECT id, dimension_id, pregunta, tipo_respuesta, opciones, inverso FROM tests_preguntas WHERE test_id = ? AND activo = 1 ORDER BY id ASC");
         $pregStmt->execute([$testId]);
         $preguntas = $pregStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -98,14 +92,8 @@ switch ($action) {
         ]);
         break;
 
-    // === GUARDAR RESULTADO Y CALCULAR PERFILES ===
+    // === GUARDAR RESULTADO Y CALCULAR PERFILES — PUBLICO (guarda solo si autenticado) ===
     case 'guardar':
-        if (!$isLoggedIn) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Inicia sesión para guardar']);
-            exit;
-        }
-        
         $testId = (int)($_POST['test_id'] ?? 0);
         $respuestasBrutas = json_decode($_POST['respuestas'] ?? '{}', true); // { pregunta_id: valor_1_a_5 }
         
@@ -332,22 +320,26 @@ switch ($action) {
             $perfilGenerado = "General";
         }
         
-        $insert = $pdo->prepare("
-            INSERT INTO tests_resultados (usuario_id, test_id, resultados_json, perfil_generado, respuestas_brutas)
-            VALUES (?, ?, ?, ?, ?)
-        ");
-        $insert->execute([
-            $user['id'], 
-            $testId, 
-            json_encode($resultadosFinales), 
-            $perfilGenerado, 
-            json_encode($respuestasBrutas)
-        ]);
+        // Guardar en DB solo si el usuario está autenticado
+        if ($isLoggedIn && $user) {
+            $insert = $pdo->prepare("
+                INSERT INTO tests_resultados (usuario_id, test_id, resultados_json, perfil_generado, respuestas_brutas)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $insert->execute([
+                $user['id'], 
+                $testId, 
+                json_encode($resultadosFinales), 
+                $perfilGenerado, 
+                json_encode($respuestasBrutas)
+            ]);
+        }
         
         echo json_encode([
             'success' => true,
             'resultados' => $resultadosFinales,
-            'perfil' => $perfilGenerado
+            'perfil' => $perfilGenerado,
+            'guardado' => $isLoggedIn
         ]);
         break;
 

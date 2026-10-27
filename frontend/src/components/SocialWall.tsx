@@ -46,60 +46,6 @@ interface Post {
   comentarios?: Comment[];
 }
 
-const CommentThread = ({ comment, onReply, depth = 0 }: { comment: Comment, onReply: any, depth?: number }) => {
-  const [showReply, setShowReply] = useState(false);
-  const [replyText, setReplyText] = useState('');
-
-  return (
-    <div className={`mt-4 ${depth > 0 ? 'ml-6 border-l border-border pl-4' : ''}`}>
-      <div className="flex gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px]">
-          {comment.autor_nombre?.[0] || '?'}
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-bold text-text-main">{comment.autor_nombre}</span>
-            <span className="text-[8px] text-text-muted font-mono italic">
-              {new Date(comment.created_at).toLocaleDateString()}
-            </span>
-          </div>
-          <p className="text-xs text-text-main/70 leading-relaxed">{comment.contenido}</p>
-          
-          <div className="flex gap-4 mt-2">
-            <button 
-              onClick={() => setShowReply(!showReply)}
-              className="text-[8px] uppercase tracking-widest font-black text-primary hover:text-accent transition-all"
-            >
-              Responder
-            </button>
-          </div>
-
-          {showReply && (
-            <div className="mt-2 flex gap-2">
-              <input 
-                type="text" 
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                placeholder="Responde a este hilo..."
-                className="flex-1 bg-bg-primary border border-border rounded-lg px-3 py-1 text-[10px] outline-none text-text-main"
-              />
-              <button 
-                onClick={() => { onReply(comment.id, replyText); setReplyText(''); setShowReply(false); }}
-                className="btn-clean-primary px-3 py-1 text-[8px]"
-              >
-                Enviar
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-      {comment.respuestas?.map(reply => (
-        <CommentThread key={reply.id} comment={reply} onReply={onReply} depth={depth + 1} />
-      ))}
-    </div>
-  );
-};
-
 const SocialWall = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [content, setContent] = useState('');
@@ -186,7 +132,9 @@ const SocialWall = () => {
       });
       const data = await res.json();
       if (data.success) fetchPosts();
-    } catch (e) { }
+    } catch (e) {
+      console.error("Error al votar en el muro", e);
+    }
   };
 
 
@@ -351,9 +299,9 @@ const SocialWall = () => {
                 <p className="text-text-main/90 text-sm leading-relaxed">{post.contenido}</p>
 
                 <div className="flex items-center gap-6 pt-4 border-t border-border/50">
-                   <button className="flex items-center gap-2 text-[9px] font-black uppercase text-text-muted hover:text-primary">
+                   <span className="flex items-center gap-2 text-[9px] font-black uppercase text-text-muted">
                       <MessageSquare size={14} /> {post.comentarios_count || 0} Comentarios
-                   </button>
+                   </span>
                    <button className="flex items-center gap-2 text-[9px] font-black uppercase text-text-muted hover:text-primary">
                       <Share2 size={14} /> Compartir
                    </button>

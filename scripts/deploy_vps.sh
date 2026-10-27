@@ -11,10 +11,10 @@ set -e
 # PATH para Apple Silicon / Homebrew
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
-IP="129.146.150.123"
+IP="129.146.134.40"
 DOMAIN="cesaunison.fondothoth.com"
 USER="ubuntu"
-SSH_KEY="/Users/robertoeduardocelisrobles/Documents/FT Apps/Web/CESA-WEB/unison keys/ssh-key-2026-05-12.key"
+SSH_KEY="$HOME/Documents/Proyectos/claves_ssh/Cesaunison ssh/ssh-key-2026-08-17.key"
 REMOTE_PATH="/var/www/cesa-web"
 
 # Asegurar permisos correctos de la llave SSH
@@ -51,11 +51,12 @@ echo "🖥️  2/5 Sincronizando Código (Backend + Frontend)..."
 echo "   - Preparando directorios en el VPS..."
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP "sudo mkdir -p $REMOTE_PATH/backend $REMOTE_PATH/public && sudo chown -R $USER:$USER $REMOTE_PATH"
 
-# Sincronizar Backend
+# Sincronizar Backend (excluye generador local de templates, solo van los .docx)
 rsync -avz --delete --rsync-path="sudo rsync" -e "ssh -i \"$SSH_KEY\" -o StrictHostKeyChecking=no" \
     --exclude '.git' \
     --exclude 'node_modules' \
     --exclude '.env' \
+    --exclude 'templates/*.py' \
     --exclude 'storage/rate_limits/*' \
     backend/ $USER@$IP:$REMOTE_PATH/backend/
 
@@ -116,7 +117,11 @@ scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
     database/migrations/v7.3_seed_user_a221216515.sql \
     database/migrations/v7.4_seed_new_users.sql \
     database/migrations/v7.5_social_integrations.sql \
+    database/migrations/v7.6_practicas_profesionales.sql \
+    database/migrations/v7.6b_seed_areas_ficsoc.sql \
+    database/migrations/v7.6c_seed_convenios.sql \
     database/migrations/007_agentes_sesiones.sql \
+    database/migrations/v8.0_bazar_realtime_and_polish.sql \
     scripts/setup_telegram_webhook.php \
     scripts/install_zeroclaw.sh \
     $USER@$IP:/tmp/
@@ -134,7 +139,7 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     
     DB_NAME=${DB_NAME:-cesa_web}
     DB_USER=${DB_USER:-cesa_admin}
-    DB_PASS=${DB_PASS:-cesa_pw_20ff8077e040}
+    DB_PASS=${DB_PASS:?DB_PASS no configurada}
 
     echo "   - Configurando base de datos y permisos de usuario..."
     sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
@@ -305,6 +310,38 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     echo "   - Aplicando v7.5_social_integrations.sql..."
     sudo mysql "$DB_NAME" -f < /tmp/v7.5_social_integrations.sql || true
 
+    # Aplicar Servicio Social y Prácticas Profesionales v7.6 + catálogo FICSOC v7.6b
+    echo "   - Aplicando v7.6_practicas_profesionales.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v7.6_practicas_profesionales.sql || true
+    echo "   - Aplicando v7.6b_seed_areas_ficsoc.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v7.6b_seed_areas_ficsoc.sql || true
+
+    # Precarga de Unidades Receptoras con convenio DCS-UNISON v7.6c
+    echo "   - Aplicando v7.6c_seed_convenios.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v7.6c_seed_convenios.sql || true
+
+    # Real-time Bazar: bus de eventos SSE + columnas de verificación v8.0
+    echo "   - Aplicando v8.0_bazar_realtime_and_polish.sql..."
+    sudo mysql "$DB_NAME" -f < /tmp/v8.0_bazar_realtime_and_polish.sql || true
+    sudo mysql "$DB_NAME" <<-EVSQL || true
+        SET GLOBAL event_scheduler = ON;
+EVSQL
+
+    # Asegurar extensión PHP Zip (generador de documentos .docx)
+    if ! php -m | grep -qi zip; then
+        echo "   - Instalando php-zip (requerido por DocxGenerator)..."
+        sudo apt-get update -qq && sudo apt-get install -y -qq php8.3-zip
+        sudo systemctl restart php8.3-fpm
+    fi
+
+    # Directorio de documentos oficiales generados
+    sudo mkdir -p /var/www/cesa-web/uploads/documentos
+    sudo chown -R www-data:www-data /var/www/cesa-web/uploads/documentos
+
+    # Directorio de logos del Bazar (puestos del mapa cargados por emprendedores)
+    sudo mkdir -p /var/www/cesa-web/uploads/bazar
+    sudo chown -R www-data:www-data /var/www/cesa-web/uploads/bazar
+
     # Aplicar Motor de Agentes IA v007 (Bob Agent Stack)
     echo "   - Aplicando 007_agentes_sesiones.sql..."
     sudo mysql "$DB_NAME" -f < /tmp/007_agentes_sesiones.sql || true
@@ -319,7 +356,7 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no $USER@$IP << 'EOF'
     
     echo "✅ Archivos migrados, permisos configurados y bots vinculados."
 
-    rm -f /tmp/schema.sql /tmp/05_skills.sql /tmp/06_push.sql /tmp/v3.6_admin_governance.sql /tmp/v3.6_skills_and_credits.sql /tmp/v3.7_karma_system.sql /tmp/v3.8_karma_expansion.sql /tmp/v3.9_tutorias_module.sql /tmp/v4.1_inbox_system.sql /tmp/v4.1_skills_vacantes.sql /tmp/v4.2_bazar_expansion.sql /tmp/v4.3_bazar_schematic.sql /tmp/v4.4_delegation_and_social.sql /tmp/v4.5_bazar_spots_and_editions.sql /tmp/v4.6_psychometric_tests.sql /tmp/v4.7_seed_psychometric_tests.sql /tmp/v4.8_publicidad_and_godmode.sql /tmp/v4.9_seed_more_skills_questions.sql /tmp/v5.0_seed_chinese_questions.sql /tmp/v5.1_seed_all_remaining_questions.sql /tmp/v5.2_seed_gestion_y_otros.sql /tmp/v5.3_admin_granular_roles_and_ia_metadata.sql /tmp/v5.4_votaciones_noticias.sql /tmp/v5.5_refinamiento_electoral.sql /tmp/v5.6_matrix_permissions.sql /tmp/v5.7_admin_seeds.sql /tmp/v5.8_extended_permissions.sql /tmp/v6.0_dynamic_providers.sql /tmp/v6.1_job_applications.sql /tmp/v6.2_sociedades_anuncios_y_elecciones.sql /tmp/v6.3_test_seed_votaciones.sql /tmp/v6.4_update_candidates_photos.sql /tmp/v6.5_add_external_fields_to_vacantes.sql /tmp/v6.8_activate_publicidad_and_bazar.sql /tmp/v6.9_student_expediente_credits_and_auditoria.sql /tmp/v7.0_zeroclaw_swarm.sql /tmp/v7.1_bazar_multi_map_and_archiving.sql /tmp/v7.2_seed_user_a222219849.sql /tmp/v7.3_seed_user_a221216515.sql /tmp/v7.4_seed_new_users.sql /tmp/v7.5_social_integrations.sql /tmp/setup_telegram_webhook.php /tmp/install_zeroclaw.sh
+    rm -f /tmp/schema.sql /tmp/05_skills.sql /tmp/06_push.sql /tmp/v3.6_admin_governance.sql /tmp/v3.6_skills_and_credits.sql /tmp/v3.7_karma_system.sql /tmp/v3.8_karma_expansion.sql /tmp/v3.9_tutorias_module.sql /tmp/v4.1_inbox_system.sql /tmp/v4.1_skills_vacantes.sql /tmp/v4.2_bazar_expansion.sql /tmp/v4.3_bazar_schematic.sql /tmp/v4.4_delegation_and_social.sql /tmp/v4.5_bazar_spots_and_editions.sql /tmp/v4.6_psychometric_tests.sql /tmp/v4.7_seed_psychometric_tests.sql /tmp/v4.8_publicidad_and_godmode.sql /tmp/v4.9_seed_more_skills_questions.sql /tmp/v5.0_seed_chinese_questions.sql /tmp/v5.1_seed_all_remaining_questions.sql /tmp/v5.2_seed_gestion_y_otros.sql /tmp/v5.3_admin_granular_roles_and_ia_metadata.sql /tmp/v5.4_votaciones_noticias.sql /tmp/v5.5_refinamiento_electoral.sql /tmp/v5.6_matrix_permissions.sql /tmp/v5.7_admin_seeds.sql /tmp/v5.8_extended_permissions.sql /tmp/v6.0_dynamic_providers.sql /tmp/v6.1_job_applications.sql /tmp/v6.2_sociedades_anuncios_y_elecciones.sql /tmp/v6.3_test_seed_votaciones.sql /tmp/v6.4_update_candidates_photos.sql /tmp/v6.5_add_external_fields_to_vacantes.sql /tmp/v6.8_activate_publicidad_and_bazar.sql /tmp/v6.9_student_expediente_credits_and_auditoria.sql /tmp/v7.0_zeroclaw_swarm.sql /tmp/v7.1_bazar_multi_map_and_archiving.sql /tmp/v7.2_seed_user_a222219849.sql /tmp/v7.3_seed_user_a221216515.sql /tmp/v7.4_seed_new_users.sql /tmp/v7.5_social_integrations.sql /tmp/v7.6_practicas_profesionales.sql /tmp/v7.6b_seed_areas_ficsoc.sql /tmp/v7.6c_seed_convenios.sql /tmp/setup_telegram_webhook.php /tmp/install_zeroclaw.sh
 
 
 EOF

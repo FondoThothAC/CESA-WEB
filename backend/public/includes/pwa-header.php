@@ -22,7 +22,7 @@
   // Registrar Service Worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
+      navigator.serviceWorker.register('/pwa/sw.js')
         .then(reg => console.log('[PWA] SW Registrado:', reg.scope))
         .catch(err => console.log('[PWA] Error SW:', err));
     });
