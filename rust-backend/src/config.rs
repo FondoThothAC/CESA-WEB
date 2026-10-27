@@ -59,7 +59,7 @@ impl Config {
 
         let ollama_api_keys_str = env::var("OLLAMA_API_KEY")
             .or_else(|_| env::var("OLLAMA_API_KEYS"))
-            .unwrap_or_else(|_| "REDACTED".to_string());
+            .unwrap_or_default();
 
         let ollama_api_keys = ollama_api_keys_str
             .split(',')
