@@ -14,7 +14,7 @@ export default function ChatInterface() {
 
   const welcomeMessage = {
     role: 'bot',
-    text: `¡Hola, ${user?.nombre || user?.nombre_completo?.split(' ')[0] || 'Estudiante'}! Soy Bob. 🦉\n\nPuedo ayudarte a calcular tu semestre real por créditos, encontrar negocios en el mapa o ver la bolsa de trabajo. También puedo enviar mensajes privados o delegar tareas por ti. ¿Qué necesitas hoy?`,
+    text: `¡Hola, ${user?.nombre || user?.nombre_completo?.split(' ')[0] || 'Estudiante'}! Soy Bob. 🦉\n\nPuedo ayudarte a calcular tu semestre real por créditos, encontrar negocios en el mapa o ver las prácticas profesionales y servicio social. También puedo enviar mensajes privados o delegar tareas por ti. ¿Qué necesitas hoy?`,
     timestamp: new Date().toLocaleTimeString()
   };
 
@@ -78,9 +78,25 @@ export default function ChatInterface() {
         }]);
 
         if (data.action === 'redirect' && data.url) {
-          setTimeout(() => {
-            window.location.href = data.url;
-          }, 3000);
+          // Solo navegar a dominios institucionales permitidos
+          const ALLOWED_REDIRECT_HOSTS = [
+            'cesaunison.fondothoth.com',
+            'cesa.unison.mx',
+            'www.cesa.unison.mx',
+          ];
+          try {
+            const target = new URL(data.url, window.location.origin);
+            const isAllowed =
+              ALLOWED_REDIRECT_HOSTS.includes(target.hostname) ||
+              (target.hostname === window.location.hostname && target.origin === window.location.origin);
+            if (isAllowed) {
+              setTimeout(() => {
+                window.location.href = target.href;
+              }, 3000);
+            }
+          } catch {
+            // URL inválida: ignorar
+          }
         }
       }
     } catch (err) {
@@ -93,7 +109,7 @@ export default function ChatInterface() {
   const suggestions = [
     "🎓 Mi semestre real",
     "📍 Mapa del Bazar",
-    "📋 Bolsa de trabajo",
+    "📋 Prácticas y Servicio Social",
     "🗣️ Hacer un reporte",
   ];
 

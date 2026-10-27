@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../lib/JWTHelper.php';
+require_once __DIR__ . '/../../lib/Auth.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -17,7 +18,7 @@ $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
 $token = str_replace('Bearer ', '', $authHeader);
 $payload = JWTHelper::verify($token);
 
-$isMaster = in_array($payload['email'] ?? '', ['software@fondothoth.com', 'a213203453@unison.mx']);
+$isMaster = Auth::isMasterEmail($payload['email'] ?? null);
 $hasIaPerm = !empty($payload['permiso_ia']);
 
 if (!$payload || (!$isMaster && !$hasIaPerm)) {

@@ -13,6 +13,8 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../lib/Auth.php';
 require_once __DIR__ . '/../lib/JWTHelper.php';
 require_once __DIR__ . '/../lib/MailHelper.php';
+require_once __DIR__ . '/../lib/RateLimiter.php';
+require_once __DIR__ . '/../lib/BazarEvents.php';
 
 header('Content-Type: application/json; charset=utf-8');
 try {
@@ -112,8 +114,8 @@ switch ($action) {
             $edicion_id = $activeEd ? (int)$activeEd['id'] : 3;
         }
         
-        // We include views and score correctly
-        $query = "SELECT e.*, u.nombre_completo as dueno, u.matricula";
+        // We include views and score correctly (alias dueno + nombre_completo para la UI)
+        $query = "SELECT e.*, u.nombre_completo as dueno, u.nombre_completo, u.matricula";
         
         // Include user vote if logged in
         if ($isLoggedIn) {
@@ -183,6 +185,7 @@ switch ($action) {
         try {
             $stmt = $pdo->prepare("
                 SELECT e.id, e.nombre_negocio, e.slug, e.categoria, e.descripcion, e.whatsapp, e.instagram,
+                       e.logo_path, e.created_at,
                        u.nombre_completo as dueno, p.coord_x as x, p.coord_y as y, p.id as puesto_id, e.verificado
                 FROM emprendimientos e 
                 JOIN cat_puestos p ON e.puesto_id = p.id
@@ -224,6 +227,16 @@ switch ($action) {
         // Obtener la edición activa
         $edition = bazarActiveEdition($pdo);
         $edicion_id = (int)$edition['id'];
+
+        // Rate limit: max 6 intentos de registro por hora por usuario (anti-DB spam)
+        $rateLimiter = new RateLimiter();
+        $clientIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'anon';
+        if (!$rateLimiter->check('bazar_registrar_' . $user['id'], 6, 3600)) {
+            http_response_code(429);
+            echo json_encode(['success' => false, 'error' => 'Demasiados intentos. Espera un momento e inténtalo de nuevo.']);
+            exit;
+        }
+        $rateLimiter->check('bazar_ip_' . md5($clientIp), 20, 3600); // registro de IP masiva
 
         // Validar unicidad: solo 1 negocio activo por estudiante por edición
         $checkStmt = $pdo->prepare("SELECT id FROM emprendimientos WHERE usuario_id = ? AND edicion_id = ? AND active = 1");
@@ -279,6 +292,12 @@ switch ($action) {
             ]);
             $newId = (int)$pdo->lastInsertId();
             $pdo->commit();
+
+            // === TIEMPO REAL: emitir evento de reserva (después de commit) ===
+            $nuevaReserva = bazarTicketPayload($pdo, $newId);
+            bazarEmitEvent($pdo, 'reserva_creada', bazarEventoReserva($nuevaReserva ?? [], 'PENDIENTE', [
+                'sms' => ($nuevaReserva['nombre_negocio'] ?? 'Un negocio') . ' apartó el puesto #' . $puesto_id,
+            ]));
 
             $ticket = bazarTicketPayload($pdo, $newId);
             if (!$ticket) {
@@ -358,10 +377,16 @@ switch ($action) {
         $accion = $_POST['accion'] ?? '';
 
         if ($accion === 'verificar') {
-            $pdo->prepare("UPDATE emprendimientos SET verificado = 1 WHERE id = ?")->execute([$id]);
+            $pdo->prepare("UPDATE emprendimientos SET verificado = 1, verificado_por = ?, fecha_verificacion = NOW() WHERE id = ?")->execute([(int)$user['id'], $id]);
+            $reserva = bazarTicketPayload($pdo, $id);
+            bazarEmitEvent($pdo, 'reserva_aprobada', bazarEventoReserva($reserva ?? [], 'APROBADA', [
+                'sms' => ($reserva['nombre_negocio'] ?? 'Un negocio') . ' fue validado y ya aparece en el Bazar',
+            ]));
             echo json_encode(['success' => true, 'message' => 'Negocio validado e indexado']);
         } elseif ($accion === 'rechazar') {
             $pdo->prepare("UPDATE emprendimientos SET active = 0 WHERE id = ?")->execute([$id]);
+            $reserva = bazarTicketPayload($pdo, $id);
+            bazarEmitEvent($pdo, 'reserva_rechazada', bazarEventoReserva($reserva ?? [], 'RECHAZADA'));
             echo json_encode(['success' => true, 'message' => 'Negocio rechazado']);
         } else {
             http_response_code(400);
@@ -407,6 +432,15 @@ switch ($action) {
             ")->execute([$id]);
 
             $pdo->commit();
+
+            $scoreStmt = $pdo->prepare("SELECT score, upvotes_count FROM emprendimientos WHERE id = ?");
+            $scoreStmt->execute([$id]);
+            $karma = $scoreStmt->fetch(PDO::FETCH_ASSOC);
+            bazarEmitEvent($pdo, 'voto_registrado', [
+                'id'    => $id,
+                'score' => (int)($karma['score'] ?? 0),
+                'upvotes' => (int)($karma['upvotes_count'] ?? 0),
+            ]);
             echo json_encode(['success' => true]);
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -464,10 +498,102 @@ switch ($action) {
             $stmt = $pdo->prepare("INSERT INTO bazar_productos (emprendimiento_id, nombre, descripcion, precio, imagen_url) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$emprendimiento_id, $nombre, $descripcion, $precio, $imagen_url]);
 
+            bazarEmitEvent($pdo, 'producto_agregado', [
+                'emprendimiento_id' => $emprendimiento_id,
+                'nombre'            => $nombre,
+                'precio'            => $precio,
+            ]);
             echo json_encode(['success' => true, 'message' => 'Producto publicado en el marketplace']);
         } catch (Exception $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Error al agregar producto']);
+        }
+        break;
+
+    // === SUBIR LOGO DEL EMPRENDIMIENTO (multipart/form-data) ===
+    // Aparece en los puestos del mapa esquemático en tiempo real.
+    case 'subir_logo':
+        if (!$isLoggedIn) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Inicia sesión para actualizar tu logo']);
+            exit;
+        }
+        $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
+        if ($id <= 0) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'error' => 'ID de reserva inválido']);
+            exit;
+        }
+        $ownerStmt = $pdo->prepare("SELECT usuario_id, nombre_negocio, logo_path FROM emprendimientos WHERE id = ?");
+        $ownerStmt->execute([$id]);
+        $negocio = $ownerStmt->fetch(PDO::FETCH_ASSOC);
+        $esOwner = $negocio && (int)$negocio['usuario_id'] === (int)$user['id'];
+        $esAdmin = in_array($user['rol'], ['admin', 'mesa_directiva'], true);
+        if (!$negocio || (!$esOwner && !$esAdmin)) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'No tienes permisos sobre este negocio']);
+            exit;
+        }
+        $rateLimiter = new RateLimiter();
+        if (!$rateLimiter->check('bazar_logo_' . $user['id'], 8, 3600)) {
+            http_response_code(429);
+            echo json_encode(['success' => false, 'error' => 'Demasiadas subidas de logo. Espera un momento.']);
+            exit;
+        }
+        if (empty($_FILES['logo']) || ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'error' => 'No se recibió ninguna imagen válida']);
+            exit;
+        }
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime  = $finfo->file($_FILES['logo']['tmp_name']) ?: '';
+        $permitidos = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        if (!isset($permitidos[$mime])) {
+            http_response_code(415);
+            echo json_encode(['success' => false, 'error' => 'Formato no soportado. Usa JPG, PNG o WEBP.']);
+            exit;
+        }
+        if ((int)$_FILES['logo']['size'] > 2 * 1024 * 1024) {
+            http_response_code(413);
+            echo json_encode(['success' => false, 'error' => 'La imagen supera 2 MB']);
+            exit;
+        }
+        $dir = __DIR__ . '/../../uploads/bazar'; // Convención del repo: /var/www/cesa-web/uploads/bazar
+        if (!is_dir($dir)) @mkdir($dir, 0775, true);
+        $filename = 'logo-' . $id . '-' . time() . '.' . $permitidos[$mime];
+        if (!move_uploaded_file($_FILES['logo']['tmp_name'], $dir . '/' . $filename)) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'No se pudo guardar la imagen']);
+            exit;
+        }
+        // Borrar logo anterior del disco
+        $oldLogo = ltrim((string)($negocio['logo_path'] ?? ''), '/');
+        if ($oldLogo !== '' && strpos($oldLogo, 'uploads/bazar/') === 0) {
+            $oldPath = realpath(__DIR__ . '/../../' . $oldLogo);
+            if ($oldPath && strpos($oldPath, realpath($dir)) === 0 && is_file($oldPath)) @unlink($oldPath);
+        }
+        $rutaRelativa = 'uploads/bazar/' . $filename;
+        $pdo->prepare("UPDATE emprendimientos SET logo_path = ? WHERE id = ?")->execute([$rutaRelativa, $id]);
+
+        bazarEmitEvent($pdo, 'logo_actualizado', ['id' => $id, 'logo_path' => $rutaRelativa]);
+        echo json_encode([
+            'success' => true,
+            'message' => '¡Logo actualizado! Se verá en tu puesto del mapa.',
+            'logo_path' => $rutaRelativa,
+            'logo_url' => (rtrim(getenv('APP_URL') ?: 'https://cesaunison.fondothoth.com', '/') . '/' . $rutaRelativa),
+        ]);
+        break;
+
+    // === EVENTOS RECIENTES DEL BAZAR (fallback si SSE no está disponible) ===
+    case 'eventos':
+        $since = max(1, (int)($_GET['since'] ?? 0));
+        $limit = min(50, max(1, (int)($_GET['limit'] ?? 20)));
+        try {
+            $stmt = $pdo->prepare("SELECT id, tipo, payload, creado_en FROM bazar_eventos WHERE id > ? ORDER BY id ASC LIMIT " . $limit);
+            $stmt->execute([$since]);
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => true, 'data' => [], 'warning' => 'bus de eventos no disponible']);
         }
         break;
 

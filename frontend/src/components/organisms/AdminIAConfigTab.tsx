@@ -6,7 +6,7 @@ import PixelOfficeCanvas from './PixelOfficeCanvas';
 
 export default function AdminIAConfigTab() {
   const { token, user } = useAuth();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'pixel_office' | 'swarm' | 'jobs' | 'approvals' | 'llm_config'>('dashboard');
 
@@ -68,21 +68,21 @@ export default function AdminIAConfigTab() {
     setLoadingSwarm(true);
     try {
       // Agentes
-      const resA = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php?action=list_agents`, {
+      const resA = await fetch(`${API_URL}/admin/zeroclaw_swarm.php?action=list_agents`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const dataA = await resA.json();
       if (dataA.success) setAgents(dataA.agents || []);
 
       // Jobs
-      const resJ = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php?action=list_jobs`, {
+      const resJ = await fetch(`${API_URL}/admin/zeroclaw_swarm.php?action=list_jobs`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const dataJ = await resJ.json();
       if (dataJ.success) setJobs(dataJ.jobs || []);
 
       // Approvals
-      const resApp = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php?action=list_approvals`, {
+      const resApp = await fetch(`${API_URL}/admin/zeroclaw_swarm.php?action=list_approvals`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const dataApp = await resApp.json();
@@ -106,7 +106,7 @@ export default function AdminIAConfigTab() {
       fd.append('action', 'save_agent');
       Object.entries(agentForm).forEach(([k, v]) => fd.append(k, String(v)));
 
-      const res = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php`, {
+      const res = await fetch(`${API_URL}/admin/zeroclaw_swarm.php`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd
@@ -132,7 +132,7 @@ export default function AdminIAConfigTab() {
       fd.append('action', 'save_job');
       Object.entries(jobForm).forEach(([k, v]) => fd.append(k, String(v)));
 
-      const res = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php`, {
+      const res = await fetch(`${API_URL}/admin/zeroclaw_swarm.php`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd
@@ -156,7 +156,7 @@ export default function AdminIAConfigTab() {
       const fd = new FormData();
       fd.append('action', 'toggle_job');
       fd.append('id', String(id));
-      await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php`, {
+      await fetch(`${API_URL}/admin/zeroclaw_swarm.php`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd
@@ -171,7 +171,7 @@ export default function AdminIAConfigTab() {
       const fd = new FormData();
       fd.append('action', 'delete_job');
       fd.append('id', String(id));
-      await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php`, {
+      await fetch(`${API_URL}/admin/zeroclaw_swarm.php`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd
@@ -190,7 +190,7 @@ export default function AdminIAConfigTab() {
       fd.append('estado', estado);
       fd.append('feedback', feedback);
 
-      const res = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php`, {
+      const res = await fetch(`${API_URL}/admin/zeroclaw_swarm.php`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd
@@ -206,7 +206,7 @@ export default function AdminIAConfigTab() {
   // Simular Junta de Mesa de Expertos
   const handleRunMeeting = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/zeroclaw_swarm.php?action=run_meeting`, {
+      const res = await fetch(`${API_URL}/admin/zeroclaw_swarm.php?action=run_meeting`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const data = await res.json();

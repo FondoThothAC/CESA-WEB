@@ -53,12 +53,12 @@ El portal **CESA UNISON** ([`https://cesaunison.fondothoth.com`](https://cesauni
 - **IP del VPS:** `129.146.150.123`
 - **Usuario SSH:** `ubuntu`
 - **Ruta Local de la Llave SSH (Mac):**  
-  `/Users/robertoeduardocelisrobles/Documents/FT Apps/Web/CESA-WEB/unison keys/ssh-key-2026-05-12.key`
+  `~/.ssh/unison_keys/ssh-key-2026-05-12.key`
 - **Ruta del Proyecto en el Servidor:** `/var/www/cesa-web`
 
 ### B. Comando de Conexión Manual por Terminal
 ```bash
-ssh -i "/Users/robertoeduardocelisrobles/Documents/FT Apps/Web/CESA-WEB/unison keys/ssh-key-2026-05-12.key" ubuntu@129.146.150.123
+ssh -i "~/.ssh/unison_keys/ssh-key-2026-05-12.key" ubuntu@129.146.150.123
 ```
 
 ### C. Cuentas Maestras / Admin Supremo
@@ -158,11 +158,15 @@ Ante cualquier modificación de código, se debe seguir estrictamente este orden
 
 ## 7. 🏪 MÓDULO DE BAZAR EMPRENDEDOR & MARKETPLACE
 
-- **Próxima Edición Oficial:** **12 de Agosto de 2026** (Bazar Edición ID 4 activa en MariaDB).
+- **Última migración:** `database/migrations/v8.0_bazar_realtime_and_polish.sql` (bus de eventos real-time + columnas de verificación). Detalle técnico: [`docs/specs/bazar_realtime_sdd.md`](docs/specs/bazar_realtime_sdd.md).
+- **Tiempo Real (v8.0):** PHP escribe en `bazar_eventos` → Rust (`/api/v1/bazar/events/stream`, SSE 1 Hz vía `tokio::broadcast`) → frontend con `useBazarStream()` (`EventSource` + fallback de polling cada 30 s). Toasts de actividad + anillos pulsantes "¡NUEVO!" en el mapa; el Admin y el mapa público se auto-refrescan (throttle 1.2 s).
+- **Temas por Calendario (v8.0):** Motor en `src/lib/bazarTema.ts`: 8 paletas estacionales (Institucional, Patrio, Octubre Rosa, Halloween, Día de Muertos, Revolución, Navidad, Amor) + modo Día/Noche/Auto (según hora, persistido en `localStorage`), aplicados vía variables CSS `--b-*` en el mapa, grid y dashboard admin.
+- **Catálogo por Puesto (v8.0):** Cada negocio administra su mini-tienda desde el panel "Mi Negocio" (logo con `action=subir_logo`, productos con `action=agregar_producto`) y visita el ticket QR desde ahí.
+- **Seguridad:** Límite de tasa (6 reservas/hora por usuario, 20/hora por IP vía `RateLimiter`), logos con `finfo` (jpg/png/webp ≤ 2 MB) y `registrar_vista` por sesión.
+- **Próxima Edición Oficial:** **Noviembre de 2026** (gestionada desde el panel Admin; verificar `bazar_ediciones`).
 - **Categorías:** Accesorios (`accesorios`), Comida, Tech, Arte, Moda, Servicios.
-- **Mapa Esquemático Radial ([`BazarSchematicMap.tsx`](file:///Users/robertoeduardocelisrobles/Documents/FT%20Apps/Web/CESA-WEB/frontend/src/components/BazarSchematicMap.tsx)):** Puestos de Calle de la Cultura. Puntos verdes (disponibles) y dorados con destello (ocupados). Despliega tarjeta con WhatsApp directo e Instagram al tocar.
-- **Mini-Tienda Marketplace:** Tabla `bazar_productos` para que cada emprendedor pueda subir y vender su catálogo de productos en el portal.
-- **Asignación Admin:** `/backend/api/bazar-admin.php` con `action=asignar_puesto`.
+- **Mapa Esquemático Radial ([`BazarSchematicMap.tsx`](file:///Users/robertoeduardocelisrobles/Documents/FT%20Apps/Web/CESA-WEB/frontend/src/components/BazarSchematicMap.tsx)):** Puestos de Calle de la Cultura. Puntos verdes (disponibles) y dorados con destello (ocupados). Despliega tarjeta con WhatsApp directo e Instagram al tocar. Colores vía variables CSS del tema.
+- **Asignación Admin:** `/backend/api/bazar-admin.php` con `action=asignar_puesto` (registra eventos en tiempo real en el bus).
 
 ---
 

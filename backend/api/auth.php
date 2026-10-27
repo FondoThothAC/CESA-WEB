@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../lib/cors.php';
 require_once __DIR__ . '/../lib/JWTHelper.php';
+require_once __DIR__ . '/../lib/Auth.php';
+require_once __DIR__ . '/../lib/RateLimiter.php';
 require_once __DIR__ . '/../config/database.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -41,16 +43,25 @@ $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
 try {
-    $pdo = new PDO("mysql:host=".getenv('DB_HOST').";dbname=".getenv('DB_NAME'), getenv('DB_USER'), getenv('DB_PASS'));
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo = getDBConnection();
 
     if ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
-        
+
         // LOGIN ACTION
         if ($action === 'login') {
+            // Rate limiting anti fuerza bruta: 5 intentos por 15 min por IP+identificador
+            $rateLimiter = new RateLimiter();
+            $clientIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
             $rawIdentifier = trim($input['email'] ?? $input['identifier'] ?? '');
-            $password = trim($input['password'] ?? '');
+            $rlKey = 'login_' . $clientIp . '_' . substr(md5($rawIdentifier), 0, 12);
+            if (!$rateLimiter->check($rlKey, 5, 900)) {
+                http_response_code(429);
+                echo json_encode(['success' => false, 'error' => 'Demasiados intentos de inicio de sesión. Espera 15 minutos.']);
+                exit;
+            }
+
+            $password = $input['password'] ?? '';
             $telefonoInput = trim($input['telefono'] ?? '');
             $curpInput = trim($input['curp'] ?? '');
             
@@ -119,7 +130,7 @@ try {
 
             if ($user && $authSuccess) {
                 $role = $user['rol'];
-                if ($user['email'] === 'software@fondothoth.com' || $user['email'] === 'a213203453@unison.mx') {
+                if (Auth::isMasterEmail($user['email'])) {
                     $role = 'admin';
                 }
                 $expedienteCode = $user['expediente'] ?: ($user['matricula'] ?: '');
@@ -135,13 +146,13 @@ try {
                     'avatar_path' => $user['avatar_path'] ?? null
                 ]);
                 
-                // Guardar JWT en Cookie para portales PHP
+                // Guardar JWT en Cookie para portales PHP (30 días, alineado con el JWT)
                 setcookie('cesa_jwt', $token, [
-                    'expires' => time() + 3600 * 24 * 7,
+                    'expires' => time() + 3600 * 24 * 30,
                     'path' => '/',
                     'domain' => $cookie_domain,
                     'secure' => $is_secure,
-                    'httponly' => false,
+                    'httponly' => true,
                     'samesite' => 'Lax'
                 ]);
 
@@ -182,20 +193,26 @@ try {
         // REGISTER ACTION
         if ($action === 'signup') {
             $email = trim($input['email'] ?? '');
-            $password = $input['password'] ?? 'Unison2026!';
+            $password = $input['password'] ?? '';
             $nombre = trim($input['nombre_completo'] ?? '');
             $matricula = trim($input['matricula'] ?? '');
             $telefono = trim($input['telefono'] ?? '');
             $curp = trim($input['curp'] ?? '');
             $rol = trim($input['rol'] ?? 'estudiante');
             $carrera = trim($input['carrera'] ?? 'No especificada');
-            
-            $validRoles = ['estudiante', 'empresa', 'sociedad', 'mesa_directiva'];
+
+            // Roles auto-asignables: mesa_directiva solo puede otorgarla un admin
+            $validRoles = ['estudiante', 'empresa', 'sociedad'];
             if (!in_array($rol, $validRoles)) {
-                $rol = 'estudiante';
+                throw new Exception('Rol de registro no válido.');
             }
-            
+
             if (empty($email) || empty($nombre)) throw new Exception('Correo y Nombre completo son obligatorios');
+
+            // Contraseña obligatoria: nunca asignar contraseñas predecibles
+            if (strlen($password) < 8) {
+                throw new Exception('La contraseña debe tener al menos 8 caracteres');
+            }
 
             if (!filter_var($email, FILTER_VALIDATE_EMAIL) || (!str_ends_with($email, '@unison.mx') && !str_ends_with($email, '@fondothoth.com'))) {
                 throw new Exception('Solo se permiten correos institucionales (@unison.mx o @fondothoth.com)');
@@ -252,7 +269,7 @@ try {
         if ($token) {
             $decoded = JWTHelper::verify($token);
             if ($decoded) {
-                if (($decoded['email'] ?? '') === 'software@fondothoth.com' || ($decoded['email'] ?? '') === 'a213203453@unison.mx') {
+                if (Auth::isMasterEmail($decoded['email'] ?? null)) {
                     $decoded['rol'] = 'admin';
                 }
                 // Asegurar simetría de nombre y nombre_completo
@@ -270,7 +287,7 @@ try {
         // Si no hay token o falló, revisar si hay sesión de PHP activa
         if (isset($_SESSION['user_id'])) {
             $role = $_SESSION['rol'];
-            if (($_SESSION['email'] ?? '') === 'software@fondothoth.com' || ($_SESSION['email'] ?? '') === 'a213203453@unison.mx') {
+            if (Auth::isMasterEmail($_SESSION['email'] ?? null)) {
                 $role = 'admin';
             }
             $nombreVal = $_SESSION['nombre_completo'] ?? $_SESSION['nombre'] ?? 'Estudiante';

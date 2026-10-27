@@ -41,17 +41,16 @@ impl Config {
         // Cargar `.env` local si existe
         let _ = dotenvy::dotenv();
 
-        let db_user = env::var("DB_USER").unwrap_or_else(|_| "cesa_admin".to_string());
-        let db_pass = env::var("DB_PASS").unwrap_or_else(|_| "cesa_pw_20ff8077e040".to_string());
-        let db_host = env::var("DB_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-        let db_name = env::var("DB_NAME").unwrap_or_else(|_| "cesa_web".to_string());
+        let db_user = env::var("DB_USER").expect("DB_USER no configurada");
+        let db_pass = env::var("DB_PASS").expect("DB_PASS no configurada");
+        let db_host = env::var("DB_HOST").expect("DB_HOST no configurada");
+        let db_name = env::var("DB_NAME").expect("DB_NAME no configurada");
 
         let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| {
             format!("mysql://{}:{}@{}:3306/{}", db_user, db_pass, db_host, db_name)
         });
 
-        let jwt_secret = env::var("JWT_SECRET")
-            .unwrap_or_else(|_| "cesa_unison_master_secret_key_2026".to_string());
+        let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET no configurada");
 
         let port = env::var("PORT")
             .ok()
@@ -68,52 +67,38 @@ impl Config {
             .filter(|s| !s.is_empty())
             .collect();
 
-        let environment = env::var("NODE_ENV")
-            .unwrap_or_else(|_| "production".to_string());
+        let environment = env::var("NODE_ENV").unwrap_or_default();
 
         // Proveedores LLM
-        let groq_api_key = env::var("GROQ_API_KEY")
-            .unwrap_or_else(|_| "REDACTED".to_string());
+        let groq_api_key = env::var("GROQ_API_KEY").unwrap_or_default();
 
-        let gemini_api_key = env::var("GEMINI_API_KEY")
-            .unwrap_or_else(|_| "REDACTED".to_string());
+        let gemini_api_key = env::var("GEMINI_API_KEY").unwrap_or_default();
 
-        let mistral_api_key = env::var("MISTRAL_API_KEY")
-            .unwrap_or_else(|_| "ugGVKl0zP6DWaf8Z15PBUGueFgnqxnkN".to_string());
+        let mistral_api_key = env::var("MISTRAL_API_KEY").unwrap_or_default();
 
         // Token de Telegram Oficial (@CesaUnisonBot)
-        let telegram_bot_token = env::var("TELEGRAM_BOT_TOKEN")
-            .unwrap_or_else(|_| "REDACTED".to_string());
+        let telegram_bot_token = env::var("TELEGRAM_BOT_TOKEN").unwrap_or_default();
 
         // Credenciales SMTP Gmail
-        let smtp_gmail_user = env::var("SMTP_GMAIL_USER")
-            .unwrap_or_else(|_| "cesa.unison.oficial@gmail.com".to_string());
+        let smtp_gmail_user = env::var("SMTP_GMAIL_USER").unwrap_or_default();
 
-        let smtp_gmail_pass = env::var("SMTP_GMAIL_PASS")
-            .unwrap_or_else(|_| "".to_string());
+        let smtp_gmail_pass = env::var("SMTP_GMAIL_PASS").unwrap_or_default();
 
         // Herramientas de Diseño Canva Connect API
-        let canva_api_key = env::var("CANVA_API_KEY")
-            .unwrap_or_else(|_| "mock_canva_key".to_string());
+        let canva_api_key = env::var("CANVA_API_KEY").unwrap_or_default();
 
-        let canva_client_id = env::var("CANVA_CLIENT_ID")
-            .unwrap_or_else(|_| "OC-AZ_7xNc7bFMD".to_string());
+        let canva_client_id = env::var("CANVA_CLIENT_ID").unwrap_or_default();
 
-        let canva_client_secret = env::var("CANVA_CLIENT_SECRET")
-            .unwrap_or_else(|_| "REDACTED".to_string());
+        let canva_client_secret = env::var("CANVA_CLIENT_SECRET").unwrap_or_default();
 
-        let canva_redirect_uri = env::var("CANVA_REDIRECT_URI")
-            .unwrap_or_else(|_| "https://cesaunison.fondothoth.com/api/v1/canva/callback".to_string());
+        let canva_redirect_uri = env::var("CANVA_REDIRECT_URI").unwrap_or_default();
 
-        let replicate_api_key = env::var("REPLICATE_API_KEY")
-            .unwrap_or_else(|_| "".to_string());
+        let replicate_api_key = env::var("REPLICATE_API_KEY").unwrap_or_default();
 
         // Meta Business API (Instagram + Facebook)
-        let facebook_app_id = env::var("FACEBOOK_APP_ID")
-            .unwrap_or_else(|_| "".to_string());
+        let facebook_app_id = env::var("FACEBOOK_APP_ID").unwrap_or_default();
 
-        let facebook_app_secret = env::var("FACEBOOK_APP_SECRET")
-            .unwrap_or_else(|_| "".to_string());
+        let facebook_app_secret = env::var("FACEBOOK_APP_SECRET").unwrap_or_default();
 
         Config {
             database_url,

@@ -110,63 +110,36 @@ window.closeCustomAlert = function() {
 };
 
 // ============================
-// Banxico API - Tipo de Cambio FIX (SF43718)
+// Tipo de cambio FIX (proxy backend)
 // ============================
-const BANXICO_TOKEN = 'REDACTED';
-const BANXICO_SERIES = 'SF43718';
-const BANXICO_URL = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/${BANXICO_SERIES}/datos/oportuno?mediaType=json`;
-
 async function fetchTipoCambioBanxico() {
     const tcInput = document.querySelector('input[name="tipoCambio"]');
     const wTcInput = document.getElementById('w-tcambio');
-    
+
     try {
-        console.log('🏦 Consultando Banxico API para TC FIX...');
-        const response = await fetch(BANXICO_URL, {
-            method: 'GET',
-            headers: {
-                'Bmx-Token': BANXICO_TOKEN,
-                'Accept': 'application/json'
-            }
-        });
+        console.log('Banxico: consultando tipo de cambio via backend...');
+        const response = await fetch('/api/tipo_cambio.php', { headers: { 'Accept': 'application/json' } });
+        const payload = await response.json();
+        if (!response.ok || !payload.success) throw new Error(payload.error || `HTTP ${response.status}`);
 
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const data = await response.json();
-        const serie = data.bmx.series[0];
-        const valor = serie.datos[0].dato;
-        const fecha = serie.datos[0].fecha;
-
-        const tc = parseFloat(valor).toFixed(4);
-        console.log(`✅ TC Banxico (${fecha}): $${tc} MXN/USD`);
+        const { tipo_cambio, fecha, fuente } = payload.data;
+        const tc = Number(tipo_cambio).toFixed(4);
+        console.log(`TC (${fuente}, ${fecha || 'sin fecha'}): $${tc} MXN/USD`);
 
         if (tcInput) tcInput.value = tc;
         if (wTcInput) wTcInput.value = tc;
 
-        // Recalcular Valor Aduana con el nuevo TC
         if (typeof calcValorAduana === 'function') calcValorAduana();
 
-        showCustomAlert(`Tipo de Cambio FIX actualizado desde Banxico:\n$${tc} MXN/USD (${fecha})`);
+        if (fuente === 'banxico') {
+            showCustomAlert(`Tipo de Cambio FIX actualizado desde Banxico:\n$${tc} MXN/USD (${fecha})`);
+        } else {
+            showModalWarning(`TC obtenido de fuente alternativa (no Banxico):\n$${tc} MXN/USD`);
+        }
         return tc;
     } catch (error) {
-        console.warn('⚠️ No se pudo obtener TC de Banxico:', error.message);
-        // Fallback: intentar con API alternativa
-        try {
-            const fallback = await fetch('https://open.er-api.com/v6/latest/USD');
-            const fbData = await fallback.json();
-            if (fbData.rates && fbData.rates.MXN) {
-                const tc = fbData.rates.MXN.toFixed(4);
-                console.log(`✅ TC Fallback (exchangerate-api): $${tc} MXN/USD`);
-                if (tcInput) tcInput.value = tc;
-                if (wTcInput) wTcInput.value = tc;
-                if (typeof calcValorAduana === 'function') calcValorAduana();
-                showModalWarning(`TC obtenido de fuente alternativa (no Banxico):\n$${tc} MXN/USD`);
-                return tc;
-            }
-        } catch (e2) {
-            console.error('❌ Ambas fuentes de TC fallaron:', e2.message);
-        }
-        showModalError('No se pudo obtener el Tipo de Cambio. Verifique su conexión a internet o ingréselo manualmente.');
+        console.error('No se pudo obtener el tipo de cambio:', error.message);
+        showModalError('No se pudo obtener el Tipo de Cambio. Verifique su conexion a internet o ingreselo manualmente.');
         return null;
     }
 }
@@ -224,24 +197,6 @@ function prevStep() {
 }
 
 // Synchronize Wizard options from Desktop Table
-function syncWizardOptions() {
-    console.log("🔄 Sincronizando catálogos Wizard <-> Tabla Oficial...");
-    
-    const syncSelect = (desktopName, wizardId) => {
-        const desktopSelect = document.querySelector(`select[name="${desktopName}"]`);
-        const wizardSelect = document.getElementById(wizardId);
-        if (desktopSelect && wizardSelect) {
-            const currentVal = wizardSelect.value;
-            wizardSelect.innerHTML = desktopSelect.innerHTML;
-            wizardSelect.value = currentVal;
-        }
-    };
-
-    syncSelect('aduanaES', 'w-aduana');
-    syncSelect('tipoOper', 'w-toper');
-    syncSelect('cvePedimento', 'w-clave');
-}
-
 // Two-way Data Binding (Mobile -> Desktop)
 function syncToDesktop() {
     const safeSet = (selector, val) => {

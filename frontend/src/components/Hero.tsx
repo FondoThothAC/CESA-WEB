@@ -40,7 +40,7 @@ const Hero = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
                         Mapa 3D 🗺️
                     </Link>
                     <button onClick={() => onNavigate('empleos')} className="btn-clean-primary flex items-center gap-3 group text-[10px] font-black uppercase tracking-[0.2em]">
-                        Bolsa de Trabajo 🚀
+                        Prácticas y Bolsa de Trabajo 🚀
                     </button>
                     <button onClick={() => onNavigate('reportes')} className="btn-clean text-[10px] font-black uppercase tracking-[0.2em] bg-bg-primary/50 hover:bg-bg-secondary shadow-sm">
                         Contáctanos

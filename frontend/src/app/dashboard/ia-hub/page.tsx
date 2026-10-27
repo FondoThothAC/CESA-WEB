@@ -73,8 +73,8 @@ const plataformaIcono: Record<string, string> = {
 
 async function apiFetch(path: string, options?: RequestInit) {
   const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
-  const base = process.env.NEXT_PUBLIC_API_URL || "https://cesaunison.fondothoth.com/api/v1";
+    typeof window !== "undefined" ? localStorage.getItem("cesa_token") || "" : "";
+  const base = process.env.NEXT_PUBLIC_API_URL || "/api";
   const res = await fetch(`${base}${path}`, {
     ...options,
     headers: {

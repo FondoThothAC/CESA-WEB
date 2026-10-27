@@ -57,12 +57,18 @@ export default function LanguagePracticeInterface({ language, onClose }: Languag
     setErrorMessage(null);
     try {
       const langLower = language.toLowerCase();
-      let skillId = 9; // Default Chino
+      let skillId: number | null = null;
       for (const [key, val] of Object.entries(LANGUAGE_SKILL_IDS)) {
         if (langLower.includes(key)) {
           skillId = val;
           break;
         }
+      }
+
+      if (skillId === null) {
+        setStep('summary');
+        setErrorMessage(`La práctica de ${language} aún no está disponible.`);
+        return;
       }
 
       const baseUrl = API_URL.includes('/api/v1') ? API_URL : `${API_URL}/v1`;

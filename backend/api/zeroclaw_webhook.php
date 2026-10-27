@@ -10,15 +10,20 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../lib/TelegramBot.php';
 
-// Leer secret del webhook si se configura para mayor seguridad
+// Validar secret del webhook: OBLIGATORIO (fail-closed)
 $secret = getenv('TELEGRAM_WEBHOOK_SECRET');
-if ($secret) {
-    $headerSecret = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
-    if ($headerSecret !== $secret) {
-        http_response_code(403);
-        exit('Forbidden');
-    }
+if (!$secret) {
+    http_response_code(503);
+    exit('Webhook no configurado: define TELEGRAM_WEBHOOK_SECRET.');
 }
+$headerSecret = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+if (!hash_equals($secret, $headerSecret)) {
+    http_response_code(403);
+    exit('Forbidden');
+}
+
+// Allowlist de chat_ids de Telegram autorizados para ejecutar comandos
+$allowedChatIds = array_filter(array_map('trim', explode(',', getenv('TELEGRAM_ALLOWED_CHAT_IDS') ?: '')));
 
 // Recibir el payload
 $content = file_get_contents("php://input");
@@ -36,6 +41,14 @@ $bot = new TelegramBot();
 if (isset($update['message'])) {
     $message = $update['message'];
     $chatId = (string)($message['chat']['id'] ?? '');
+
+    // Solo los chats autorizados pueden interactuar con el bot
+    if (!empty($allowedChatIds) && !in_array($chatId, $allowedChatIds, true)) {
+        http_response_code(200);
+        echo json_encode(["status" => "unauthorized_chat"]);
+        exit;
+    }
+
     $text = trim($message['text'] ?? '');
     $telegramUser = $message['from']['username'] ?? 'Usuario';
 

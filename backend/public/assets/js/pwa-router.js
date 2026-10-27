@@ -1,6 +1,8 @@
 /**
- * CESA Simplified Router v3.9
+ * CESA Simplified Router v4.1
  * Optimized for screen transitions and PWA performance.
+ * v4.1: History guard (el botón atrás ya NO saca de la app),
+ *       replaceState en pantalla inicial y restauración de última pantalla.
  */
 class CesaRouter {
     constructor() {
@@ -11,20 +13,55 @@ class CesaRouter {
         this.navItemsDesktop = document.querySelectorAll('.nav-item-desktop');
         this.fab = document.getElementById('fab-action');
         this.currentScreen = null;
+        this.exitGuardActive = false;
         this.init();
     }
 
     init() {
-        // Cargar pantalla inicial (Hash o Home)
-        const initial = window.location.hash.replace('#', '') || 'home';
+        // Restaurar última pantalla de la sesión (o Home)
+        const saved = sessionStorage.getItem('cesa_last_screen');
+        const initial = window.location.hash.replace('#', '') || saved || 'home';
+
+        // Registrar la pantalla inicial EN el historial con replaceState:
+        // queda como primer entry real, y el guard se activa al intentar salir.
+        window.history.replaceState({ screen: initial, guard: true }, '', '#' + initial);
         this.navigate(initial, false);
 
         // Soporte para botón atrás del móvil / navegador
         window.addEventListener('popstate', (e) => {
-            if (e.state && e.state.screen) {
-                this.navigate(e.state.screen, false);
+            const screen = (e.state && e.state.screen) ? e.state.screen : null;
+            if (screen) {
+                this.exitGuardActive = false;
+                this.navigate(screen, false);
+                sessionStorage.setItem('cesa_last_screen', screen);
+            } else {
+                // Borde del historial: el usuario quiere salir de la app.
+                // Re-empujamos la pantalla actual para mantenerlo dentro (comportamiento app nativa).
+                if (!this.exitGuardActive) {
+                    this.exitGuardActive = true;
+                    window.history.pushState({ screen: this.currentScreen || 'home', guard: true }, '', '#' + (this.currentScreen || 'home'));
+                    this.showExitToast();
+                } else {
+                    // Segundo intento seguido: respetamos la salida (cerrar pestaña)
+                    window.history.back();
+                }
             }
         });
+    }
+
+    /** Aviso discreto: "presiona atrás de nuevo para salir" */
+    showExitToast() {
+        const existing = document.getElementById('cesa-exit-toast');
+        if (existing) { existing.remove(); }
+        const toast = document.createElement('div');
+        toast.id = 'cesa-exit-toast';
+        toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-900/95 text-white text-xs font-bold px-5 py-3 rounded-full shadow-2xl z-[9999] transition-opacity duration-300';
+        toast.textContent = 'Presiona atrás de nuevo para salir';
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
     }
 
     async navigate(screen, addToHistory = true) {
@@ -68,6 +105,7 @@ class CesaRouter {
 
                 if (addToHistory) {
                     window.history.pushState({screen}, '', `#${screen}`);
+                    sessionStorage.setItem('cesa_last_screen', screen);
                 }
                 
                 // Re-ejecutar scripts inline que vienen en el HTML cargado

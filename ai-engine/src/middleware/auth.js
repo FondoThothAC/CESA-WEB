@@ -1,7 +1,10 @@
 const jwt = require('jsonwebtoken');
 
 // El secreto DEBE ser exactamente el mismo que usas en tu backend PHP
-const JWT_SECRET = process.env.PHP_JWT_SECRET || 'cesa2026_secreto_temporal'; 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET no configurada o demasiado corta');
+} 
 
 const verifyCesaToken = (req, res, next) => {
   // Extraer el token de las cookies o del header de autorización o header personalizado

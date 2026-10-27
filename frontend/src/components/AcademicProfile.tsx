@@ -421,7 +421,7 @@ const AcademicProfile = ({ profile }: AcademicProfileProps) => {
               <i className="fas fa-lightbulb text-primary mb-4 block text-2xl animate-bounce"></i>
               <h4 className="text-primary font-black uppercase text-xs mb-2">Consejo Académico</h4>
               <p className="text-text-muted text-xs leading-relaxed font-medium">
-                Las certificaciones con check verde son verificables por empresas y sociedades vinculadas. Mantén tus habilidades actualizadas para mejorar tu visibilidad en la Bolsa de Trabajo.
+                Las certificaciones con check verde son verificables por empresas y sociedades vinculadas. Mantén tus habilidades actualizadas para mejorar tu visibilidad en el tablero de Servicio Social y Prácticas Profesionales.
               </p>
            </div>
         </div>

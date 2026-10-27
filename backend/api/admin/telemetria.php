@@ -28,7 +28,7 @@ try {
 
     if ($action === 'zeroclaw') {
         // Consultar estado de canales en la base de datos
-        $telegramToken = getenv('TELEGRAM_BOT_TOKEN') ?: 'REDACTED';
+        $telegramToken = getenv('TELEGRAM_BOT_TOKEN') ?: '';
         $ragCount = $pdo->query("SELECT COUNT(*) FROM ia_conocimiento_rag WHERE activo = 1")->fetchColumn();
         $sessionsCount = $pdo->query("SELECT COUNT(*) FROM ia_chat_sesiones")->fetchColumn();
         $messagesCount = $pdo->query("SELECT COUNT(*) FROM ia_chat_mensajes")->fetchColumn();

@@ -12,7 +12,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (identifier: string, password?: string, curp?: string, telefono?: string) => Promise<{ success: boolean; error?: string }>;
+  login: (identifier: string, password?: string, curp?: string, telefono?: string) => Promise<{ success: boolean; error?: string; redirectUrl?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   hasRole: (role: User['rol'] | User['rol'][]) => boolean;
@@ -20,16 +20,43 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Interceptor global de renovación deslizante.
+ * El backend re-emite el JWT cuando le quedan <7 días de vida y lo anuncia
+ * en el header X-Token-Renewed. Este interceptor sincroniza el localStorage
+ * con el token fresco, manteniendo la sesión activa indefinidamente.
+ */
+let tokenRenewalInstalled = false;
+function installTokenRenewalInterceptor(setToken: (t: string) => void) {
+  if (typeof window === 'undefined' || tokenRenewalInstalled) return;
+  tokenRenewalInstalled = true;
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (...args: Parameters<typeof fetch>) => {
+    const response = await originalFetch(...args);
+    try {
+      const renewed = response.headers.get('X-Token-Renewed');
+      if (renewed && localStorage.getItem('cesa_token') !== renewed) {
+        localStorage.setItem('cesa_token', renewed);
+        setToken(renewed);
+      }
+    } catch { /* no bloquear la respuesta por errores del interceptor */ }
+    return response;
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   /**
-   * Verificar sesión al montar el componente
+   * Verificar sesión al montar el componente + instalar interceptor
+   * de renovación deslizante (captura X-Token-Renewed en cada respuesta API).
    */
   useEffect(() => {
     checkAuth();
+    installTokenRenewalInterceptor(setToken);
   }, []);
 
   /**
@@ -94,10 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (typeof window !== 'undefined' && response.data.token) {
             localStorage.setItem('cesa_token', response.data.token);
         }
-        // Redirigir según rol
-        const redirectUrl = response.data.redirect_url || '/';
-        window.location.href = redirectUrl;
-        return { success: true };
+        // La navegación la decide la página que invoca login (una sola redirección)
+        return { success: true, redirectUrl: response.data.redirect_url || '/' };
       } else {
         return { success: false, error: response.error || 'Credenciales inválidas' };
       }

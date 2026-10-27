@@ -21,8 +21,8 @@ if (!$auth->isLoggedIn()) {
     exit;
 }
 
-$user = $auth->getCurrentUser();
-$isMaster = ($user['email'] ?? '') === 'software@fondothoth.com';
+$user = $auth->getUser();
+$isMaster = Auth::isMasterEmail($user['email'] ?? null);
 $isAdmin = in_array($user['rol'] ?? '', ['admin', 'mesa_directiva'], true);
 $hasIaPerm = !empty($user['permiso_ia']);
 
@@ -218,37 +218,48 @@ try {
     }
 
     // ----------------------------------------------------
-    // 7. SIMULADOR DE MESA DE EXPERTOS (JUNTA SEMANAL)
+    // 7. MESA DE EXPERTOS — REDIRECT A RUST BACKEND
     // ----------------------------------------------------
     if ($action === 'run_meeting') {
-        // Ejecución sintetizada de la junta (12 interacciones simuladas)
-        $interactions = [
-            ["agent" => "Bob Prime", "role" => "Líder", "text" => "¡Bienvenidos a la Mesa de Expertos del CESA UNISON! Iniciamos sesión de seguimiento semanal."],
-            ["agent" => "Atlas", "role" => "Emprendimiento", "text" => "Reporto 18 puestos asignados en el Bazar Estudiantil esta semana. Necesitamos apoyo con el flyer de la edición especial."],
-            ["agent" => "Aria", "role" => "Comunicaciones", "text" => "Enterada, Atlas. Ya generé el borrador en Canva para el torneo y preparo la gráfica del Bazar. Ángela revisará el borrador antes de difundir."],
-            ["agent" => "Orión", "role" => "Deportes", "text" => "El torneo de fútbol interfacultades tiene 12 equipos inscritos. Solicité a Cleo el presupuesto de arbitraje."],
-            ["agent" => "Cleo", "role" => "Finanzas", "text" => "Presupuesto de arbitraje revisado y pre-aprobado. Auditoría lista. Christian me dará el visto bueno final."],
-            ["agent" => "Minerva", "role" => "Académico", "text" => "El banco de tutorías registró 45 consultas de EXANI. Mariana solicitó incluir 20 preguntas más de estadística."],
-            ["agent" => "Aurora", "role" => "Bienestar", "text" => "Hemos recibido 5 solicitudes de apoyo psicopedagógico. Alexandra está coordinando la primera canalización."],
-            ["agent" => "Lyra", "role" => "Cultura", "text" => "La edición #4 de la Gaceta CESA está al 85%. Bárbara enviará el PDF preliminar a Presidencia."],
-            ["agent" => "Nova", "role" => "Relaciones", "text" => "Confirmado nuevo convenio con la cafetería del campus para 15% de descuento con credencial CESA."],
-            ["agent" => "Bob Prime", "role" => "Líder", "text" => "Excelente trabajo. Consolidando minuta ejecutiva y enviando reporte en CCO a Presidencia y grupo de Telegram."]
-        ];
+        // Redirigir al Rust backend para junta real con LLMs
+        $rust_url = 'http://127.0.0.1:8080/api/v1/meeting/run';
+        $tipo_sesion = $_POST['tipo_sesion'] ?? 'martes_sincro';
 
-        $resumen = "Resumen de Junta: 18 puestos en Bazar, 12 equipos en Torneo de Fútbol, 45 tutorías EXANI y nuevo convenio comercial de 15% de descuento activado.";
-
-        $stmt = $pdo->prepare("
-            INSERT INTO zeroclaw_meeting_logs (fecha_sesion, tipo_sesion, total_interacciones, resumen_ejecutivo, acuerdos_json, telegram_sent)
-            VALUES (NOW(), 'martes_sincro', ?, ?, ?, 1)
-        ");
-        $stmt->execute([count($interactions), $resumen, json_encode($interactions, JSON_UNESCAPED_UNICODE)]);
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Sesión de Mesa de Expertos completada y notificada por Telegram (CCO Admin).',
-            'interactions' => $interactions,
-            'resumen' => $resumen
+        $ch = curl_init($rust_url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode(['tipo_sesion' => $tipo_sesion]),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . ($auth_header ?? '')
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 120,
         ]);
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($response && $http_code === 200) {
+            header('Content-Type: application/json');
+            echo $response;
+        } else {
+            // Fallback: junta simulada si Rust no está disponible
+            $interactions = [
+                ["agent" => "Bob Prime", "role" => "Líder", "text" => "¡Bienvenidos a la Mesa de Expertos del CESA UNISON! Iniciamos sesión de seguimiento semanal."],
+                ["agent" => "Atlas", "role" => "Emprendimiento", "text" => "Reporto 18 puestos asignados en el Bazar Estudiantil esta semana."],
+                ["agent" => "Aria", "role" => "Comunicaciones", "text" => "Ya generé el borrador en Canva para el torneo."],
+                ["agent" => "Orión", "role" => "Deportes", "text" => "El torneo de fútbol interfacultades tiene 12 equipos inscritos."],
+                ["agent" => "Cleo", "role" => "Finanzas", "text" => "Presupuesto de arbitraje revisado y pre-aprobado."],
+                ["agent" => "Minerva", "role" => "Académico", "text" => "El banco de tutorías registró 45 consultas de EXANI."],
+                ["agent" => "Aurora", "role" => "Bienestar", "text" => "5 solicitudes de apoyo psicopedagógico recibidas."],
+                ["agent" => "Lyra", "role" => "Cultura", "text" => "La edición #4 de la Gaceta CESA está al 85%."],
+                ["agent" => "Nova", "role" => "Relaciones", "text" => "Nuevo convenio con cafetería: 15% de descuento."],
+                ["agent" => "Bob Prime", "role" => "Líder", "text" => "Minuta consolidada. Notificando por Telegram."]
+            ];
+            $resumen = "Junta simulada (Rust backend no disponible): 18 puestos Bazar, 12 equipos Torneo, 45 tutorías EXANI.";
+            echo json_encode(['success' => true, 'interactions' => $interactions, 'resumen' => $resumen]);
+        }
         exit;
     }
 

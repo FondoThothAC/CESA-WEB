@@ -23,7 +23,7 @@ if (!$auth->isLoggedIn()) {
 $user = $auth->getUser();
 
 // Validar Permisos
-$isMaster = ($user['email'] === 'software@fondothoth.com');
+$isMaster = Auth::isMasterEmail($user['email'] ?? null);
 $stmt = $pdo->prepare("SELECT permiso_ia, roles_social FROM admin_permisos WHERE usuario_id = ?");
 $stmt->execute([$user['id']]);
 $permisos = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['permiso_ia' => 0, 'roles_social' => 0];

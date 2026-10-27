@@ -12,7 +12,10 @@ class SecureConfig {
      * Inicializa la llave de cifrado a partir del APP_SECRET
      */
     public static function init(): void {
-        $secret = getenv('JWT_SECRET') ?: 'cesa_default_fallback_secret_2026';
+        $secret = getenv('JWT_SECRET');
+        if (!$secret || strlen($secret) < 32) {
+            throw new RuntimeException('JWT_SECRET no está configurada o es demasiado corta (mínimo 32 caracteres).');
+        }
         self::$key = hash('sha256', $secret, true);
     }
     

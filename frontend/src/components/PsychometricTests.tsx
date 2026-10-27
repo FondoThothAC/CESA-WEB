@@ -16,6 +16,7 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
   const [activeTest, setActiveTest] = useState<any>(null);
   const [viewState, setViewState] = useState<'list' | 'testing' | 'result_details'>('list');
   const [selectedResult, setSelectedResult] = useState<any>(null);
+  const [anonymousResults, setAnonymousResults] = useState<any>(null);
   const { token } = useAuth();
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -57,10 +58,14 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
     setViewState('result_details');
   };
 
-  const handleTestFinish = () => {
+  const handleTestFinish = (resultData?: any) => {
+    if (resultData && !token) {
+      // Anonymous: store results locally for viewing
+      setAnonymousResults({ testId: activeTest?.id, ...resultData });
+    }
     setViewState('list');
     setActiveTest(null);
-    loadTests(); // recargar resultados
+    if (token) loadTests(); // only reload if logged in
   };
 
   if (loading) {
@@ -76,9 +81,82 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
       <TestInterface 
         testId={activeTest.id} 
         onClose={() => setViewState('list')} 
-        onFinish={handleTestFinish} 
+        onFinish={handleTestFinish}
+        isAnonymous={!token}
       />
     );
+  }
+
+  // Show anonymous results if available
+  if (viewState === 'result_details' && !token && anonymousResults) {
+    const test = tests.find(t => t.id === anonymousResults.testId);
+    if (test) {
+      const testColor = test.color_hex || '#4F46E5';
+      return (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="flex items-center justify-between">
+            <button 
+              onClick={() => { setViewState('list'); setAnonymousResults(null); }}
+              className="flex items-center gap-2 text-text-muted hover:text-text-main transition-colors font-bold text-sm"
+            >
+              <ArrowLeft className="w-4 h-4" /> Volver al Catálogo
+            </button>
+          </div>
+
+          <div className="bg-amber-500/10 border border-amber-500/30 px-4 py-3 rounded-xl text-xs text-amber-300 font-bold flex items-center gap-2">
+            <i className="fas fa-info-circle"></i>
+            Resultado temporal — Inicia sesión para guardar tu perfil permanentemente.
+          </div>
+
+          <div className="clean-card p-8 border border-border shadow-xl space-y-8">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg" style={{ backgroundColor: `${testColor}20`, color: testColor }}>
+                <i className={test.icono || 'fas fa-brain'}></i>
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-text-main">{test.nombre}</h2>
+                <p className="text-text-muted font-bold text-sm uppercase tracking-widest">{test.acronimo} • Perfil: <span className="text-primary font-black">{anonymousResults.perfil || 'Mixto'}</span></p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <h3 className="text-sm font-black uppercase tracking-widest text-text-muted border-b border-border pb-2">Desglose Dimensional</h3>
+              <div className="space-y-4">
+                {Object.entries(anonymousResults.resultados || {}).map(([dim, score]: [string, any], idx) => (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex justify-between items-end">
+                      <span className="font-bold text-text-main uppercase text-sm">{dim}</span>
+                      <span className="font-black text-primary text-xl">{score}%</span>
+                    </div>
+                    <div className="h-3 w-full bg-bg-primary rounded-full overflow-hidden border border-border">
+                      <div 
+                        className="h-full rounded-full transition-all duration-1000" 
+                        style={{ width: `${Math.min(100, Math.max(0, Number(score) || 0))}%`, backgroundColor: testColor }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-border flex justify-end gap-3">
+              <button 
+                onClick={() => { setViewState('list'); setAnonymousResults(null); }}
+                className="px-6 py-3 rounded-xl bg-bg-primary border border-border hover:bg-border text-text-main font-bold text-xs uppercase tracking-wider transition-colors"
+              >
+                Cerrar
+              </button>
+              <button 
+                onClick={() => startTest(test)}
+                className="px-6 py-3 rounded-xl bg-primary hover:bg-accent text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-primary/30"
+              >
+                Volver a tomar el Test
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
   }
 
   if (viewState === 'result_details' && activeTest && selectedResult) {
@@ -166,6 +244,14 @@ export default function PsychometricTests({ onClose }: PsychometricTestsProps) {
         </div>
         <Brain className="w-10 h-10 text-primary opacity-50" />
       </div>
+
+      {!token && (
+        <div className="bg-blue-500/10 border border-blue-500/30 px-4 py-3 rounded-xl text-xs text-blue-300 font-bold flex items-center gap-2">
+          <i className="fas fa-globe"></i>
+          Modo público — Puedes realizar los tests sin iniciar sesión. 
+          <span className="text-blue-400/70">Inicia sesión para guardar tus resultados permanentemente.</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {safeTests.map(test => {

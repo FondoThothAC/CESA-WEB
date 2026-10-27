@@ -2,6 +2,7 @@ pub mod admin;
 pub mod ai_engine;
 pub mod auth;
 pub mod bazar;
+pub mod bazar_stream;
 pub mod canva;
 pub mod empleos;
 pub mod expedientes;

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { 
   exaniQuestions, 
   Question 
@@ -584,7 +585,7 @@ export default function ExaniSimulator({ onClose }: { onClose: () => void }) {
                     <h4 className="text-lg font-black text-text-main mb-4">{currentQuestion.context.title}</h4>
                     <p 
                       className={`${getFontSizeClass()} text-text-main/90 font-medium`}
-                      dangerouslySetInnerHTML={{ __html: currentQuestion.context.content }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(currentQuestion.context.content) }}
                     />
                   </div>
                 </div>
@@ -615,7 +616,7 @@ export default function ExaniSimulator({ onClose }: { onClose: () => void }) {
                   {currentQuestion.visual && (
                     <div 
                       className="visual-container bg-white/5 border border-dashed border-border rounded-2xl p-4 mb-6 flex justify-center items-center overflow-x-auto"
-                      dangerouslySetInnerHTML={{ __html: currentQuestion.visual }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(currentQuestion.visual, { USE_PROFILES: { svg: true, html: true } }) }}
                     />
                   )}
 
@@ -946,7 +947,7 @@ export default function ExaniSimulator({ onClose }: { onClose: () => void }) {
                       {q.context && (
                         <div className="bg-white/5 border border-border rounded-2xl p-5 text-xs max-h-40 overflow-y-auto mb-2 custom-scrollbar">
                           <h5 className="font-black text-text-main mb-1">{q.context.title}</h5>
-                          <p className="text-text-muted leading-relaxed" dangerouslySetInnerHTML={{ __html: q.context.content }} />
+                          <p className="text-text-muted leading-relaxed" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(q.context.content) }} />
                         </div>
                       )}
 

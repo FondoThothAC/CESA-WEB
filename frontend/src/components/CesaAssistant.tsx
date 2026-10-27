@@ -30,7 +30,8 @@ export default function CesaAssistant() {
   useEffect(() => {
     if (isOpen) {
       fetchHistory();
-      setTimeout(() => scrollToBottom(), 100);
+      const t = setTimeout(() => scrollToBottom(), 100);
+      return () => clearTimeout(t);
     }
   }, [isOpen]);
 
@@ -71,7 +72,7 @@ export default function CesaAssistant() {
       
       const data = await response.json();
       
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.response }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.response || 'No pude generar una respuesta. Intenta de nuevo.' }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'system', content: 'El servicio está saturado. Verifica tu conexión e intenta en un momento.' }]);
     } finally {

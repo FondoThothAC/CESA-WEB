@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/useAuth';
 import { ChevronRight, ArrowLeft } from 'lucide-react';
 
 interface TestInterfaceProps {
   testId: number;
   onClose: () => void;
-  onFinish: () => void;
+  onFinish: (resultData?: any) => void;
+  isAnonymous?: boolean;
 }
 
-export default function TestInterface({ testId, onClose, onFinish }: TestInterfaceProps) {
+export default function TestInterface({ testId, onClose, onFinish, isAnonymous = false }: TestInterfaceProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [testData, setTestData] = useState<any>(null);
@@ -26,9 +27,9 @@ export default function TestInterface({ testId, onClose, onFinish }: TestInterfa
 
   const loadTest = async () => {
     try {
-      const res = await fetch(`${API_URL}/tests.php?action=iniciar&test_id=${testId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_URL}/tests.php?action=iniciar&test_id=${testId}`, { headers });
       const data = await res.json();
       if (data.success) {
         setTestData(data);
@@ -44,12 +45,15 @@ export default function TestInterface({ testId, onClose, onFinish }: TestInterfa
     }
   };
 
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleSelect = (questionId: number, value: number) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
     
     // Auto-advance after a short delay if it's not the last question
     if (currentIdx < testData.preguntas.length - 1) {
-      setTimeout(() => {
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = setTimeout(() => {
         setCurrentIdx(prev => prev + 1);
       }, 300);
     }
@@ -63,15 +67,18 @@ export default function TestInterface({ testId, onClose, onFinish }: TestInterfa
       formData.append('test_id', testId.toString());
       formData.append('respuestas', JSON.stringify(answers));
 
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`${API_URL}/tests.php`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers,
         body: formData
       });
       
       const data = await res.json();
       if (data.success) {
-        onFinish();
+        onFinish({ resultados: data.resultados, perfil: data.perfil });
       } else {
         alert(data.error || 'Error al guardar resultados');
       }
@@ -196,12 +203,15 @@ export default function TestInterface({ testId, onClose, onFinish }: TestInterfa
             </div>
             <h2 className="text-3xl font-black text-text-main">¡Test Completado!</h2>
             <p className="text-text-muted font-medium">Has respondido todas las preguntas ({answeredCount} de {total}). Generando tu perfil psicométrico...</p>
+            {isAnonymous && (
+              <p className="text-xs text-amber-400 font-bold"><i className="fas fa-info-circle mr-1"></i>Modo anónimo — Tus resultados se mostrarán pero no se guardarán. Inicia sesión para conservarlos.</p>
+            )}
             <button
               onClick={handleSubmit}
               disabled={submitting}
               className="mt-8 bg-primary hover:bg-accent disabled:opacity-50 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/30"
             >
-              {submitting ? 'Guardando Resultados...' : 'Ver Mi Perfil'}
+              {submitting ? 'Calculando Perfil...' : 'Ver Mi Perfil'}
             </button>
           </div>
         )}

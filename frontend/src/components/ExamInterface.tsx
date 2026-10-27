@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/useAuth';
 
 interface Question {
@@ -42,7 +42,7 @@ const ExamInterface: React.FC<ExamInterfaceProps> = ({ skillId, onClose, onFinis
       const data = await res.json();
       if (data.success) {
         setExamData(data);
-        setTimeLeft(data.tiempo_limite || (data.habilidad.duracion_minutos * 60));
+        setTimeLeft(data.tiempo_limite || (data.habilidad?.duracion_minutos ?? 30) * 60);
         setStep('exam');
       } else {
         alert(data.error || "No se pudo iniciar el examen");
@@ -55,7 +55,11 @@ const ExamInterface: React.FC<ExamInterfaceProps> = ({ skillId, onClose, onFinis
     }
   };
 
+  const submittedRef = useRef(false);
+
   const submitExam = async () => {
+    if (submittedRef.current) return;
+    submittedRef.current = true;
     setLoading(true);
     try {
       const formData = new FormData();
@@ -76,6 +80,7 @@ const ExamInterface: React.FC<ExamInterfaceProps> = ({ skillId, onClose, onFinis
       }
     } catch (e) {
       alert("Error de conexión");
+      submittedRef.current = false; // Permitir reintento si falló la red
     } finally {
       setLoading(false);
     }

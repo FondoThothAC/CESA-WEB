@@ -8,6 +8,8 @@ import SocialWall from '@/components/SocialWall';
 import BazarGrid from '@/components/BazarGrid';
 import ReportForm from '@/components/ReportForm';
 import JobsBoard from '@/components/JobsBoard';
+import PracticasBoard from '@/components/organisms/PracticasBoard';
+import ThemeToggle from '@/components/ThemeToggle';
 import AdminDashboard from '@/components/AdminDashboard';
 import AcademicProfile from '@/components/AcademicProfile';
 import NotificationBell from '@/components/NotificationBell';
@@ -56,6 +58,20 @@ export default function Home() {
   const [pendingTab, setPendingTab] = useState<string | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cesaunison.fondothoth.com/api';
+
+  // Feature flags del sitio (administrables desde el panel admin)
+  const [bolsaActiva, setBolsaActiva] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_URL}/site_config.php?action=get`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.config) {
+          setBolsaActiva(d.config.bolsa_trabajo_activa === '1');
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const validData = directorioData.filter((item: any) => item.Carrera && item.Carrera.trim() !== "");
@@ -191,7 +207,7 @@ export default function Home() {
             { id: 'bazar', icon: Store, label: 'Bazar' },
             { id: 'tutoriales', icon: GraduationCap, label: 'Aprende' },
             { id: 'mensajes', icon: Mail, label: 'Inbox' },
-            { id: 'empleos', icon: Briefcase, label: 'Bolsa' },
+            { id: 'empleos', icon: Briefcase, label: 'Prácticas' },
             { id: 'perfil', icon: UserCircle, label: 'Perfil' },
             { id: 'reportes', icon: Flag, label: 'Reportes' }
           ].map((item, index) => (
@@ -227,7 +243,7 @@ export default function Home() {
                 {[
                   { id: 'tutoriales', icon: GraduationCap, label: 'Aprende' },
                   { id: 'mensajes', icon: Mail, label: 'Inbox' },
-                  { id: 'empleos', icon: Briefcase, label: 'Bolsa' },
+                  { id: 'empleos', icon: Briefcase, label: 'Prácticas' },
                   { id: 'perfil', icon: UserCircle, label: 'Perfil' },
                   { id: 'reportes', icon: Flag, label: 'Reportes' }
                 ].map((item) => (
@@ -269,20 +285,22 @@ export default function Home() {
 
         {user ? (
           <div className="flex items-center gap-2 md:gap-4 pl-2 md:pl-4 border-l border-border ml-1 md:ml-2 flex-shrink-0">
-             <div className="relative group/user">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-accent/20 border border-accent/20 flex items-center justify-center text-accent font-bold overflow-hidden cursor-pointer" onClick={() => handleTabChange('perfil')}>
-                   {user.nombre?.[0]}
-                </div>
-                <div className="absolute bottom-full right-0 mb-4 w-48 glass rounded-2xl p-4 opacity-0 scale-95 pointer-events-none group-hover/user:opacity-100 group-hover/user:scale-100 transition-all origin-bottom-right">
-                   <p className="text-text-main text-xs font-black truncate">{user.nombre}</p>
-                   <p className="text-accent text-[8px] uppercase font-black tracking-widest mt-1">{user.rol}</p>
-                   <button onClick={logout} className="w-full mt-4 py-2 bg-red-500/10 text-red-500 text-[9px] font-black uppercase rounded-xl hover:bg-red-500 hover:text-white transition-all">Salir del Portal</button>
-                </div>
-             </div>
-             <NotificationBell />
-          </div>
+              <div className="relative group/user">
+                 <div className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-accent/20 border border-accent/20 flex items-center justify-center text-accent font-bold overflow-hidden cursor-pointer" onClick={() => handleTabChange('perfil')}>
+                    {user.nombre?.[0]}
+                 </div>
+                 <div className="absolute bottom-full right-0 mb-4 w-48 glass rounded-2xl p-4 opacity-0 scale-95 pointer-events-none group-hover/user:opacity-100 group-hover/user:scale-100 transition-all origin-bottom-right">
+                    <p className="text-text-main text-xs font-black truncate">{user.nombre}</p>
+                    <p className="text-accent text-[8px] uppercase font-black tracking-widest mt-1">{user.rol}</p>
+                    <button onClick={logout} className="w-full mt-4 py-2 bg-red-500/10 text-red-500 text-[9px] font-black uppercase rounded-xl hover:bg-red-500 hover:text-white transition-all">Salir del Portal</button>
+                 </div>
+              </div>
+              <NotificationBell />
+              <ThemeToggle />
+           </div>
         ) : (
-          <div className="pl-2 md:pl-4 border-l border-border ml-1 md:ml-2 flex-shrink-0">
+          <div className="flex items-center gap-2 pl-2 md:pl-4 border-l border-border ml-1 md:ml-2 flex-shrink-0">
+            <ThemeToggle />
             <Link href="/login" className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-primary flex items-center justify-center text-white hover:bg-accent transition-all shadow-lg active:scale-95">
               <UserCircle size={18} />
             </Link>
@@ -366,10 +384,24 @@ export default function Home() {
         {activeTab === 'empleos' && (
           <section className="container mx-auto px-8 animate-in slide-in-from-bottom-10 duration-700">
             <div className="text-center mb-12">
-               <h2 className="text-5xl font-black mb-2 uppercase tracking-tighter text-text-main">Bolsa de <span className="text-accent italic">Trabajo</span></h2>
-               <p className="text-text-muted font-black uppercase tracking-[0.2em] text-[10px]"><span className="text-accent">Comité Conecta-T CESA</span> • Vinculación Laboral y Empresarial</p>
+               <h2 className="text-5xl font-black mb-2 uppercase tracking-tighter text-text-main">Servicio Social y <span className="text-accent italic">Prácticas</span></h2>
+               <p className="text-text-muted font-black uppercase tracking-[0.2em] text-[10px]"><span className="text-accent">Comité Conecta-T CESA</span> • Prácticas Profesionales, Servicio Social y Vinculación Laboral</p>
             </div>
-            <JobsBoard />
+            <div className="max-w-6xl mx-auto space-y-12">
+              <PracticasBoard />
+              {bolsaActiva && (
+                <div>
+                  <div className="border-l-4 border-primary pl-4 mb-6">
+                    <h3 className="text-2xl font-black text-text-main uppercase tracking-tight">Bolsa de <span className="text-accent italic">Trabajo</span></h3>
+                    <p className="text-text-muted text-xs font-bold uppercase tracking-wider mt-1">Empleos con empresas registradas • Enlace oficial con la Bolsa DAE UNISON</p>
+                  </div>
+                  <JobsBoard />
+                </div>
+              )}
+              <div className="flex justify-center pt-4">
+                <ThemeToggle />
+              </div>
+            </div>
           </section>
         )}
 

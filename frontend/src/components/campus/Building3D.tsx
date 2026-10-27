@@ -246,7 +246,7 @@ function BuildingRoof({ building, totalHeight }: { building: Building; totalHeig
 export default function Building3D({ building, isSelected, isHighlighted, onClick }: Building3DProps) {
   const [hovered, setHovered] = useState(false);
   const groupRef = useRef<THREE.Group>(null);
-  const floorHeight = 0.7;
+  const floorHeight = 1.6;
   const totalHeight = building.floors * floorHeight;
   const baseColor = building.color || getFloorColor(building.floors);
 

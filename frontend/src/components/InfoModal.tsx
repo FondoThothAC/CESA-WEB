@@ -109,7 +109,7 @@ export default function InfoModal({ isOpen, type, onClose }: InfoModalProps) {
                     <li>Validar el padrón electoral estudiantil para garantizar votaciones electrónicas democráticas, únicas, transparentes y libres de duplicidad.</li>
                     <li>Emitir constancias y micro-credenciales de competencias digitales con identificador UUID único.</li>
                     <li>Gestionar reservas de puestos físicos en las ediciones oficiales del Bazar Emprendedor CESA.</li>
-                    <li>Permitir la postulación transparente a vacantes de prácticas profesionales y bolsa de trabajo.</li>
+                    <li>Permitir la postulación transparente a proyectos de servicio social, prácticas profesionales y bolsa de trabajo, incluyendo la generación de documentos oficiales (FP2 y Carta de Tutor) con los datos capturados.</li>
                   </ul>
                   <p className="mt-2"><strong>Finalidades Secundarias (Estadísticas y Mejora Comunitaria):</strong></p>
                   <ul className="list-disc list-inside space-y-1 text-slate-300 pl-2">
@@ -133,7 +133,7 @@ export default function InfoModal({ isOpen, type, onClose }: InfoModalProps) {
                 <div className="border-l-2 border-[#C5A059] pl-4 space-y-1">
                   <h5 className="font-black text-white uppercase tracking-wider text-xs">5. Transferencia de Datos a Terceros</h5>
                   <p>
-                    El CESA <strong>no vende, renta ni comercializa</strong> tus datos personales con terceros. Los datos de contacto y CV solo serán compartidos con empresas y empleadores cuando el estudiante decida voluntariamente enviar su postulación a una vacante en la Bolsa de Trabajo.
+                    El CESA <strong>no vende, renta ni comercializa</strong> tus datos personales con terceros. Los datos de contacto y CV solo serán compartidos con empresas y unidades receptoras cuando el estudiante decida voluntariamente postularse a un proyecto de Servicio Social, Prácticas Profesionales o una vacante en la Bolsa de Trabajo.
                   </p>
                 </div>
 
@@ -302,7 +302,7 @@ export default function InfoModal({ isOpen, type, onClose }: InfoModalProps) {
                   <div>
                     <h4 className="font-black text-orange-400 text-xs uppercase tracking-wider">CONECTA-T</h4>
                     <p className="text-[10px] text-white/50 font-bold uppercase">Comité de Vinculación Laboral</p>
-                    <p className="text-xs text-slate-300 mt-1 leading-snug">Enlace con el sector productivo, talleres de empleabilidad, CV reviews e impulso de la Bolsa de Trabajo.</p>
+                    <p className="text-xs text-slate-300 mt-1 leading-snug">Enlace con el sector productivo, gestión de prácticas profesionales y servicio social, talleres de empleabilidad e impulso de la Bolsa de Trabajo.</p>
                   </div>
                 </div>
 

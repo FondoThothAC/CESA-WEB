@@ -106,14 +106,28 @@ class CesaApiClient {
         credentials: 'include'
       });
 
-      const data = await response.json();
-
-      if (response.status === 419 && this.csrfToken) {
+      // Reintento único ante CSRF expirado
+      if (response.status === 419 && this.csrfToken && !options.headers?.['X-CSRF-Retry']) {
         await this.refreshCsrfToken();
-        return this.request(endpoint, options);
+        return this.request(endpoint, { ...options, headers: { ...headers, 'X-CSRF-Retry': '1' } });
       }
 
-      return data;
+      if (!response.ok && response.status !== 419) {
+        return {
+          success: false,
+          error: `Error del servidor (${response.status})`
+        };
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return {
+          success: false,
+          error: 'Respuesta inválida del servidor'
+        };
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('API Error:', error);
       return {
@@ -134,7 +148,7 @@ class CesaApiClient {
   }>> {
     const res: any = await this.request('auth.php?action=login', {
       method: 'POST',
-      body: { action: 'login', identifier, email: identifier, password: pass, curp, telefono: telefono || pass },
+      body: { action: 'login', identifier, email: identifier, password: pass, curp, telefono },
       requiresAuth: false
     });
     
@@ -149,7 +163,9 @@ class CesaApiClient {
           data: { 
             user, 
             token, 
-            redirect_url: (user?.rol === 'admin' || user?.email === 'software@fondothoth.com' || user?.email === 'a213203453@unison.mx') ? '/admin/dashboard' : '/dashboard' 
+            // El backend fuerza rol 'admin' para los correos master.
+            // /dashboard renderiza AdminDashboard según el rol autenticado.
+            redirect_url: '/dashboard' 
           } 
         };
     }
